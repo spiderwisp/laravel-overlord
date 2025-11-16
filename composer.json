@@ -57,6 +57,6 @@
 	"suggest": {
 		"predis/predis": "Required for Redis support (queue features)",
 		"laravel/horizon": "Optional: For queue monitoring and job management",
-		"vue": "^3.3.4": "Required for frontend Vue components"
+		"vue": "^3.3.4 - Required for frontend Vue components"
 	}
 }
