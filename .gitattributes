@@ -1,0 +1,34 @@
+# Exclude dev files from distribution
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.github export-ignore
+/phpunit.xml export-ignore
+/tests export-ignore
+/.phpunit.cache export-ignore
+/.phpunit.result.cache export-ignore
+/coverage export-ignore
+
+# Documentation (keep in distribution)
+# README.md - keep
+# CHANGELOG.md - keep
+# LICENSE - keep
+# SECURITY.md - keep
+# CONTRIBUTING.md - keep
+# docs/ - keep
+
+# IDE files
+/.idea export-ignore
+/.vscode export-ignore
+*.swp export-ignore
+*.swo export-ignore
+*~ export-ignore
+
+# OS files
+/.DS_Store export-ignore
+/Thumbs.db export-ignore
+
+# Build files
+*.log export-ignore
+*.cache export-ignore
+*.tmp export-ignore
+*.bak export-ignore
