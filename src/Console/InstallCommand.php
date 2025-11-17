@@ -74,6 +74,17 @@ class InstallCommand extends Command
 		$this->info('✅ Laravel Overlord installation complete!');
 		$this->newLine();
 
+		// Display terminal URL if default route is enabled
+		if (config('laravel-overlord.default_route_enabled', true)) {
+			$appUrl = config('app.url', 'http://localhost');
+			$routePath = config('laravel-overlord.default_route_path', 'overlord');
+			$terminalUrl = rtrim($appUrl, '/') . '/' . ltrim($routePath, '/');
+			
+			$this->info('🌐 Access your terminal at:');
+			$this->line('   <fg=cyan>' . $terminalUrl . '</>');
+			$this->newLine();
+		}
+
 		return Command::SUCCESS;
 	}
 
@@ -113,8 +124,15 @@ class InstallCommand extends Command
 
 		$steps = [
 			'Configure environment variables in your .env file (see below)',
-			'Access the terminal at /overlord (or your configured route path)',
 		];
+		
+		// Add terminal access step if default route is enabled
+		if (config('laravel-overlord.default_route_enabled', true)) {
+			$routePath = config('laravel-overlord.default_route_path', 'overlord');
+			$steps[] = "Access the terminal at /{$routePath}";
+		} else {
+			$steps[] = 'Integrate the terminal component into your own pages (default route is disabled)';
+		}
 
 		foreach ($steps as $index => $step) {
 			$this->line("   " . ($index + 1) . ". {$step}");
