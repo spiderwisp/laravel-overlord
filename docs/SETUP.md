@@ -309,10 +309,10 @@ return [
 
 #### Middleware Configuration
 
-The `middleware` configuration controls access to all protected terminal routes. This middleware is automatically applied to all routes except the public help route (`/help`).
+The `middleware` configuration controls access to all terminal routes. This middleware is automatically applied to all routes including the help route.
 
 **How it works:**
-- The middleware array from your config is applied to all protected routes via `Route::middleware(config('laravel-overlord.middleware'))`
+- The middleware array from your config is applied to all routes via `Route::middleware(config('laravel-overlord.middleware'))`
 - Default is `['auth']` which requires users to be authenticated
 - You can add multiple middleware for additional security
 
@@ -333,7 +333,7 @@ Custom middleware:
 'middleware' => ['auth', 'verified', 'custom-middleware'],
 ```
 
-**Security Note:** The help route (`/{prefix}/help`) is intentionally public and does not require authentication. All other routes are protected by the configured middleware.
+**Security Note:** All routes including the help route (`/{prefix}/help`) are protected by the configured middleware.
 
 ### Environment Variables Configuration
 

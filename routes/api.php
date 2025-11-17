@@ -17,14 +17,12 @@ Route::middleware('web')->group(function () {
     // for performance. These defaults match the config file defaults.
     $routePrefix = 'admin/overlord';
     
-    // Public help route (doesn't require authentication)
-    Route::get($routePrefix . '/help', [TerminalController::class, 'getHelp']);
-    
     // Protected routes - require authentication
-    // SECURITY: Apply auth middleware from config to all protected routes
+    // SECURITY: Apply auth middleware from config to all routes including help route
     Route::prefix($routePrefix)
         ->middleware(config('laravel-overlord.middleware', ['auth']))
         ->group(function () {
+            Route::get('/help', [TerminalController::class, 'getHelp']);
             Route::post('/execute', [TerminalController::class, 'execute']);
             Route::get('/history', [TerminalController::class, 'history']);
             Route::delete('/session', [TerminalController::class, 'clearSession']);
