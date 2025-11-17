@@ -956,6 +956,16 @@ class TerminalController extends Controller
 	 */
 	public function index()
 	{
+		// Ensure the view exists
+		if (!view()->exists('laravel-overlord::terminal')) {
+			\Log::error('Laravel Overlord: Terminal view not found', [
+				'view' => 'laravel-overlord::terminal',
+				'views_path' => resource_path('views/vendor/laravel-overlord'),
+			]);
+			
+			return response('Laravel Overlord: Terminal view not found. Please publish the views using: php artisan vendor:publish --tag=laravel-overlord-views', 500);
+		}
+
 		return view('laravel-overlord::terminal');
 	}
 

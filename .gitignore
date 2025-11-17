@@ -1,27 +1,10 @@
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Dependencies
-vendor/
 node_modules/
-
-# Build files
+npm-debug.log
+yarn-error.log
+.DS_Store
 *.log
-*.cache
 
-# Testing
-.phpunit.result.cache
-coverage/
-
-# Temporary files
-*.tmp
-*.bak
-
+# Built assets are committed (like Horizon)
+# Uncomment if you want to ignore built assets during development:
+# public/js/
+# public/mix-manifest.json

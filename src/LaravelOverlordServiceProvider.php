@@ -46,15 +46,24 @@ class LaravelOverlordServiceProvider extends ServiceProvider
 			__DIR__.'/../resources/views' => resource_path('views/vendor/laravel-overlord'),
 		], 'laravel-overlord-views');
 
-		// Publish assets (Vue components)
+		// Publish source assets (Vue components) - for development
 		$this->publishes([
 			__DIR__.'/../resources/js' => resource_path('js/vendor/laravel-overlord'),
 		], 'laravel-overlord-assets');
 
+		// Publish pre-compiled assets (like Horizon) - for production use
+		$this->publishes([
+			__DIR__.'/../public' => public_path('vendor/laravel-overlord'),
+		], 'laravel-assets');
+
 		// Load routes - use loadRoutesFrom which is optimized by Laravel
 		// Routes are cached when route:cache is run, so this is fast
 		$this->loadRoutesFrom(__DIR__.'/../routes/api.php');
-		$this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+		
+		// Register default route if enabled (similar to Horizon's /horizon route)
+		if (config('laravel-overlord.default_route_enabled', true)) {
+			$this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+		}
 
 		// Load views - this is lightweight and cached by Laravel
 		$this->loadViewsFrom(__DIR__.'/../resources/views', 'laravel-overlord');

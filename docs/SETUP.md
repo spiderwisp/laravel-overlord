@@ -20,9 +20,6 @@ Before installing, ensure you have:
 - **Laravel ^12.0** or higher
 - **Composer** installed
 - **Redis** installed and configured (required for queue features)
-- **Node.js** and **npm/yarn** (for frontend assets)
-- **Vue 3** (for frontend components)
-- **Inertia.js** (optional, but recommended for Laravel applications)
 
 > **Note:** highlight.js is automatically loaded from CDN - no installation required!
 
@@ -83,9 +80,13 @@ php artisan overlord:install
 This single command will:
 - ✅ Publish configuration files
 - ✅ Publish database migrations
-- ✅ Publish Vue components and assets
-- ✅ Check for prerequisites (Node.js, npm, Vue 3)
+- ✅ Publish pre-compiled assets (no build step required!)
 - ✅ Optionally run migrations (with interactive prompt)
+- ✅ Update catch-all routes if needed
+
+**After installation, access the terminal at:** `http://your-app.com/overlord`
+
+> **Note:** To disable the default `/overlord` route, set `LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false` in your `.env` file.
 
 **Command Options:**
 ```bash
@@ -112,6 +113,8 @@ composer require spiderwisp/laravel-overlord
 php artisan overlord:install
 ```
 
+**Access the terminal** at `http://your-app.com/overlord`
+
 #### Method 2: Path Repository (Local Development)
 
 If you're developing the package locally or have it on the same machine:
@@ -137,6 +140,8 @@ If you're developing the package locally or have it on the same machine:
 composer require spiderwisp/laravel-overlord
 php artisan overlord:install
 ```
+
+3. **Access the terminal** at `http://your-app.com/overlord`
 
 #### Method 3: Zip File (Share Package)
 
@@ -175,6 +180,8 @@ composer require spiderwisp/laravel-overlord
 php artisan overlord:install
 ```
 
+5. **Access the terminal** at `http://your-app.com/overlord`
+
 #### Method 4: Git Repository (VCS)
 
 If you have the package in a Git repository:
@@ -200,6 +207,8 @@ If you have the package in a Git repository:
 composer require spiderwisp/laravel-overlord
 php artisan overlord:install
 ```
+
+3. **Access the terminal** at `http://your-app.com/overlord`
 
 ### Manual Installation
 
@@ -242,33 +251,23 @@ If you need to customize the help view:
 php artisan vendor:publish --tag=laravel-overlord-views
 ```
 
-#### Step 5: Publish Assets
+#### Step 5: Publish Pre-compiled Assets
+
+The package includes pre-compiled assets (like Horizon). Publish them with:
 
 ```bash
-php artisan vendor:publish --tag=laravel-overlord-assets
+php artisan vendor:publish --tag=laravel-assets
 ```
 
-This publishes Vue components to `resources/js/vendor/laravel-overlord/`.
+This publishes the compiled assets to `public/vendor/laravel-overlord/`. **No build step is required!**
 
-#### Step 6: Build Frontend Assets
+6. **Access the terminal** at `http://your-app.com/overlord`
 
-> **Note:** highlight.js is automatically loaded from CDN, so no npm install is required for it!
+> **Note:** For development/customization, you can also publish source assets with `--tag=laravel-overlord-assets`, but this requires building the assets yourself.
 
-If using Vite:
+> **Note:** highlight.js is automatically loaded from CDN - no installation required!
 
-```bash
-npm run build
-# or for development
-npm run dev
-```
-
-If using Laravel Mix:
-
-```bash
-npm run production
-# or for development
-npm run dev
-```
+> **Note:** To disable the default `/overlord` route, set `LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false` in your `.env` file.
 
 ## Configuration
 
@@ -339,42 +338,48 @@ Custom middleware:
 
 Laravel Overlord automatically creates a default full-page terminal route (similar to Horizon's `/horizon` or Telescope's `/telescope` routes). This route provides a standalone page where users can access the terminal interface.
 
-**Configuration:**
+**By default, the terminal is available at:**
+```
+http://your-app.com/overlord
+```
 
-```php
-// In config/laravel-overlord.php
+**Configuration via Environment Variables:**
 
-// Enable or disable the default route
-'default_route_enabled' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED', true),
+Add these to your `.env` file to configure the default route:
 
-// Customize the route path (default: 'overlord')
-'default_route_path' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH', 'overlord'),
+```env
+# Enable or disable the default route (default: true)
+LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=true
+
+# Customize the route path (default: 'overlord')
+LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=overlord
 ```
 
 **Examples:**
 
-- Default route: `http://your-app.com/overlord`
-- Custom path: Set `LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=dev-console` in `.env` → `http://your-app.com/dev-console`
-- Disable route: Set `LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false` in `.env`
+1. **Default route (enabled by default):**
+   - Access at: `http://your-app.com/overlord`
+   - No configuration needed - works out of the box!
+
+2. **Custom path:**
+   ```env
+   LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=dev-console
+   ```
+   - Access at: `http://your-app.com/dev-console`
+
+3. **Disable the default route:**
+   ```env
+   LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false
+   ```
+   - The `/overlord` route will not be registered
+   - Use this if you prefer to integrate the terminal component into your own pages
 
 **Important Notes:**
 - The default route uses the same middleware as the API routes (configured via `middleware` setting)
 - The route is automatically registered when the package is installed
 - You can disable it if you prefer to integrate the terminal component into your own pages
 - The route path should not conflict with your existing routes
-- The terminal view requires the `terminal.js` file to be compiled. After publishing assets, add it to your build process:
-
-**For Laravel Mix:**
-```javascript
-// In webpack.mix.js
-mix.js('resources/js/vendor/laravel-overlord/terminal.js', 'public/js/vendor/laravel-overlord');
-```
-
-**For Vite:**
-```javascript
-// In vite.config.js - the terminal.js will be automatically included
-// when you use @vite(['resources/js/vendor/laravel-overlord/terminal.js'])
-```
+- The terminal uses pre-compiled assets that are automatically published. No build step is required!
 
 ### Environment Variables Configuration
 
@@ -598,8 +603,8 @@ You should see routes prefixed with your configured route prefix.
 ### Step 2: Test Terminal Access
 
 1. Open your application in a browser
-2. Navigate to a page with the terminal component
-3. Click to open the terminal
+2. Navigate to `http://your-app.com/overlord` (or your configured route path)
+3. You should see the full-page terminal interface
 4. Try a simple command:
 
 ```php
@@ -644,10 +649,11 @@ Redis::ping()
 
 **Solutions**:
 1. Check browser console for JavaScript errors
-2. Verify assets were built: `npm run build`
-3. Check component import path is correct
+2. Verify assets were published: `php artisan vendor:publish --tag=laravel-assets`
+3. Check that assets exist at `public/vendor/laravel-overlord/js/terminal.js`
 4. Verify route prefix matches configuration
 5. Check that middleware allows access (authentication)
+6. Clear view cache: `php artisan view:clear`
 
 ### Commands Not Executing
 
@@ -694,16 +700,16 @@ Redis::ping()
 4. Run migrations individually if needed
 5. Check `storage/logs/laravel.log` for specific errors
 
-### Frontend Build Errors
+### Assets Not Found
 
-**Symptoms**: Assets not compiling
+**Symptoms**: Terminal shows "Assets Not Found" error
 
 **Solutions**:
-1. Clear node modules: `rm -rf node_modules && npm install`
-2. Clear build cache
-3. Check Vue version (requires Vue 3)
-4. Verify all dependencies installed
-5. Check for version conflicts
+1. Publish assets: `php artisan vendor:publish --tag=laravel-assets`
+2. Verify assets exist at `public/vendor/laravel-overlord/js/terminal.js`
+3. Check file permissions on `public/vendor/laravel-overlord/` directory
+4. Clear view cache: `php artisan view:clear`
+5. Re-run install command: `php artisan overlord:install --force`
 
 ### Route Not Found
 

@@ -23,8 +23,6 @@ A powerful Laravel development console with advanced features including interact
 - PHP ^8.2
 - Laravel ^12.0
 - Redis (required for queue features)
-- Vue 3 (for frontend components)
-- Inertia.js (optional, for Inertia support)
 
 ## Installation
 
@@ -38,9 +36,13 @@ php artisan overlord:install
 The install command will automatically:
 - Publish configuration files
 - Publish database migrations
-- Publish Vue components and assets
-- Check for prerequisites
+- Publish pre-compiled assets (no build step required!)
 - Optionally run migrations
+- Update catch-all routes if needed
+
+**After installation, access the terminal at:** `http://your-app.com/overlord`
+
+> **Note:** To disable the default `/overlord` route, set `LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false` in your `.env` file.
 
 **With options:**
 ```bash
@@ -63,12 +65,13 @@ php artisan vendor:publish --tag=laravel-overlord-config
 php artisan vendor:publish --tag=laravel-overlord-migrations
 php artisan migrate
 
-# 4. Publish assets
-php artisan vendor:publish --tag=laravel-overlord-assets
+# 4. Publish pre-compiled assets
+php artisan vendor:publish --tag=laravel-assets
 
-# 5. Build frontend assets
-npm run build
+# 5. Assets are pre-compiled - no build step needed!
 ```
+
+> **Note:** The `laravel-assets` tag publishes pre-compiled assets (ready to use). For development/customization, you can use `--tag=laravel-overlord-assets` to publish source files, but this requires building the assets yourself.
 
 For detailed installation instructions, including alternative installation methods, see the [Setup Guide](docs/SETUP.md).
 
@@ -171,7 +174,31 @@ public function share(Request $request): array
 
 ### Access the Terminal
 
-The terminal is accessible via the `DeveloperTerminal` Vue component. Add it to your layout and control visibility with a prop.
+**Default Route (Full-Page Terminal):**
+
+After installation, the terminal is automatically available at:
+```
+http://your-app.com/overlord
+```
+
+This provides a full-page terminal interface (similar to Laravel Horizon's `/horizon` route).
+
+**To disable the default route:**
+Add to your `.env` file:
+```env
+LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false
+```
+
+**Custom Route Path:**
+To change the route path, set in your `.env` file:
+```env
+LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=dev-console
+```
+This will make the terminal available at `http://your-app.com/dev-console`
+
+**Vue Component Integration (Alternative):**
+
+If you prefer to integrate the terminal into your own pages, you can disable the default route and use the `DeveloperTerminal` Vue component. Add it to your layout and control visibility with a prop.
 
 ### Basic Commands
 
@@ -239,7 +266,7 @@ For additional security, add role-based access:
 1. Check Vue component import
 2. Verify route prefix matches configuration
 3. Check browser console for JavaScript errors
-4. Verify assets were published and built
+4. Verify assets were published: `php artisan vendor:publish --tag=laravel-assets`
 
 ### Commands Not Executing
 

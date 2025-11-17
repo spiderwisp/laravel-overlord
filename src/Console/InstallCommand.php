@@ -52,25 +52,22 @@ class InstallCommand extends Command
 		$this->info('   ✓ Migrations published');
 		$this->newLine();
 
-		// Step 3: Publish assets
+		// Step 3: Publish pre-compiled assets (like Horizon)
 		$this->info('🎨 Publishing assets...');
 		$this->call('vendor:publish', [
-			'--tag' => 'laravel-overlord-assets',
+			'--tag' => 'laravel-assets',
 			'--force' => $force,
 		]);
-		$this->info('   ✓ Vue components published to resources/js/vendor/laravel-overlord/');
+		$this->info('   ✓ Pre-compiled assets published to public/vendor/laravel-overlord/');
 		$this->newLine();
 
-		// Step 4: Check Node.js/npm
-		$this->checkNodeJs();
-
-		// Step 5: Check Vue 3
-		$this->checkVue3();
-
-		// Step 6: Run migrations
+		// Step 4: Run migrations
 		$this->handleMigrations();
 
-		// Step 7: Display next steps
+		// Step 5: Check and update catch-all route if needed
+		$this->checkCatchAllRoute();
+
+		// Step 6: Display next steps
 		$this->displayNextSteps();
 
 		$this->newLine();
@@ -78,82 +75,6 @@ class InstallCommand extends Command
 		$this->newLine();
 
 		return Command::SUCCESS;
-	}
-
-	/**
-	 * Check if Node.js and npm are installed.
-	 *
-	 * @return void
-	 */
-	protected function checkNodeJs()
-	{
-		$this->info('🔍 Checking prerequisites...');
-
-		$nodeVersion = $this->getCommandVersion('node');
-		$npmVersion = $this->getCommandVersion('npm');
-
-		if ($nodeVersion && $npmVersion) {
-			$this->info("   ✓ Node.js {$nodeVersion} found");
-			$this->info("   ✓ npm {$npmVersion} found");
-		} else {
-			$this->warn('   ⚠ Node.js and/or npm not found');
-			$this->displayNodeJsInstructions();
-		}
-
-		$this->newLine();
-	}
-
-	/**
-	 * Check if Vue 3 is installed in package.json.
-	 *
-	 * @return void
-	 */
-	protected function checkVue3()
-	{
-		$packageJsonPath = base_path('package.json');
-
-		if (!file_exists($packageJsonPath)) {
-			$this->warn('   ⚠ package.json not found');
-			$this->line('   → Create package.json and install Vue 3: npm install vue@^3.3.4');
-			$this->newLine();
-			return;
-		}
-
-		$packageJson = json_decode(file_get_contents($packageJsonPath), true);
-
-		if (!$packageJson) {
-			$this->warn('   ⚠ Could not parse package.json');
-			$this->newLine();
-			return;
-		}
-
-		$hasVue3 = false;
-		$vueVersion = null;
-
-		// Check dependencies
-		if (isset($packageJson['dependencies']['vue'])) {
-			$vueVersion = $packageJson['dependencies']['vue'];
-			if (preg_match('/\^?3\./', $vueVersion)) {
-				$hasVue3 = true;
-			}
-		}
-
-		// Check devDependencies
-		if (!$hasVue3 && isset($packageJson['devDependencies']['vue'])) {
-			$vueVersion = $packageJson['devDependencies']['vue'];
-			if (preg_match('/\^?3\./', $vueVersion)) {
-				$hasVue3 = true;
-			}
-		}
-
-		if ($hasVue3) {
-			$this->info("   ✓ Vue 3 found ({$vueVersion})");
-		} else {
-			$this->warn('   ⚠ Vue 3 not found in package.json');
-			$this->line('   → Install Vue 3: npm install vue@^3.3.4 --save');
-		}
-
-		$this->newLine();
 	}
 
 
@@ -192,8 +113,7 @@ class InstallCommand extends Command
 
 		$steps = [
 			'Configure environment variables in your .env file (see below)',
-			'Add the DeveloperTerminal component to your layout',
-			'Build frontend assets: npm run build (or npm run dev)',
+			'Access the terminal at /overlord (or your configured route path)',
 		];
 
 		foreach ($steps as $index => $step) {
@@ -237,48 +157,131 @@ class InstallCommand extends Command
 	}
 
 	/**
-	 * Get version of a command if available.
-	 *
-	 * @param string $command
-	 * @return string|null
-	 */
-	protected function getCommandVersion($command)
-	{
-		$version = @shell_exec("{$command} -v 2>&1");
-
-		if ($version && strpos($version, 'not found') === false) {
-			return trim($version);
-		}
-
-		return null;
-	}
-
-	/**
-	 * Display Node.js installation instructions based on OS.
+	 * Check and update catch-all route in routes/web.php to exclude overlord routes.
 	 *
 	 * @return void
 	 */
-	protected function displayNodeJsInstructions()
+	protected function checkCatchAllRoute()
+	{
+		$webRoutesPath = base_path('routes/web.php');
+
+		if (!file_exists($webRoutesPath)) {
+			return; // No web.php, skip
+		}
+
+		$content = file_get_contents($webRoutesPath);
+		$defaultRoutePath = config('laravel-overlord.default_route_path', 'overlord');
+		$routePrefix = config('laravel-overlord.route_prefix', 'admin/overlord');
+
+		// Check if there's a catch-all route pattern
+		// Look for Route::get('/{any}', ...) or similar patterns with where() clause
+		$hasCatchAll = preg_match('/Route::get\([\'"]\/\{[^}]+\}[\'"]/', $content) ||
+			preg_match('/Route::get\([\'"]\/\{any\}[\'"]/', $content) ||
+			preg_match('/Route::get\([\'"]\/\{.*\}[\'"]/', $content);
+
+		if (!$hasCatchAll) {
+			return; // No catch-all route found, nothing to update
+		}
+
+		// Check if overlord routes are already excluded
+		$excludesOverlord = preg_match('/\^(?!.*overlord|.*admin\/overlord)/', $content);
+
+		if ($excludesOverlord) {
+			$this->info('   ✓ Catch-all route already excludes overlord routes');
+			return;
+		}
+
+		// Found catch-all route that needs updating
+		$this->warn('   ⚠ Catch-all route detected in routes/web.php');
+		$this->line("   → Need to exclude '{$defaultRoutePath}' and '{$routePrefix}' from catch-all");
+		$this->newLine();
+
+		if ($this->confirm('Would you like me to update it automatically?', true)) {
+			$updated = $this->updateCatchAllRoute($webRoutesPath, $defaultRoutePath, $routePrefix, $content);
+
+			if ($updated) {
+				$this->info('   ✓ Updated catch-all route in routes/web.php');
+			} else {
+				$this->warn('   ⚠ Could not automatically update route. Please update manually.');
+				$this->displayManualRouteUpdateInstructions($defaultRoutePath, $routePrefix);
+			}
+		} else {
+			$this->displayManualRouteUpdateInstructions($defaultRoutePath, $routePrefix);
+		}
+
+		$this->newLine();
+	}
+
+	/**
+	 * Update the catch-all route to exclude overlord routes.
+	 *
+	 * @param string $path
+	 * @param string $defaultRoute
+	 * @param string $routePrefix
+	 * @param string $content
+	 * @return bool
+	 */
+	protected function updateCatchAllRoute($path, $defaultRoute, $routePrefix, $content)
+	{
+		// Pattern to match: ->where('any', '^(?!...).*')
+		// We need to find the where clause and update the regex
+		$pattern = '/->where\([\'"]any[\'"],\s*[\'"]([^\'"]+)[\'"]\)/';
+
+		$updated = preg_replace_callback($pattern, function ($matches) use ($defaultRoute, $routePrefix) {
+			$existingPattern = $matches[1];
+
+			// Extract existing exclusions from pattern like: ^(?!exclusion1|exclusion2).*
+			if (preg_match('/\^\(?!([^)]+)\)\.\*/', $existingPattern, $exclusionsMatch)) {
+				$existingExclusions = explode('|', $exclusionsMatch[1]);
+			} else {
+				$existingExclusions = [];
+			}
+
+			// Add overlord exclusions
+			$newExclusions = array_unique(array_merge($existingExclusions, [$defaultRoute, $routePrefix]));
+			$exclusionsStr = implode('|', $newExclusions);
+
+			return "->where('any', '^(?!{$exclusionsStr}).*')";
+		}, $content);
+
+		// If no where clause found, try to add one
+		if ($updated === $content) {
+			// Look for Route::get('/{any}', ...) without where clause
+			$pattern2 = '/(Route::get\([\'"]\/\{[^}]+\}[\'"],\s*[^)]+\))(?!\s*->where)/';
+			$updated = preg_replace($pattern2, "$1->where('any', '^(?!{$defaultRoute}|{$routePrefix}).*')", $content);
+		}
+
+		if ($updated && $updated !== $content) {
+			// Create backup
+			file_put_contents($path . '.backup', $content);
+			return file_put_contents($path, $updated) !== false;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Display manual instructions for updating the catch-all route.
+	 *
+	 * @param string $defaultRoute
+	 * @param string $routePrefix
+	 * @return void
+	 */
+	protected function displayManualRouteUpdateInstructions($defaultRoute, $routePrefix)
 	{
 		$this->newLine();
-		$this->line('   Installation instructions:');
+		$this->line('   <fg=yellow>Manual Update Required:</>');
+		$this->line('   Update your catch-all route in routes/web.php to exclude overlord routes:');
 		$this->newLine();
-
-		$os = PHP_OS_FAMILY;
-
-		if ($os === 'Linux') {
-			$this->line('   Ubuntu/Debian:');
-			$this->line('     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -');
-			$this->line('     sudo apt-get install -y nodejs');
-			$this->newLine();
-			$this->line('   Or visit: https://nodejs.org/');
-		} elseif ($os === 'Darwin') {
-			$this->line('   macOS (using Homebrew):');
-			$this->line('     brew install node');
-			$this->newLine();
-			$this->line('   Or visit: https://nodejs.org/');
-		} else {
-			$this->line('   Visit: https://nodejs.org/ to download and install Node.js');
-		}
+		$this->line('   <fg=cyan>Before:</>');
+		$this->line('   <fg=gray>Route::get(\'/{any}\', function () {</>');
+		$this->line('   <fg=gray>    return view(\'app\');</>');
+		$this->line('   <fg=gray>})->where(\'any\', \'^(?!admin/tinker).*\');</>');
+		$this->newLine();
+		$this->line('   <fg=cyan>After:</>');
+		$this->line('   <fg=gray>Route::get(\'/{any}\', function () {</>');
+		$this->line('   <fg=gray>    return view(\'app\');</>');
+		$this->line("   <fg=gray>})->where('any', '^(?!admin/tinker|{$defaultRoute}|{$routePrefix}).*');</>");
+		$this->newLine();
 	}
 }
