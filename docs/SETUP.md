@@ -335,6 +335,47 @@ Custom middleware:
 
 **Security Note:** All routes including the help route (`/{prefix}/help`) are protected by the configured middleware.
 
+#### Default Route Configuration
+
+Laravel Overlord automatically creates a default full-page terminal route (similar to Horizon's `/horizon` or Telescope's `/telescope` routes). This route provides a standalone page where users can access the terminal interface.
+
+**Configuration:**
+
+```php
+// In config/laravel-overlord.php
+
+// Enable or disable the default route
+'default_route_enabled' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED', true),
+
+// Customize the route path (default: 'overlord')
+'default_route_path' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH', 'overlord'),
+```
+
+**Examples:**
+
+- Default route: `http://your-app.com/overlord`
+- Custom path: Set `LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=dev-console` in `.env` → `http://your-app.com/dev-console`
+- Disable route: Set `LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED=false` in `.env`
+
+**Important Notes:**
+- The default route uses the same middleware as the API routes (configured via `middleware` setting)
+- The route is automatically registered when the package is installed
+- You can disable it if you prefer to integrate the terminal component into your own pages
+- The route path should not conflict with your existing routes
+- The terminal view requires the `terminal.js` file to be compiled. After publishing assets, add it to your build process:
+
+**For Laravel Mix:**
+```javascript
+// In webpack.mix.js
+mix.js('resources/js/vendor/laravel-overlord/terminal.js', 'public/js/vendor/laravel-overlord');
+```
+
+**For Vite:**
+```javascript
+// In vite.config.js - the terminal.js will be automatically included
+// when you use @vite(['resources/js/vendor/laravel-overlord/terminal.js'])
+```
+
 ### Environment Variables Configuration
 
 #### Required: Redis Configuration

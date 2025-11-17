@@ -49,6 +49,18 @@ return [
 
 	/*
 	|--------------------------------------------------------------------------
+	| Default Route Configuration
+	|--------------------------------------------------------------------------
+	|
+	| Configure the default full-page terminal route. This creates a route
+	| similar to Horizon's /horizon or Telescope's /telescope routes.
+	|
+	*/
+	'default_route_enabled' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED', true),
+	'default_route_path' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH', 'overlord'),
+
+	/*
+	|--------------------------------------------------------------------------
 	| Help View
 	|--------------------------------------------------------------------------
 	|

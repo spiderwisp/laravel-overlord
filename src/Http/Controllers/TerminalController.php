@@ -952,6 +952,14 @@ class TerminalController extends Controller
 	}
 
 	/**
+	 * Display the terminal interface (default route)
+	 */
+	public function index()
+	{
+		return view('laravel-overlord::terminal');
+	}
+
+	/**
 	 * Get help content via GET request (public endpoint)
 	 */
 	public function getHelp(Request $request)
