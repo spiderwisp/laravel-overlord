@@ -2,7 +2,6 @@
 	"name": "spiderwisp/laravel-overlord",
 	"description": "A powerful Laravel development console with advanced features including interactive terminal, codebase scanning, database analysis, and optional AI assistant",
 	"type": "library",
-	"version": "1.0.0",
 	"keywords": [
 		"laravel",
 		"terminal",
