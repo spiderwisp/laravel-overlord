@@ -54,9 +54,7 @@ class LaravelOverlordServiceProvider extends ServiceProvider
 		// Load routes - use loadRoutesFrom which is optimized by Laravel
 		// Routes are cached when route:cache is run, so this is fast
 		$this->loadRoutesFrom(__DIR__.'/../routes/api.php');
-
-		// Register default route if enabled
-		$this->registerDefaultRoute();
+		$this->loadRoutesFrom(__DIR__.'/../routes/web.php');
 
 		// Load views - this is lightweight and cached by Laravel
 		$this->loadViewsFrom(__DIR__.'/../resources/views', 'laravel-overlord');
@@ -70,26 +68,6 @@ class LaravelOverlordServiceProvider extends ServiceProvider
 
 		// Validate required environment variables if AI is enabled
 		$this->validateEnvironmentVariables();
-	}
-
-	/**
-	 * Register the default terminal route (similar to Horizon's /horizon route)
-	 *
-	 * @return void
-	 */
-	protected function registerDefaultRoute(): void
-	{
-		if (!config('laravel-overlord.default_route_enabled', true)) {
-			return;
-		}
-
-		$path = config('laravel-overlord.default_route_path', 'overlord');
-		$middleware = config('laravel-overlord.middleware', ['auth']);
-
-		Route::get($path, [
-			\Spiderwisp\LaravelOverlord\Http\Controllers\TerminalController::class,
-			'index'
-		])->middleware($middleware);
 	}
 
 	/**
