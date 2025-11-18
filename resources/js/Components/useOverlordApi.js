@@ -85,6 +85,17 @@ export function useOverlordApi() {
             deleteJob: (id) => `${cleanBaseUrl}/horizon/jobs/${id}`,
             executeJob: (id) => `${cleanBaseUrl}/horizon/jobs/${id}/execute`,
             createJob: () => `${cleanBaseUrl}/horizon/jobs/create`,
+            // Horizon management commands
+            pause: () => `${cleanBaseUrl}/horizon/pause`,
+            continue: () => `${cleanBaseUrl}/horizon/continue`,
+            terminate: () => `${cleanBaseUrl}/horizon/terminate`,
+            restart: () => `${cleanBaseUrl}/horizon/restart`,
+            clear: () => `${cleanBaseUrl}/horizon/clear`,
+            snapshot: () => `${cleanBaseUrl}/horizon/snapshot`,
+            status: () => `${cleanBaseUrl}/horizon/status`,
+            supervisors: () => `${cleanBaseUrl}/horizon/supervisors`,
+            config: () => `${cleanBaseUrl}/horizon/config`,
+            systemInfo: () => `${cleanBaseUrl}/horizon/system-info`,
         },
         // Log endpoints
         logs: {

@@ -3607,6 +3607,638 @@ class TerminalController extends Controller
 	}
 
 	/**
+	 * Pause Horizon supervisors
+	 */
+	public function pauseHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:pause', [], $output);
+
+			if ($exitCode === 0) {
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'message' => 'Horizon paused successfully',
+						'output' => $output->fetch(),
+					],
+				], 200);
+			} else {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Failed to pause Horizon: ' . $output->fetch()],
+					'result' => (object) [],
+				], 400);
+			}
+		} catch (\Throwable $e) {
+			\Log::error('Failed to pause Horizon', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to pause Horizon: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Continue paused Horizon supervisors
+	 */
+	public function continueHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:continue', [], $output);
+
+			if ($exitCode === 0) {
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'message' => 'Horizon continued successfully',
+						'output' => $output->fetch(),
+					],
+				], 200);
+			} else {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Failed to continue Horizon: ' . $output->fetch()],
+					'result' => (object) [],
+				], 400);
+			}
+		} catch (\Throwable $e) {
+			\Log::error('Failed to continue Horizon', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to continue Horizon: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Terminate Horizon processes
+	 */
+	public function terminateHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:terminate', [], $output);
+
+			if ($exitCode === 0) {
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'message' => 'Horizon terminated successfully',
+						'output' => $output->fetch(),
+					],
+				], 200);
+			} else {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Failed to terminate Horizon: ' . $output->fetch()],
+					'result' => (object) [],
+				], 400);
+			}
+		} catch (\Throwable $e) {
+			\Log::error('Failed to terminate Horizon', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to terminate Horizon: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Clear failed Horizon jobs
+	 */
+	public function clearHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:clear', [], $output);
+
+			if ($exitCode === 0) {
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'message' => 'Failed jobs cleared successfully',
+						'output' => $output->fetch(),
+					],
+				], 200);
+			} else {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Failed to clear failed jobs: ' . $output->fetch()],
+					'result' => (object) [],
+				], 400);
+			}
+		} catch (\Throwable $e) {
+			\Log::error('Failed to clear Horizon', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to clear failed jobs: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Take a Horizon snapshot
+	 */
+	public function snapshotHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:snapshot', [], $output);
+
+			if ($exitCode === 0) {
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'message' => 'Snapshot taken successfully',
+						'output' => $output->fetch(),
+					],
+				], 200);
+			} else {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Failed to take snapshot: ' . $output->fetch()],
+					'result' => (object) [],
+				], 400);
+			}
+		} catch (\Throwable $e) {
+			\Log::error('Failed to take Horizon snapshot', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to take snapshot: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get Horizon status with improved parsing
+	 */
+	public function getHorizonStatus(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$output = new BufferedOutput();
+			$exitCode = Artisan::call('horizon:status', [], $output);
+			$outputText = trim($output->fetch());
+
+			// Improved status parsing - check for actual process status
+			$status = 'unknown';
+			$isPaused = false;
+			$isRunning = false;
+			$errorMessage = null;
+			$activeWorkers = 0;
+
+			// Check for error messages first
+			if (stripos($outputText, 'error') !== false || stripos($outputText, 'failed') !== false) {
+				if (stripos($outputText, 'inactive') !== false) {
+					$status = 'inactive';
+					$errorMessage = 'Horizon is not running';
+				} else {
+					$status = 'error';
+					$errorMessage = $outputText;
+				}
+			} elseif (stripos($outputText, 'paused') !== false) {
+				$status = 'paused';
+				$isPaused = true;
+			} elseif (stripos($outputText, 'running') !== false || stripos($outputText, 'active') !== false) {
+				$status = 'running';
+				$isRunning = true;
+				// Try to extract worker count from output
+				if (preg_match('/(\d+)\s+(?:worker|process)/i', $outputText, $matches)) {
+					$activeWorkers = (int) $matches[1];
+				}
+			} elseif (stripos($outputText, 'inactive') !== false || stripos($outputText, 'stopped') !== false || empty($outputText)) {
+				$status = 'inactive';
+				$errorMessage = empty($outputText) ? 'Horizon process not found' : 'Horizon is not running';
+			}
+
+			// Also check Redis for supervisor count as additional verification
+			try {
+				$horizonConnection = config('horizon.use', 'default');
+				$horizonPrefix = config('horizon.prefix');
+				if (empty($horizonPrefix)) {
+					$appName = config('app.name', 'laravel');
+					$horizonPrefix = \Illuminate\Support\Str::slug($appName, '_') . '_horizon:';
+				}
+
+				$redisConfig = config("database.redis.{$horizonConnection}");
+				if (!$redisConfig) {
+					$redisConfig = config('database.redis.default');
+				}
+
+				$redis = new \Redis();
+				$redis->connect(
+					$redisConfig['host'] ?? '127.0.0.1',
+					$redisConfig['port'] ?? 6379
+				);
+
+				if (isset($redisConfig['password']) && $redisConfig['password']) {
+					$redis->auth($redisConfig['password']);
+				}
+
+				if (isset($redisConfig['database'])) {
+					$redis->select($redisConfig['database'] ?? 0);
+				}
+
+				$supervisorPattern = $horizonPrefix . 'supervisor:*';
+				$supervisorKeys = $redis->keys($supervisorPattern);
+				$supervisorKeys = is_array($supervisorKeys) ? $supervisorKeys : [];
+				$activeWorkers = count($supervisorKeys);
+
+				// If we found supervisors in Redis but status says inactive, trust Redis
+				if ($activeWorkers > 0 && $status === 'inactive') {
+					$status = 'running';
+					$isRunning = true;
+					$errorMessage = null;
+				} elseif ($activeWorkers === 0 && $status === 'running') {
+					// No supervisors found but status says running - might be paused
+					$status = 'paused';
+					$isPaused = true;
+					$isRunning = false;
+				}
+			} catch (\Throwable $e) {
+				// Continue with status from command output
+			}
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'status' => $status,
+					'is_paused' => $isPaused,
+					'is_running' => $isRunning,
+					'active_workers' => $activeWorkers,
+					'error_message' => $errorMessage,
+					'output' => $outputText,
+					'exit_code' => $exitCode,
+					'last_updated' => now()->toIso8601String(),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get Horizon status', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get Horizon status: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Restart Horizon (terminate and start)
+	 */
+	public function restartHorizon(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			// First terminate if running
+			$terminateOutput = new BufferedOutput();
+			$terminateExitCode = Artisan::call('horizon:terminate', [], $terminateOutput);
+			
+			// Wait a moment for graceful shutdown
+			sleep(2);
+
+			// Note: horizon:start is typically run via supervisor or manually
+			// We'll return a message indicating they need to start it manually or via supervisor
+			// In production, Horizon is usually managed by a process manager
+			
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'message' => 'Horizon terminated. Please restart Horizon using your process manager (supervisor, systemd, etc.) or run: php artisan horizon',
+					'output' => $terminateOutput->fetch(),
+					'note' => 'Horizon should be managed by a process supervisor in production. Use your process manager to restart it.',
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to restart Horizon', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to restart Horizon: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get Horizon configuration
+	 */
+	public function getHorizonConfig(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$config = config('horizon', []);
+			
+			// Return safe config (exclude sensitive data)
+			$safeConfig = [
+				'name' => $config['name'] ?? null,
+				'domain' => $config['domain'] ?? null,
+				'path' => $config['path'] ?? 'horizon',
+				'environments' => array_keys($config['environments'] ?? []),
+				'defaults' => isset($config['defaults']) ? array_keys($config['defaults']) : [],
+			];
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) $safeConfig,
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get Horizon config', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get Horizon config: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get Horizon system information
+	 */
+	public function getHorizonSystemInfo(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			$horizonConnection = config('horizon.use', 'default');
+			$horizonPrefix = config('horizon.prefix');
+			if (empty($horizonPrefix)) {
+				$appName = config('app.name', 'laravel');
+				$horizonPrefix = \Illuminate\Support\Str::slug($appName, '_') . '_horizon:';
+			}
+
+			$info = [
+				'environment' => app()->environment(),
+				'redis_connection' => $horizonConnection,
+				'horizon_prefix' => $horizonPrefix,
+				'queue_connection' => config('queue.default'),
+			];
+
+			// Try to get Redis connection info
+			try {
+				$redisConfig = config("database.redis.{$horizonConnection}");
+				if (!$redisConfig) {
+					$redisConfig = config('database.redis.default');
+				}
+
+				$info['redis_host'] = $redisConfig['host'] ?? '127.0.0.1';
+				$info['redis_port'] = $redisConfig['port'] ?? 6379;
+				$info['redis_database'] = $redisConfig['database'] ?? 0;
+			} catch (\Throwable $e) {
+				$info['redis_error'] = 'Could not retrieve Redis configuration';
+			}
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) $info,
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get Horizon system info', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get system info: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get Horizon supervisors list
+	 */
+	public function getHorizonSupervisors(Request $request)
+	{
+		try {
+			if (!class_exists('Laravel\Horizon\Horizon')) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Horizon is not installed'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			// Get Horizon's Redis connection and prefix
+			$horizonConnection = config('horizon.use', 'default');
+			$horizonPrefix = config('horizon.prefix');
+			if (empty($horizonPrefix)) {
+				$appName = config('app.name', 'laravel');
+				$horizonPrefix = \Illuminate\Support\Str::slug($appName, '_') . '_horizon:';
+			}
+
+			$supervisors = [];
+
+			try {
+				// Get Redis connection
+				$redisConfig = config("database.redis.{$horizonConnection}");
+				if (!$redisConfig) {
+					$redisConfig = config('database.redis.default');
+				}
+
+				$redis = new \Redis();
+				$redis->connect(
+					$redisConfig['host'] ?? '127.0.0.1',
+					$redisConfig['port'] ?? 6379
+				);
+
+				if (isset($redisConfig['password']) && $redisConfig['password']) {
+					$redis->auth($redisConfig['password']);
+				}
+
+				if (isset($redisConfig['database'])) {
+					$redis->select($redisConfig['database'] ?? 0);
+				}
+
+				// Get supervisor keys
+				$supervisorPattern = $horizonPrefix . 'supervisor:*';
+				$supervisorKeys = $redis->keys($supervisorPattern);
+				$supervisorKeys = is_array($supervisorKeys) ? $supervisorKeys : [];
+
+				foreach ($supervisorKeys as $supervisorKey) {
+					$supervisorData = $redis->hgetall($supervisorKey);
+					if (!empty($supervisorData) && is_array($supervisorData)) {
+						$supervisorName = str_replace($horizonPrefix . 'supervisor:', '', $supervisorKey);
+						$supervisors[] = [
+							'name' => $supervisorName,
+							'status' => $supervisorData['status'] ?? 'unknown',
+							'pid' => $supervisorData['pid'] ?? null,
+							'processes' => isset($supervisorData['processes']) ? json_decode($supervisorData['processes'], true) : [],
+							'queues' => isset($supervisorData['queues']) ? json_decode($supervisorData['queues'], true) : [],
+							'balance' => $supervisorData['balance'] ?? 'off',
+							'max_processes' => $supervisorData['max_processes'] ?? 0,
+							'min_processes' => $supervisorData['min_processes'] ?? 0,
+						];
+					}
+				}
+			} catch (\Throwable $e) {
+				\Log::warning('Failed to get supervisors from Redis', [
+					'error' => $e->getMessage(),
+				]);
+			}
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'supervisors' => $supervisors,
+					'count' => count($supervisors),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get Horizon supervisors', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get supervisors: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
 	 * Execute shell command
 	 */
 	public function executeShellCommand(Request $request)

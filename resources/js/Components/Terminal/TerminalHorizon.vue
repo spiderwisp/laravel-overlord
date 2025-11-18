@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import axios from 'axios';
 import Swal from '../../utils/swalConfig';
 import { useOverlordApi } from '../useOverlordApi';
@@ -20,7 +20,7 @@ const loadingJobs = ref(false);
 const stats = ref(null);
 const jobs = ref([]);
 const selectedJob = ref(null);
-const activeTab = ref('stats'); // 'stats', 'pending', 'completed', 'silenced', 'failed'
+const activeTab = ref('manage'); // 'manage', 'stats', 'pending', 'completed', 'silenced', 'failed'
 const searchQuery = ref('');
 const currentPage = ref(1);
 const perPage = ref(50);
@@ -34,6 +34,20 @@ const newJobForm = ref({
 	job_data: '',
 	queue: 'default',
 });
+
+// Management state
+const loadingStatus = ref(false);
+const loadingSupervisors = ref(false);
+const loadingConfig = ref(false);
+const loadingSystemInfo = ref(false);
+const horizonStatus = ref(null);
+const supervisors = ref([]);
+const horizonConfig = ref(null);
+const systemInfo = ref(null);
+const executingCommand = ref(null);
+const autoRefresh = ref(false);
+const autoRefreshInterval = ref(null);
+const autoRefreshSeconds = ref(10);
 
 // Load Horizon statistics
 async function loadStats() {
@@ -226,7 +240,8 @@ async function executeJob(jobId) {
 
 // Check if job can be retried (must be failed)
 function canRetryJob(job) {
-	return job.status === 'failed' || activeTab.value === 'failed';
+	// Only allow retry for actually failed jobs, not just any job on the failed tab
+	return job.status === 'failed' || (job.exception && Object.keys(job.exception).length > 0);
 }
 
 // Check if job can be executed (has payload data)
@@ -496,13 +511,257 @@ const availableQueues = computed(() => {
 	return Object.keys(stats.value.queues);
 });
 
+// Load Horizon status
+async function loadStatus() {
+	if (loadingStatus.value) return;
+	
+	loadingStatus.value = true;
+	try {
+		const response = await axios.get(api.horizon.status());
+		if (response.data && response.data.success && response.data.result) {
+			horizonStatus.value = response.data.result;
+		}
+	} catch (error) {
+		console.error('Failed to load Horizon status:', error);
+		horizonStatus.value = null;
+	} finally {
+		loadingStatus.value = false;
+	}
+}
+
+// Load supervisors
+async function loadSupervisors() {
+	if (loadingSupervisors.value) return;
+	
+	loadingSupervisors.value = true;
+	try {
+		const response = await axios.get(api.horizon.supervisors());
+		if (response.data && response.data.success && response.data.result) {
+			supervisors.value = response.data.result.supervisors || [];
+		} else {
+			supervisors.value = [];
+		}
+	} catch (error) {
+		console.error('Failed to load supervisors:', error);
+		supervisors.value = [];
+	} finally {
+		loadingSupervisors.value = false;
+	}
+}
+
+// Load Horizon config
+async function loadConfig() {
+	if (loadingConfig.value) return;
+	
+	loadingConfig.value = true;
+	try {
+		const response = await axios.get(api.horizon.config());
+		if (response.data && response.data.success && response.data.result) {
+			horizonConfig.value = response.data.result;
+		}
+	} catch (error) {
+		console.error('Failed to load Horizon config:', error);
+		horizonConfig.value = null;
+	} finally {
+		loadingConfig.value = false;
+	}
+}
+
+// Load system info
+async function loadSystemInfo() {
+	if (loadingSystemInfo.value) return;
+	
+	loadingSystemInfo.value = true;
+	try {
+		const response = await axios.get(api.horizon.systemInfo());
+		if (response.data && response.data.success && response.data.result) {
+			systemInfo.value = response.data.result;
+		}
+	} catch (error) {
+		console.error('Failed to load system info:', error);
+		systemInfo.value = null;
+	} finally {
+		loadingSystemInfo.value = false;
+	}
+}
+
+// Get status display info
+const statusDisplay = computed(() => {
+	if (!horizonStatus.value) {
+		return {
+			status: 'unknown',
+			label: 'UNKNOWN',
+			color: 'var(--terminal-text-muted)',
+			bgColor: 'rgba(158, 158, 158, 0.2)',
+			icon: 'question',
+		};
+	}
+	
+	const status = horizonStatus.value.status || 'unknown';
+	
+	if (status === 'running' && horizonStatus.value.is_running) {
+		return {
+			status: 'running',
+			label: 'RUNNING',
+			color: 'var(--terminal-success)',
+			bgColor: 'rgba(76, 175, 80, 0.2)',
+			icon: 'check-circle',
+		};
+	} else if (status === 'paused' && horizonStatus.value.is_paused) {
+		return {
+			status: 'paused',
+			label: 'PAUSED',
+			color: 'var(--terminal-warning)',
+			bgColor: 'rgba(255, 152, 0, 0.2)',
+			icon: 'pause-circle',
+		};
+	} else if (status === 'inactive' || status === 'error') {
+		return {
+			status: 'inactive',
+			label: status === 'error' ? 'ERROR' : 'INACTIVE',
+			color: 'var(--terminal-error)',
+			bgColor: 'rgba(244, 67, 54, 0.2)',
+			icon: 'x-circle',
+		};
+	}
+	
+	return {
+		status: 'unknown',
+		label: 'UNKNOWN',
+		color: 'var(--terminal-text-muted)',
+		bgColor: 'rgba(158, 158, 158, 0.2)',
+		icon: 'question',
+	};
+});
+
+// Format last updated time
+function formatLastUpdated(isoString) {
+	if (!isoString) return 'Never';
+	const date = new Date(isoString);
+	const now = new Date();
+	const diffSeconds = Math.floor((now - date) / 1000);
+	
+	if (diffSeconds < 60) return 'Just now';
+	if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+	if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+	return date.toLocaleString();
+}
+
+// Execute Horizon command
+async function executeCommand(command, confirmMessage = null) {
+	if (executingCommand.value) return;
+	
+	// Show confirmation for destructive actions
+	if (confirmMessage) {
+		const result = await Swal.fire({
+			title: 'Confirm Action',
+			text: confirmMessage,
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'Yes, proceed',
+			cancelButtonText: 'Cancel',
+		});
+		
+		if (!result.isConfirmed) {
+			return;
+		}
+	}
+	
+	executingCommand.value = command;
+	try {
+		let response;
+		switch (command) {
+			case 'pause':
+				response = await axios.post(api.horizon.pause());
+				break;
+			case 'continue':
+				response = await axios.post(api.horizon.continue());
+				break;
+			case 'terminate':
+				response = await axios.post(api.horizon.terminate());
+				break;
+			case 'restart':
+				response = await axios.post(api.horizon.restart());
+				break;
+			case 'clear':
+				response = await axios.post(api.horizon.clear());
+				break;
+			case 'snapshot':
+				response = await axios.post(api.horizon.snapshot());
+				break;
+			default:
+				throw new Error('Unknown command');
+		}
+		
+		if (response.data && response.data.success) {
+			Swal.fire({
+				icon: 'success',
+				title: 'Success',
+				text: response.data.result?.message || 'Command executed successfully',
+				timer: 2000,
+				showConfirmButton: false,
+			});
+			
+			// Reload status and supervisors after command
+			await Promise.all([loadStatus(), loadSupervisors()]);
+		} else {
+			Swal.fire({
+				icon: 'error',
+				title: 'Error',
+				text: response.data?.errors?.[0] || 'Failed to execute command',
+			});
+		}
+	} catch (error) {
+		console.error(`Failed to execute ${command}:`, error);
+		Swal.fire({
+			icon: 'error',
+			title: 'Error',
+			text: error.response?.data?.errors?.[0] || error.message || `Failed to execute ${command}`,
+		});
+	} finally {
+		executingCommand.value = null;
+	}
+}
+
+// Toggle auto-refresh
+function toggleAutoRefresh() {
+	if (autoRefresh.value) {
+		if (autoRefreshInterval.value) {
+			clearInterval(autoRefreshInterval.value);
+			autoRefreshInterval.value = null;
+		}
+		autoRefresh.value = false;
+	} else {
+		autoRefresh.value = true;
+		autoRefreshInterval.value = setInterval(() => {
+			if (activeTab.value === 'manage') {
+				loadStatus();
+				loadSupervisors();
+			}
+		}, autoRefreshSeconds.value * 1000);
+	}
+}
+
 // Watch for tab changes
-watch(activeTab, (newTab) => {
-	if (newTab !== 'stats') {
+watch(activeTab, (newTab, oldTab) => {
+	// Clear selected job when switching tabs (except when going to/from manage or stats)
+	if (oldTab && oldTab !== newTab && newTab !== 'manage' && newTab !== 'stats' && oldTab !== 'manage' && oldTab !== 'stats') {
+		closeJobDetails();
+	}
+	
+	if (newTab === 'manage') {
+		loadStatus();
+		loadSupervisors();
+		loadConfig();
+		loadSystemInfo();
+		loadStats(); // Load stats for quick stats panel
+	} else if (newTab === 'stats') {
+		loadStats();
+	} else {
 		currentPage.value = 1;
 		loadJobs();
-	} else {
-		loadStats();
+		// Clear job details when switching to a jobs tab
+		closeJobDetails();
 	}
 });
 
@@ -517,7 +776,36 @@ watch(searchQuery, () => {
 // Watch for visibility changes
 watch(() => props.visible, (newValue) => {
 	if (newValue) {
-		if (activeTab.value === 'stats') {
+		if (activeTab.value === 'manage') {
+			loadStatus();
+			loadSupervisors();
+			loadConfig();
+			loadSystemInfo();
+			loadStats(); // Load stats for quick stats panel
+		} else if (activeTab.value === 'stats') {
+			loadStats();
+		} else {
+			loadJobs();
+		}
+	} else {
+		// Stop auto-refresh when pane is closed
+		if (autoRefreshInterval.value) {
+			clearInterval(autoRefreshInterval.value);
+			autoRefreshInterval.value = null;
+			autoRefresh.value = false;
+		}
+	}
+});
+
+onMounted(() => {
+	if (props.visible) {
+		if (activeTab.value === 'manage') {
+			loadStatus();
+			loadSupervisors();
+			loadConfig();
+			loadSystemInfo();
+			loadStats(); // Load stats for quick stats panel
+		} else if (activeTab.value === 'stats') {
 			loadStats();
 		} else {
 			loadJobs();
@@ -525,13 +813,9 @@ watch(() => props.visible, (newValue) => {
 	}
 });
 
-onMounted(() => {
-	if (props.visible) {
-		if (activeTab.value === 'stats') {
-			loadStats();
-		} else {
-			loadJobs();
-		}
+onUnmounted(() => {
+	if (autoRefreshInterval.value) {
+		clearInterval(autoRefreshInterval.value);
 	}
 });
 </script>
@@ -547,11 +831,22 @@ onMounted(() => {
 			</div>
 			<div class="terminal-horizon-controls">
 				<button
-					v-if="activeTab !== 'stats'"
-					@click="loadJobs"
+					v-if="activeTab === 'manage'"
+					@click="loadStatus(); loadSupervisors();"
 					class="terminal-btn terminal-btn-secondary"
-					:disabled="loadingJobs"
-					title="Reload jobs"
+					:disabled="loadingStatus || loadingSupervisors"
+					title="Reload management data"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+					</svg>
+				</button>
+				<button
+					v-else-if="activeTab === 'stats'"
+					@click="loadStats"
+					class="terminal-btn terminal-btn-secondary"
+					:disabled="loadingStats"
+					title="Reload statistics"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -559,10 +854,10 @@ onMounted(() => {
 				</button>
 				<button
 					v-else
-					@click="loadStats"
+					@click="loadJobs"
 					class="terminal-btn terminal-btn-secondary"
-					:disabled="loadingStats"
-					title="Reload statistics"
+					:disabled="loadingJobs"
+					title="Reload jobs"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -582,6 +877,12 @@ onMounted(() => {
 
 		<!-- Tabs -->
 		<div class="terminal-horizon-tabs">
+				<button
+					@click="activeTab = 'manage'"
+					:class="['terminal-horizon-tab', { 'active': activeTab === 'manage' }]"
+				>
+					Manage
+				</button>
 				<button
 					@click="activeTab = 'stats'"
 					:class="['terminal-horizon-tab', { 'active': activeTab === 'stats' }]"
@@ -615,10 +916,270 @@ onMounted(() => {
 		</div>
 
 		<div class="terminal-horizon-content">
-			<!-- Main Content Area (Stats or Jobs) -->
-			<div class="terminal-horizon-main-content" :class="{ 'with-details': selectedJob }">
+			<!-- Main Content Area (Manage, Stats or Jobs) -->
+			<div class="terminal-horizon-main-content" :class="{ 'with-details': selectedJob && activeTab !== 'manage' && activeTab !== 'stats' }">
+				<!-- Management View -->
+				<div v-if="activeTab === 'manage'" class="terminal-horizon-manage">
+					<div v-if="loadingStatus || loadingSupervisors" class="terminal-horizon-loading">
+						<span class="spinner"></span>
+						Loading management data...
+					</div>
+
+					<div v-else class="terminal-horizon-manage-container">
+						<!-- Quick Stats Panel -->
+						<div class="terminal-horizon-quick-stats">
+							<div class="terminal-horizon-quick-stat-card" @click="activeTab = 'pending'" style="cursor: pointer;">
+								<div class="terminal-horizon-quick-stat-label">Pending Jobs</div>
+								<div class="terminal-horizon-quick-stat-value">{{ stats?.pendingJobs || 0 }}</div>
+							</div>
+							<div class="terminal-horizon-quick-stat-card" @click="activeTab = 'failed'" style="cursor: pointer;">
+								<div class="terminal-horizon-quick-stat-label">Failed Jobs</div>
+								<div class="terminal-horizon-quick-stat-value" style="color: var(--terminal-error);">{{ stats?.failedJobs || 0 }}</div>
+							</div>
+							<div class="terminal-horizon-quick-stat-card">
+								<div class="terminal-horizon-quick-stat-label">Active Workers</div>
+								<div class="terminal-horizon-quick-stat-value">{{ horizonStatus?.active_workers || 0 }}</div>
+							</div>
+							<div class="terminal-horizon-quick-stat-card">
+								<div class="terminal-horizon-quick-stat-label">Supervisors</div>
+								<div class="terminal-horizon-quick-stat-value">{{ supervisors.length }}</div>
+							</div>
+						</div>
+
+						<!-- Status Card -->
+						<div class="terminal-horizon-status-card-new">
+							<div class="terminal-horizon-status-card-header">
+								<h3 class="terminal-horizon-section-title">Horizon Status</h3>
+								<div class="terminal-horizon-status-actions">
+									<label class="terminal-horizon-auto-refresh-toggle">
+										<input type="checkbox" v-model="autoRefresh" @change="toggleAutoRefresh" />
+										<span>Auto-refresh</span>
+									</label>
+									<button
+										@click="loadStatus"
+										class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+										:disabled="loadingStatus"
+										title="Refresh status"
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+										</svg>
+									</button>
+								</div>
+							</div>
+							<div class="terminal-horizon-status-content" :style="{ backgroundColor: statusDisplay.bgColor, borderColor: statusDisplay.color }">
+								<div class="terminal-horizon-status-main">
+									<div class="terminal-horizon-status-indicator-new" :style="{ color: statusDisplay.color }">
+										<svg v-if="statusDisplay.icon === 'check-circle'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+										<svg v-else-if="statusDisplay.icon === 'pause-circle'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+										<svg v-else-if="statusDisplay.icon === 'x-circle'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+										<svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+									</div>
+									<div class="terminal-horizon-status-info">
+										<div class="terminal-horizon-status-label" :style="{ color: statusDisplay.color }">{{ statusDisplay.label }}</div>
+										<div v-if="horizonStatus?.active_workers !== undefined" class="terminal-horizon-status-detail">
+											{{ horizonStatus.active_workers }} active worker{{ horizonStatus.active_workers !== 1 ? 's' : '' }}
+										</div>
+										<div v-if="horizonStatus?.last_updated" class="terminal-horizon-status-detail">
+											Last updated: {{ formatLastUpdated(horizonStatus.last_updated) }}
+										</div>
+										<div v-if="horizonStatus?.error_message" class="terminal-horizon-status-error">
+											{{ horizonStatus.error_message }}
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Lifecycle Commands -->
+						<div class="terminal-horizon-command-group">
+							<h3 class="terminal-horizon-command-group-title">Lifecycle Commands</h3>
+							<p class="terminal-horizon-command-group-desc">Control Horizon's running state</p>
+							<div class="terminal-horizon-command-grid">
+								<button
+									@click="executeCommand('restart', 'Are you sure you want to restart Horizon? This will terminate all workers. You will need to restart Horizon using your process manager.')"
+									class="terminal-horizon-command-btn terminal-horizon-command-btn-primary"
+									:disabled="executingCommand"
+									title="Restart Horizon (terminate and restart via process manager)"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Restart</span>
+										<span class="terminal-horizon-command-btn-desc">Terminate and restart workers</span>
+									</div>
+									<span v-if="executingCommand === 'restart'" class="spinner spinner-sm"></span>
+								</button>
+								<button
+									@click="executeCommand('pause')"
+									class="terminal-horizon-command-btn"
+									:disabled="executingCommand || horizonStatus?.is_paused"
+									title="Pause all Horizon supervisors"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Pause</span>
+										<span class="terminal-horizon-command-btn-desc">Pause all supervisors</span>
+									</div>
+									<span v-if="executingCommand === 'pause'" class="spinner spinner-sm"></span>
+								</button>
+								<button
+									@click="executeCommand('continue')"
+									class="terminal-horizon-command-btn"
+									:disabled="executingCommand || horizonStatus?.is_running"
+									title="Continue paused supervisors"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Continue</span>
+										<span class="terminal-horizon-command-btn-desc">Resume paused supervisors</span>
+									</div>
+									<span v-if="executingCommand === 'continue'" class="spinner spinner-sm"></span>
+								</button>
+								<button
+									@click="executeCommand('terminate', 'Are you sure you want to terminate Horizon? This will gracefully stop all workers.')"
+									class="terminal-horizon-command-btn terminal-horizon-command-btn-danger"
+									:disabled="executingCommand"
+									title="Terminate Horizon processes"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Terminate</span>
+										<span class="terminal-horizon-command-btn-desc">Gracefully stop all workers</span>
+									</div>
+									<span v-if="executingCommand === 'terminate'" class="spinner spinner-sm"></span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Maintenance Commands -->
+						<div class="terminal-horizon-command-group">
+							<h3 class="terminal-horizon-command-group-title">Maintenance Commands</h3>
+							<p class="terminal-horizon-command-group-desc">Manage jobs and metrics</p>
+							<div class="terminal-horizon-command-grid">
+								<button
+									@click="executeCommand('clear', 'Are you sure you want to clear all failed jobs? This action cannot be undone.')"
+									class="terminal-horizon-command-btn terminal-horizon-command-btn-danger"
+									:disabled="executingCommand"
+									title="Clear all failed jobs"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Clear Failed Jobs</span>
+										<span class="terminal-horizon-command-btn-desc">Remove all failed jobs</span>
+									</div>
+									<span v-if="executingCommand === 'clear'" class="spinner spinner-sm"></span>
+								</button>
+								<button
+									@click="executeCommand('snapshot')"
+									class="terminal-horizon-command-btn"
+									:disabled="executingCommand"
+									title="Take a metrics snapshot"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+										<path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+									</svg>
+									<div class="terminal-horizon-command-btn-content">
+										<span class="terminal-horizon-command-btn-title">Snapshot</span>
+										<span class="terminal-horizon-command-btn-desc">Capture metrics snapshot</span>
+									</div>
+									<span v-if="executingCommand === 'snapshot'" class="spinner spinner-sm"></span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Supervisors Section -->
+						<div class="terminal-horizon-command-group">
+							<div class="terminal-horizon-section-header">
+								<div>
+									<h3 class="terminal-horizon-command-group-title">Active Supervisors</h3>
+									<p class="terminal-horizon-command-group-desc">Manage individual supervisors</p>
+								</div>
+								<button
+									@click="loadSupervisors"
+									class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+									:disabled="loadingSupervisors"
+									title="Refresh supervisors"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+									</svg>
+								</button>
+							</div>
+							<div v-if="supervisors.length === 0" class="terminal-horizon-empty">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 48px; height: 48px; opacity: 0.3; margin-bottom: 1rem;">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+								</svg>
+								<p>No active supervisors found.</p>
+								<p style="font-size: 0.875rem; color: var(--terminal-text-muted); margin-top: 0.5rem;">Start Horizon to see supervisors here.</p>
+							</div>
+							<div v-else class="terminal-horizon-supervisors-grid">
+								<div
+									v-for="(supervisor, index) in supervisors"
+									:key="index"
+									class="terminal-horizon-supervisor-card"
+								>
+									<div class="terminal-horizon-supervisor-card-header">
+										<div class="terminal-horizon-supervisor-name">{{ supervisor.name || 'Unknown' }}</div>
+										<div class="terminal-horizon-supervisor-status-badge" :class="`status-${supervisor.status || 'unknown'}`">
+											{{ (supervisor.status || 'unknown').toUpperCase() }}
+										</div>
+									</div>
+									<div class="terminal-horizon-supervisor-card-body">
+										<div v-if="supervisor.pid" class="terminal-horizon-supervisor-detail-row">
+											<span class="terminal-horizon-supervisor-label">Process ID:</span>
+											<span class="terminal-horizon-supervisor-value">{{ supervisor.pid }}</span>
+										</div>
+										<div v-if="supervisor.max_processes !== undefined" class="terminal-horizon-supervisor-detail-row">
+											<span class="terminal-horizon-supervisor-label">Max Processes:</span>
+											<span class="terminal-horizon-supervisor-value">{{ supervisor.max_processes }}</span>
+										</div>
+										<div v-if="supervisor.min_processes !== undefined" class="terminal-horizon-supervisor-detail-row">
+											<span class="terminal-horizon-supervisor-label">Min Processes:</span>
+											<span class="terminal-horizon-supervisor-value">{{ supervisor.min_processes }}</span>
+										</div>
+										<div v-if="supervisor.balance" class="terminal-horizon-supervisor-detail-row">
+											<span class="terminal-horizon-supervisor-label">Balance:</span>
+											<span class="terminal-horizon-supervisor-value">{{ supervisor.balance }}</span>
+										</div>
+										<div v-if="supervisor.queues && supervisor.queues.length > 0" class="terminal-horizon-supervisor-queues-section">
+											<span class="terminal-horizon-supervisor-label">Queues:</span>
+											<div class="terminal-horizon-supervisor-queues-list">
+												<span
+													v-for="(queue, qIndex) in supervisor.queues"
+													:key="qIndex"
+													class="terminal-horizon-queue-badge"
+												>{{ queue }}</span>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
 				<!-- Statistics View -->
-				<div v-if="activeTab === 'stats'" class="terminal-horizon-stats">
+				<div v-else-if="activeTab === 'stats'" class="terminal-horizon-stats">
 					<div v-if="loadingStats" class="terminal-horizon-loading">
 						<span class="spinner"></span>
 						Loading statistics...
@@ -902,7 +1463,7 @@ onMounted(() => {
 			</div>
 
 			<!-- Job Details View -->
-			<div v-if="selectedJob" class="terminal-horizon-job-details">
+			<div v-if="selectedJob && activeTab !== 'manage' && activeTab !== 'stats'" class="terminal-horizon-job-details">
 				<div class="terminal-horizon-job-details-header">
 					<h3>{{ getJobClassName(selectedJob) }}</h3>
 					<div class="terminal-horizon-job-details-actions">
@@ -1956,6 +2517,560 @@ onMounted(() => {
 	gap: 12px;
 	padding: 16px;
 	border-top: 1px solid var(--terminal-border);
+}
+
+/* Management View Styles */
+.terminal-horizon-manage {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px;
+	width: 100%;
+}
+
+.terminal-horizon-manage-container {
+	display: flex;
+	flex-direction: column;
+	gap: 32px;
+}
+
+.terminal-horizon-status-display {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.terminal-horizon-status-card {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 4px;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.terminal-horizon-status-indicator {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.terminal-horizon-status-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--terminal-text-muted);
+	transition: background-color 0.3s;
+}
+
+.terminal-horizon-status-indicator.status-running .terminal-horizon-status-dot {
+	background: var(--terminal-success);
+	box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
+}
+
+.terminal-horizon-status-indicator.status-paused .terminal-horizon-status-dot {
+	background: var(--terminal-warning);
+	box-shadow: 0 0 8px rgba(255, 152, 0, 0.5);
+}
+
+.terminal-horizon-status-indicator.status-inactive .terminal-horizon-status-dot {
+	background: var(--terminal-error);
+	box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+}
+
+.terminal-horizon-status-text {
+	color: var(--terminal-text);
+}
+
+.terminal-horizon-status-output {
+	background: var(--terminal-bg);
+	border: 1px solid var(--terminal-border);
+	border-radius: 4px;
+	padding: 12px;
+	font-size: 12px;
+	font-family: 'Courier New', monospace;
+	color: var(--terminal-text);
+	max-height: 200px;
+	overflow-y: auto;
+}
+
+.terminal-horizon-status-output pre {
+	margin: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.terminal-horizon-control-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.terminal-horizon-control-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+}
+
+.terminal-horizon-control-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 16px;
+	min-height: 100px;
+	position: relative;
+}
+
+.terminal-horizon-control-btn svg {
+	width: 24px;
+	height: 24px;
+}
+
+.terminal-horizon-control-btn-danger {
+	border-color: var(--terminal-error);
+}
+
+.terminal-horizon-control-btn-danger:hover:not(:disabled) {
+	background: rgba(244, 67, 54, 0.1);
+	border-color: var(--terminal-error);
+}
+
+.terminal-horizon-section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+.terminal-horizon-section-header .terminal-horizon-section-title {
+	margin-bottom: 0;
+	border-bottom: none;
+	padding-bottom: 0;
+}
+
+.terminal-horizon-supervisors-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.terminal-horizon-supervisor-item {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 4px;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.terminal-horizon-supervisor-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.terminal-horizon-supervisor-name {
+	font-weight: 600;
+	font-size: 16px;
+	color: var(--terminal-text);
+}
+
+.terminal-horizon-supervisor-status {
+	padding: 4px 12px;
+	border-radius: 3px;
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.terminal-horizon-supervisor-status.status-running {
+	background: rgba(76, 175, 80, 0.2);
+	color: var(--terminal-success);
+}
+
+.terminal-horizon-supervisor-status.status-paused {
+	background: rgba(255, 152, 0, 0.2);
+	color: var(--terminal-warning);
+}
+
+.terminal-horizon-supervisor-status.status-unknown {
+	background: rgba(158, 158, 158, 0.2);
+	color: var(--terminal-text-muted);
+}
+
+.terminal-horizon-supervisor-details {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+	font-size: 13px;
+}
+
+.terminal-horizon-supervisor-detail {
+	display: flex;
+	gap: 8px;
+}
+
+.terminal-horizon-supervisor-label {
+	color: var(--terminal-text-muted);
+	font-weight: 600;
+}
+
+.terminal-horizon-supervisor-value {
+	color: var(--terminal-text);
+	font-family: 'Courier New', monospace;
+}
+
+.terminal-horizon-supervisor-queues {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--terminal-border);
+}
+
+.terminal-horizon-supervisor-queues-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+/* New Refactored Management UI Styles */
+.terminal-horizon-quick-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.terminal-horizon-quick-stat-card {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 8px;
+	padding: 16px;
+	transition: all 0.2s ease;
+}
+
+.terminal-horizon-quick-stat-card:hover {
+	border-color: var(--terminal-primary);
+	background: var(--terminal-bg-tertiary);
+}
+
+.terminal-horizon-quick-stat-label {
+	font-size: 12px;
+	color: var(--terminal-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 8px;
+	font-weight: 600;
+}
+
+.terminal-horizon-quick-stat-value {
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--terminal-text);
+}
+
+.terminal-horizon-status-card-new {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 8px;
+	margin-bottom: 24px;
+	overflow: hidden;
+}
+
+.terminal-horizon-status-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px;
+	border-bottom: 1px solid var(--terminal-border);
+}
+
+.terminal-horizon-status-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.terminal-horizon-auto-refresh-toggle {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--terminal-text);
+	cursor: pointer;
+}
+
+.terminal-horizon-auto-refresh-toggle input[type="checkbox"] {
+	cursor: pointer;
+}
+
+.terminal-horizon-status-content {
+	padding: 20px;
+	border-left: 4px solid;
+	transition: all 0.3s ease;
+}
+
+.terminal-horizon-status-main {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.terminal-horizon-status-indicator-new {
+	flex-shrink: 0;
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.terminal-horizon-status-indicator-new svg {
+	width: 48px;
+	height: 48px;
+}
+
+.terminal-horizon-status-info {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.terminal-horizon-status-label {
+	font-size: 20px;
+	font-weight: 700;
+	margin-bottom: 4px;
+}
+
+.terminal-horizon-status-detail {
+	font-size: 13px;
+	color: var(--terminal-text-secondary);
+}
+
+.terminal-horizon-status-error {
+	font-size: 13px;
+	color: var(--terminal-error);
+	margin-top: 8px;
+	padding: 8px;
+	background: rgba(244, 67, 54, 0.1);
+	border-radius: 4px;
+	border-left: 3px solid var(--terminal-error);
+}
+
+.terminal-horizon-command-group {
+	margin-bottom: 32px;
+}
+
+.terminal-horizon-command-group-title {
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--terminal-text);
+	margin: 0 0 4px 0;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--terminal-border);
+}
+
+.terminal-horizon-command-group-desc {
+	font-size: 13px;
+	color: var(--terminal-text-muted);
+	margin: 0 0 16px 0;
+}
+
+.terminal-horizon-command-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+}
+
+.terminal-horizon-command-btn {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 8px;
+	padding: 16px;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-align: left;
+	position: relative;
+}
+
+.terminal-horizon-command-btn:hover:not(:disabled) {
+	border-color: var(--terminal-primary);
+	background: var(--terminal-bg-tertiary);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.terminal-horizon-command-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.terminal-horizon-command-btn svg {
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: var(--terminal-text);
+}
+
+.terminal-horizon-command-btn-primary {
+	border-color: var(--terminal-primary);
+	background: rgba(14, 99, 156, 0.1);
+}
+
+.terminal-horizon-command-btn-primary:hover:not(:disabled) {
+	background: rgba(14, 99, 156, 0.2);
+	border-color: var(--terminal-primary-hover);
+}
+
+.terminal-horizon-command-btn-danger {
+	border-color: var(--terminal-error);
+}
+
+.terminal-horizon-command-btn-danger:hover:not(:disabled) {
+	background: rgba(244, 67, 54, 0.1);
+	border-color: var(--terminal-error);
+}
+
+.terminal-horizon-command-btn-content {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.terminal-horizon-command-btn-title {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--terminal-text);
+	display: block;
+}
+
+.terminal-horizon-command-btn-desc {
+	font-size: 12px;
+	color: var(--terminal-text-muted);
+	display: block;
+	line-height: 1.4;
+}
+
+.terminal-horizon-supervisors-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 16px;
+}
+
+.terminal-horizon-supervisor-card {
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 8px;
+	overflow: hidden;
+	transition: all 0.2s ease;
+}
+
+.terminal-horizon-supervisor-card:hover {
+	border-color: var(--terminal-primary);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.terminal-horizon-supervisor-card-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--terminal-border);
+	background: var(--terminal-bg-tertiary);
+}
+
+.terminal-horizon-supervisor-status-badge {
+	padding: 4px 10px;
+	border-radius: 12px;
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.terminal-horizon-supervisor-status-badge.status-running {
+	background: rgba(76, 175, 80, 0.2);
+	color: var(--terminal-success);
+}
+
+.terminal-horizon-supervisor-status-badge.status-paused {
+	background: rgba(255, 152, 0, 0.2);
+	color: var(--terminal-warning);
+}
+
+.terminal-horizon-supervisor-status-badge.status-unknown {
+	background: rgba(158, 158, 158, 0.2);
+	color: var(--terminal-text-muted);
+}
+
+.terminal-horizon-supervisor-card-body {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.terminal-horizon-supervisor-detail-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-size: 13px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--terminal-border);
+}
+
+.terminal-horizon-supervisor-detail-row:last-child {
+	border-bottom: none;
+}
+
+.terminal-horizon-supervisor-detail-row .terminal-horizon-supervisor-label {
+	font-weight: 600;
+}
+
+.terminal-horizon-supervisor-detail-row .terminal-horizon-supervisor-value {
+	color: var(--terminal-text);
+	font-weight: 500;
+}
+
+.terminal-horizon-supervisor-queues-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--terminal-border);
+}
+
+.terminal-horizon-queue-badge {
+	display: inline-block;
+	padding: 4px 10px;
+	background: var(--terminal-bg-tertiary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 12px;
+	font-size: 11px;
+	color: var(--terminal-text);
+	font-weight: 500;
+}
+
+.spinner-sm {
+	width: 12px;
+	height: 12px;
+	border-width: 1.5px;
 }
 </style>
 

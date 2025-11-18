@@ -43,6 +43,17 @@ Route::middleware('web')->group(function () {
                 Route::delete('/jobs/{id}', [TerminalController::class, 'deleteHorizonJob']);
                 Route::post('/jobs/{id}/execute', [TerminalController::class, 'executeHorizonJob']);
                 Route::post('/jobs/create', [TerminalController::class, 'createHorizonJob']);
+                // Horizon management commands
+                Route::post('/pause', [TerminalController::class, 'pauseHorizon']);
+                Route::post('/continue', [TerminalController::class, 'continueHorizon']);
+                Route::post('/terminate', [TerminalController::class, 'terminateHorizon']);
+                Route::post('/restart', [TerminalController::class, 'restartHorizon']);
+                Route::post('/clear', [TerminalController::class, 'clearHorizon']);
+                Route::post('/snapshot', [TerminalController::class, 'snapshotHorizon']);
+                Route::get('/status', [TerminalController::class, 'getHorizonStatus']);
+                Route::get('/supervisors', [TerminalController::class, 'getHorizonSupervisors']);
+                Route::get('/config', [TerminalController::class, 'getHorizonConfig']);
+                Route::get('/system-info', [TerminalController::class, 'getHorizonSystemInfo']);
             });
             
             // Log routes
