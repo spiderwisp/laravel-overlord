@@ -256,16 +256,30 @@ class ScanDatabaseJob implements ShouldQueue
 			]);
 
 		} catch (\Exception $e) {
+			$errorMessage = $e->getMessage();
+			
+			// Check if this is a rate limit error - preserve the original error message
+			$isRateLimit = stripos($errorMessage, 'RATE_LIMIT_EXCEEDED') !== false ||
+				stripos($errorMessage, AiErrorCode::RATE_LIMIT_EXCEEDED->value) !== false ||
+				stripos($errorMessage, AiErrorCode::QUOTA_EXCEEDED->value) !== false ||
+				stripos($errorMessage, 'rate limit') !== false ||
+				stripos($errorMessage, 'quota exceeded') !== false;
+			
+			if ($isRateLimit) {
+				$cleanError = str_replace('RATE_LIMIT_EXCEEDED: ', '', $errorMessage);
+				$errorMessage = $cleanError;
+			}
+			
 			$this->updateScanState([
 				'status' => 'failed',
-				'error' => $e->getMessage(),
+				'error' => $errorMessage,
 				'failed_at' => now()->toIso8601String(),
 			]);
 
 			// Update scan history
 			$this->updateScanHistory([
 				'status' => 'failed',
-				'error' => $e->getMessage(),
+				'error' => $errorMessage,
 				'completed_at' => now(),
 			]);
 		}
