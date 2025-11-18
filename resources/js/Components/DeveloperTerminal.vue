@@ -1221,33 +1221,58 @@ async function handleStartScan(config) {
 			mode: config.mode,
 			paths: config.paths || [],
 		});
-		if (response.data && response.data.success) {
-			activeScanId.value = response.data.result.scan_id;
-			
-			// Start polling immediately
-			startScanPolling();
-			
-			// Request notification permission
-			if ('Notification' in window && Notification.permission === 'default') {
-				Notification.requestPermission();
+		
+		// Add logging to debug production issue
+		console.log('Codebase scan start response:', response.data);
+		
+		// Check if we have a scan_id even if success is missing
+		const scanId = response.data?.result?.scan_id || response.data?.scan_id;
+		if (response.data && (response.data.success || scanId)) {
+			if (scanId) {
+				activeScanId.value = scanId;
+				
+				// Start polling immediately
+				startScanPolling();
+				
+				// Request notification permission
+				if ('Notification' in window && Notification.permission === 'default') {
+					Notification.requestPermission();
+				}
+				return; // Exit early on success
 			}
-		} else {
-			Swal.fire({
-				icon: 'error',
-				title: 'Failed to start scan',
-				text: response.data.error || 'Unknown error',
-				toast: true,
-				position: 'top-end',
-				showConfirmButton: false,
-				timer: 3000,
-			});
 		}
-	} catch (error) {
-		console.error('Failed to start scan:', error);
+		
+		// Only show error if we truly don't have a scan_id
+		const errorCode = response.data?.code;
+		let errorMessage = response.data?.error || 'Unknown error';
+		
+		if (errorCode === 'QUOTA_EXCEEDED') {
+			errorMessage = response.data.error || 'Unknown error';
+		}
+		
 		Swal.fire({
 			icon: 'error',
 			title: 'Failed to start scan',
-			text: error.response?.data?.error || 'Unknown error',
+			text: errorMessage,
+			toast: true,
+			position: 'top-end',
+			showConfirmButton: false,
+			timer: 3000,
+		});
+	} catch (error) {
+		console.error('Failed to start scan:', error);
+		// Check for QUOTA_EXCEEDED code and use error message from response
+		const errorCode = error.response?.data?.code;
+		let errorMessage = error.response?.data?.error || 'Unknown error';
+		
+		if (errorCode === 'QUOTA_EXCEEDED') {
+			errorMessage = error.response?.data?.error || 'Unknown error';
+		}
+		
+		Swal.fire({
+			icon: 'error',
+			title: 'Failed to start scan',
+			text: errorMessage,
 			toast: true,
 			position: 'top-end',
 			showConfirmButton: false,
@@ -1442,33 +1467,58 @@ async function handleStartDatabaseScan(config) {
 			tables: config.tables || [],
 			sample_size: config.sample_size || 100,
 		});
-		if (response.data && response.data.success) {
-			activeDatabaseScanId.value = response.data.result.scan_id;
-			
-			// Start polling immediately
-			startDatabaseScanPolling();
-			
-			// Request notification permission
-			if ('Notification' in window && Notification.permission === 'default') {
-				Notification.requestPermission();
+		
+		// Add logging to debug production issue
+		console.log('Database scan start response:', response.data);
+		
+		// Check if we have a scan_id even if success is missing
+		const scanId = response.data?.result?.scan_id || response.data?.scan_id;
+		if (response.data && (response.data.success || scanId)) {
+			if (scanId) {
+				activeDatabaseScanId.value = scanId;
+				
+				// Start polling immediately
+				startDatabaseScanPolling();
+				
+				// Request notification permission
+				if ('Notification' in window && Notification.permission === 'default') {
+					Notification.requestPermission();
+				}
+				return; // Exit early on success
 			}
-		} else {
-			Swal.fire({
-				icon: 'error',
-				title: 'Failed to start database scan',
-				text: response.data.error || 'Unknown error',
-				toast: true,
-				position: 'top-end',
-				showConfirmButton: false,
-				timer: 3000,
-			});
 		}
-	} catch (error) {
-		console.error('Failed to start database scan:', error);
+		
+		// Only show error if we truly don't have a scan_id
+		const errorCode = response.data?.code;
+		let errorMessage = response.data?.error || 'Unknown error';
+		
+		if (errorCode === 'QUOTA_EXCEEDED') {
+			errorMessage = response.data.error || 'Unknown error';
+		}
+		
 		Swal.fire({
 			icon: 'error',
 			title: 'Failed to start database scan',
-			text: error.response?.data?.error || 'Unknown error',
+			text: errorMessage,
+			toast: true,
+			position: 'top-end',
+			showConfirmButton: false,
+			timer: 3000,
+		});
+	} catch (error) {
+		console.error('Failed to start database scan:', error);
+		// Check for QUOTA_EXCEEDED code and use error message from response
+		const errorCode = error.response?.data?.code;
+		let errorMessage = error.response?.data?.error || 'Unknown error';
+		
+		if (errorCode === 'QUOTA_EXCEEDED') {
+			errorMessage = error.response?.data?.error || 'Unknown error';
+		}
+		
+		Swal.fire({
+			icon: 'error',
+			title: 'Failed to start database scan',
+			text: errorMessage,
 			toast: true,
 			position: 'top-end',
 			showConfirmButton: false,
