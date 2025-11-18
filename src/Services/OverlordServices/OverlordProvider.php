@@ -201,8 +201,14 @@ class OverlordProvider implements LLMProviderInterface
 						'request_payload_size' => $payloadSize,
 					]);
 
-					$errorMessage = $data['error'] ?? $data['message'] ?? $data['error_message'] ?? $data['detail'] ?? 'Unknown error';
 					$errorCode = $data['code'] ?? 'API_ERROR';
+					
+					// For QUOTA_EXCEEDED, ensure we preserve the error message from API
+					if ($errorCode === 'QUOTA_EXCEEDED' || $errorCode === AiErrorCode::QUOTA_EXCEEDED->value) {
+						$errorMessage = $data['error'] ?? $data['message'] ?? $data['error_message'] ?? $data['detail'] ?? 'Monthly quota exceeded. Please upgrade at laravel-overlord.com to continue.';
+					} else {
+						$errorMessage = $data['error'] ?? $data['message'] ?? $data['error_message'] ?? $data['detail'] ?? 'Unknown error';
+					}
 
 					if (!$hasSuccessField) {
 						Log::warning('OverlordProvider: API response missing success field, treating as error', [
@@ -235,10 +241,19 @@ class OverlordProvider implements LLMProviderInterface
 
 			// Handle API errors (non-200 status codes)
 			$errorData = $response->json();
-			$errorMessage = $errorData['error'] ?? $errorData['message'] ?? $errorData['error_message'] ?? $errorData['detail'] ?? 'Unknown error';
 			$statusCode = $response->status();
 			$responseBody = $response->body();
 			$responseHeaders = $response->headers();
+
+			// Map common error codes
+			$errorCode = $errorData['code'] ?? 'API_ERROR';
+
+			// For QUOTA_EXCEEDED, ensure we preserve the error message from API
+			if ($errorCode === 'QUOTA_EXCEEDED' || $errorCode === AiErrorCode::QUOTA_EXCEEDED->value) {
+				$errorMessage = $errorData['error'] ?? $errorData['message'] ?? $errorData['error_message'] ?? $errorData['detail'] ?? 'Monthly quota exceeded. Please upgrade at laravel-overlord.com to continue.';
+			} else {
+				$errorMessage = $errorData['error'] ?? $errorData['message'] ?? $errorData['error_message'] ?? $errorData['detail'] ?? 'Unknown error';
+			}
 
 			Log::error('OverlordProvider: API HTTP error', [
 				'status_code' => $statusCode,
@@ -250,9 +265,6 @@ class OverlordProvider implements LLMProviderInterface
 				'request_endpoint' => $endpoint,
 				'request_payload_size' => $payloadSize ?? 0,
 			]);
-
-			// Map common error codes
-			$errorCode = $errorData['code'] ?? 'API_ERROR';
 
 			// Check if error code matches Enum values - if so, pass through error message as-is
 			$recognizedCodes = [
