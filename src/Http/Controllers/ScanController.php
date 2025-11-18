@@ -218,9 +218,26 @@ class ScanController extends Controller
 						'trace' => $e->getTraceAsString(),
 					]);
 
+					$errorMessage = $e->getMessage();
+					
+					// Check if this is a rate limit error - preserve the original error message
+					$isRateLimit = stripos($errorMessage, 'RATE_LIMIT_EXCEEDED') !== false ||
+						stripos($errorMessage, 'QUOTA_EXCEEDED') !== false ||
+						stripos($errorMessage, 'rate limit') !== false ||
+						stripos($errorMessage, 'quota exceeded') !== false;
+					
+					if ($isRateLimit) {
+						// Remove the RATE_LIMIT_EXCEEDED prefix if present, keep the actual error message
+						$cleanError = str_replace('RATE_LIMIT_EXCEEDED: ', '', $errorMessage);
+						$errorMessage = $cleanError;
+					} else {
+						// Only use generic message for non-rate-limit errors
+						$errorMessage = 'Job execution failed: ' . $e->getMessage();
+					}
+
 					Cache::put("overlord_scan_{$scanId}", [
 						'status' => 'failed',
-						'error' => 'Job execution failed: ' . $e->getMessage(),
+						'error' => $errorMessage,
 					], now()->addHours(2));
 				}
 			} else {
