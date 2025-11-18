@@ -289,6 +289,7 @@ class DatabaseScanController extends Controller
 					'completed_at' => $scanHistory->completed_at?->toIso8601String(),
 					'total_issues_found' => $scanHistory->total_issues_found ?? 0,
 					'issues_saved' => $scanHistory->issues_saved ?? 0,
+					'error' => $scanHistory->error,
 				];
 
 				// Re-cache for faster future access
