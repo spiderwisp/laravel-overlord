@@ -515,6 +515,7 @@ Add new tabs to `DeveloperTerminal.vue`:
 - Search and filtering on all list views
 - Keyboard shortcuts for common actions
 - Clear visual feedback for operations
+- **Cross-Referencing and Drill-Down Navigation** - All features must support clickable cross-references to related objects, allowing seamless navigation between different explorer views
 
 ### Code Organization
 - Follow existing patterns strictly
@@ -562,6 +563,109 @@ Add new tabs to `DeveloperTerminal.vue`:
 - Add help text in terminal
 - Create feature-specific guides
 
+## Cross-Reference System (Universal Requirement)
+
+### Overview
+**All features must implement cross-referencing and drill-down navigation.** When viewing any object, related objects should be clickable links that open the appropriate explorer tab with that object selected and highlighted.
+
+### Implementation Requirements
+
+**1. Unified Cross-Reference Component**
+- Create `TerminalCrossReference.vue` reusable component
+- Displays clickable references with type-specific icons
+- Supports multiple reference types (controller, middleware, model, service, trait, provider, etc.)
+- Visual indicators (badges, links, hover states)
+- Consistent styling across all features
+
+**2. Navigation System**
+- Extend `openTab()` in `DeveloperTerminal.vue` to accept options: `openTab(tabId, { itemId, highlight, filter })`
+- Add `handleNavigateToReference(type, identifier)` method
+- Support navigation history for back/forward navigation
+- Components accept `initialItem` prop for deep linking
+- Child components emit `navigate-to` events
+
+**3. Backend Cross-Reference Data**
+- All discovery services must return `cross_references` metadata
+- Include related objects with type, identifier, and label
+- Extract relationships during discovery (e.g., route → controller, controller → models)
+
+**4. Cross-Reference Examples**
+
+**Routes Explorer:**
+- Controller names → Opens Controllers tab with controller selected
+- Middleware names → Opens Middleware tab with middleware selected
+- Model names (from bindings) → Opens Models diagram with model selected
+- Service names (from controller) → Opens Services tab with service selected
+
+**Controllers Explorer:**
+- Routes using controller → Opens Routes tab filtered to those routes
+- Models used → Opens Models diagram with models selected
+- Services injected → Opens Services tab with services selected
+- Traits used → Opens Traits tab with traits selected
+
+**Middleware Explorer:**
+- Routes using middleware → Opens Routes tab filtered to those routes
+- Controllers using middleware → Opens Controllers tab filtered
+
+**Services Explorer:**
+- Controllers using service → Opens Controllers tab filtered
+- Other services (dependencies) → Opens Services tab with dependency selected
+- Models used → Opens Models diagram
+
+**Traits Explorer:**
+- Classes using trait → Opens Classes tab filtered to those classes
+- Controllers using trait → Opens Controllers tab filtered
+
+**Events/Listeners Explorer:**
+- Listeners for event → Opens Listeners view
+- Events for listener → Opens Events view
+- Classes dispatching event → Opens Classes tab
+
+**And so on for all features...**
+
+### Cross-Reference Data Structure
+
+```php
+'cross_references' => [
+    'controller' => [
+        'class' => 'App\Http\Controllers\UserController',
+        'method' => 'show',
+        'full_name' => 'App\Http\Controllers\UserController@show'
+    ],
+    'middleware' => [
+        ['name' => 'auth', 'type' => 'middleware'],
+        ['name' => 'api', 'type' => 'middleware']
+    ],
+    'models' => [
+        ['name' => 'User', 'full_name' => 'App\Models\User', 'detected_from' => 'parameter']
+    ],
+    'services' => [
+        ['name' => 'UserService', 'full_name' => 'App\Services\UserService']
+    ],
+    'traits' => [],
+    'routes' => [],
+    // ... other reference types
+]
+```
+
+### Frontend Cross-Reference Component
+
+```javascript
+// TerminalCrossReference.vue usage
+<CrossReference 
+    :references="route.cross_references.controller"
+    type="controller"
+    @navigate="handleNavigate"
+/>
+
+// Emits navigate event:
+emit('navigate', {
+    type: 'controller',
+    identifier: 'App\\Http\\Controllers\\UserController',
+    method: 'show' // optional
+})
+```
+
 ## Future Enhancements
 
 After initial implementation, consider:
@@ -572,6 +676,8 @@ After initial implementation, consider:
 - Bulk operations
 - Custom views/filters
 - Integration with AI assistant
+- Breadcrumb navigation trail
+- Navigation history (back/forward buttons)
 
 ## Notes
 

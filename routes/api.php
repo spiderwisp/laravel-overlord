@@ -149,5 +149,13 @@ Route::middleware('web')->group(function () {
                 Route::post('/generate', [MigrationController::class, 'generate']);
                 Route::post('/create', [MigrationController::class, 'create']);
             });
+            
+            // Routes explorer
+            Route::prefix('routes')->group(function () {
+                Route::get('/', [TerminalController::class, 'getRoutes']);
+                Route::get('/{identifier}', [TerminalController::class, 'getRouteDetails']);
+                Route::post('/generate-url', [TerminalController::class, 'generateRouteUrl']);
+                Route::post('/test', [TerminalController::class, 'testRoute']);
+            });
         });
 });

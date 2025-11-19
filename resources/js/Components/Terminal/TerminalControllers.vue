@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import axios from 'axios';
 import { useOverlordApi } from '../useOverlordApi';
 
@@ -10,6 +10,10 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	initialController: {
+		type: String,
+		default: null,
+	},
 });
 
 const emit = defineEmits(['close']);
@@ -19,6 +23,17 @@ const controllers = ref([]);
 const searchQuery = ref('');
 const expandedControllers = ref(new Set());
 const selectedController = ref(null);
+
+// Safely get initial controller from window options
+const getInitialController = computed(() => {
+	if (props.initialController) {
+		return props.initialController;
+	}
+	if (typeof window !== 'undefined' && window.overlordTabOptions?.controllers?.itemId) {
+		return window.overlordTabOptions.controllers.itemId;
+	}
+	return null;
+});
 
 // Load controllers
 async function loadControllers() {
@@ -49,6 +64,24 @@ function toggleController(controllerName) {
 // Select controller
 function selectController(controller) {
 	selectedController.value = controller;
+	// Expand the namespace group if needed
+	if (controller.namespace) {
+		expandedControllers.value.add(controller.namespace);
+	}
+	// Scroll to the selected controller after a brief delay
+	nextTick(() => {
+		setTimeout(() => {
+			const element = document.querySelector(`[data-controller-fullname="${controller.fullName}"]`);
+			if (element) {
+				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				// Add a highlight effect
+				element.classList.add('highlighted');
+				setTimeout(() => {
+					element.classList.remove('highlighted');
+				}, 2000);
+			}
+		}, 100);
+	});
 }
 
 // Filter controllers
@@ -80,11 +113,70 @@ const groupedControllers = computed(() => {
 });
 
 // Watch for visibility changes
-watch(() => props.visible, (newValue) => {
-	if (newValue && controllers.value.length === 0) {
-		loadControllers();
+watch(() => props.visible, async (newValue) => {
+	if (newValue) {
+		if (controllers.value.length === 0) {
+			await loadControllers();
+		}
+		// After loading or if already loaded, check for initial controller
+		await nextTick();
+		// Check window options directly
+		const controllerId = typeof window !== 'undefined' && window.overlordTabOptions?.controllers?.itemId;
+		if (controllerId && controllers.value.length > 0) {
+			// Small delay to ensure DOM is ready
+			setTimeout(() => {
+				selectControllerById(controllerId);
+			}, 300);
+		}
 	}
 });
+
+// Watch for initial controller changes (from window options)
+watch(() => {
+	if (typeof window !== 'undefined' && window.overlordTabOptions?.controllers?.itemId) {
+		return window.overlordTabOptions.controllers.itemId;
+	}
+	return null;
+}, (newValue) => {
+	if (newValue && controllers.value.length > 0 && props.visible) {
+		setTimeout(() => {
+			selectControllerById(newValue);
+		}, 300);
+	}
+}, { immediate: false });
+
+// Select controller by ID (fullName, name, or class name)
+function selectControllerById(controllerId) {
+	if (!controllerId) return;
+	
+	// Try multiple matching strategies
+	const controller = controllers.value.find(c => {
+		// Exact match on fullName
+		if (c.fullName === controllerId) return true;
+		
+		// Exact match on name
+		if (c.name === controllerId) return true;
+		
+		// Match if fullName ends with the identifier (handles namespaced classes)
+		if (c.fullName.endsWith('\\' + controllerId)) return true;
+		
+		// Match if identifier is the class name (last part of fullName)
+		const className = c.fullName.split('\\').pop();
+		if (className === controllerId || controllerId.endsWith('\\' + className)) return true;
+		
+		// Match if identifier contains the fullName
+		if (controllerId.includes(c.fullName)) return true;
+		
+		// Match if fullName contains the identifier (for partial matches)
+		if (c.fullName.includes(controllerId)) return true;
+		
+		return false;
+	});
+	
+	if (controller) {
+		selectController(controller);
+	}
+}
 
 onMounted(() => {
 	if (props.visible) {
@@ -159,6 +251,7 @@ onMounted(() => {
 							<div
 								v-for="controller in groupControllers"
 								:key="controller.fullName"
+								:data-controller-fullname="controller.fullName"
 								class="terminal-controllers-item"
 								:class="{ 'active': selectedController?.fullName === controller.fullName }"
 								@click="selectController(controller)"
@@ -416,6 +509,27 @@ onMounted(() => {
 
 .terminal-controllers-item.active {
 	background: var(--terminal-bg-tertiary);
+}
+
+.terminal-controllers-item.highlighted {
+	background: var(--terminal-primary);
+	color: var(--terminal-bg);
+	animation: highlight-pulse 0.5s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+	0% {
+		background: var(--terminal-primary);
+		transform: scale(1);
+	}
+	50% {
+		background: var(--terminal-primary-hover);
+		transform: scale(1.02);
+	}
+	100% {
+		background: var(--terminal-primary);
+		transform: scale(1);
+	}
 }
 
 .terminal-controllers-item-header {

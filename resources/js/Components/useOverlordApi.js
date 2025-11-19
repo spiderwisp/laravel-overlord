@@ -185,6 +185,16 @@ export function useOverlordApi() {
             previewRollback: () => `${cleanBaseUrl}/migrations/preview-rollback`,
             generate: () => `${cleanBaseUrl}/migrations/generate`,
             create: () => `${cleanBaseUrl}/migrations/create`,
+        },
+        // Routes endpoints
+        routes: {
+            list: (params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/routes${queryString ? '?' + queryString : ''}`;
+            },
+            details: (identifier) => `${cleanBaseUrl}/routes/${encodeURIComponent(identifier)}`,
+            generateUrl: () => `${cleanBaseUrl}/routes/generate-url`,
+            test: () => `${cleanBaseUrl}/routes/test`,
         }
     };
 }

@@ -8,7 +8,8 @@
 		"watch-poll": "node node_modules/laravel-mix/bin/cli.js watch -- --watch-options-poll=1000",
 		"hot": "node node_modules/laravel-mix/bin/cli.js watch --hot",
 		"prod": "npm run production",
-		"production": "node node_modules/laravel-mix/bin/cli.js --production"
+		"production": "node node_modules/laravel-mix/bin/cli.js --production",
+		"watch-dev": "NODE_ENV=development node node_modules/laravel-mix/bin/cli.js watch"
 	},
 	"dependencies": {
 		"highlight.js": "^11.11.1",

@@ -25,6 +25,7 @@ import TerminalDatabaseScanHistory from './Terminal/TerminalDatabaseScanHistory.
 import TerminalDatabase from './Terminal/TerminalDatabase.vue';
 import TerminalThemeToggle from './Terminal/TerminalThemeToggle.vue';
 import TerminalSettings from './Terminal/TerminalSettings.vue';
+import TerminalRoutes from './Terminal/TerminalRoutes.vue';
 import { useTerminalTheme, initThemeRoot } from './useTerminalTheme.js';
 import { useTerminalFont, initFontRoot } from './useTerminalFont.js';
 
@@ -90,6 +91,7 @@ const tabConfigs = {
 	'favorites': { id: 'favorites', label: 'Favorites', closable: true },
 	'ai': { id: 'ai', label: 'AI', closable: true },
 	'model-diagram': { id: 'model-diagram', label: 'Models', closable: true },
+	'routes': { id: 'routes', label: 'Routes', closable: true },
 	'scan-config': { id: 'scan-config', label: 'Scan Configuration', closable: true },
 	'scan-results': { id: 'scan-results', label: 'Scan Results', closable: true },
 	'scan-history': { id: 'scan-history', label: 'Scan History', closable: true },
@@ -676,7 +678,7 @@ function isTabActive(tabId) {
 	return activeTab.value === tabId;
 }
 
-function openTab(tabId) {
+function openTab(tabId, options = {}) {
 	if (!tabConfigs[tabId]) return;
 	
 	// If tab is not open, add it
@@ -686,6 +688,18 @@ function openTab(tabId) {
 	
 	// Make it active
 	activeTab.value = tabId;
+	
+	// Store options for component to use (e.g., initialItem)
+	if (options.itemId || options.highlight || options.filter) {
+		// Store in a way components can access
+		// Components can watch activeTab and check for stored options
+		if (typeof window !== 'undefined') {
+			if (!window.overlordTabOptions) {
+				window.overlordTabOptions = {};
+			}
+			window.overlordTabOptions[tabId] = options;
+		}
+	}
 }
 
 function closeTab(tabId) {
@@ -714,6 +728,33 @@ function closeOtherTabs(tabId) {
 	if (activeTab.value !== tabId && activeTab.value !== 'terminal') {
 		activeTab.value = tabId;
 	}
+}
+
+// Handle navigation to reference (cross-reference system)
+function handleNavigateToReference(navData) {
+	if (!navData || !navData.type) return;
+	
+	const typeMap = {
+		'controller': 'controllers',
+		'middleware': 'middleware', // Future feature
+		'model': 'model-diagram',
+		'service': 'services', // Future feature
+		'trait': 'traits', // Future feature
+		'route': 'routes',
+	};
+	
+	const targetTab = typeMap[navData.type];
+	if (!targetTab || !tabConfigs[targetTab]) {
+		console.warn('Unknown navigation type:', navData.type);
+		return;
+	}
+	
+	// Open tab with item identifier
+	openTab(targetTab, {
+		itemId: navData.identifier,
+		highlight: true,
+		method: navData.method,
+	});
 }
 
 async function handleTabContextMenu(event, tabId) {
@@ -1022,6 +1063,14 @@ function toggleControllers() {
 		closeTab('controllers');
 	} else {
 		ensureTabOpen('controllers');
+	}
+}
+
+function toggleRoutes() {
+	if (isTabActive('routes')) {
+		closeTab('routes');
+	} else {
+		ensureTabOpen('routes');
 	}
 }
 
@@ -2140,6 +2189,17 @@ onUnmounted(() => {
 									<span v-if="!sidebarCollapsed">Controllers</span>
 								</button>
 								<button
+									@click="toggleRoutes"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('routes') }"
+									:title="sidebarCollapsed ? 'Routes' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Routes</span>
+								</button>
+								<button
 									@click="toggleClasses"
 									class="terminal-nav-item"
 									:class="{ 'active': isTabActive('classes') }"
@@ -2473,6 +2533,14 @@ onUnmounted(() => {
 					<TerminalControllers
 						:visible="isTabActive('controllers')"
 						@close="closeTab('controllers')"
+						@navigate-to="handleNavigateToReference"
+					/>
+
+					<!-- Routes View -->
+					<TerminalRoutes
+						:visible="isTabActive('routes')"
+						@close="closeTab('routes')"
+						@navigate-to="handleNavigateToReference"
 					/>
 
 					<!-- Classes View -->

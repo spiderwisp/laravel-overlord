@@ -17,6 +17,7 @@ use Spiderwisp\LaravelOverlord\Models\OverlordCommandLog;
 use Spiderwisp\LaravelOverlord\Services\ModelDiscovery;
 use Spiderwisp\LaravelOverlord\Services\ControllerDiscovery;
 use Spiderwisp\LaravelOverlord\Services\ClassDiscovery;
+use Spiderwisp\LaravelOverlord\Services\RouteDiscovery;
 use Spiderwisp\LaravelOverlord\Services\SensitiveDataRedactor;
 
 class TerminalController extends Controller
@@ -24,6 +25,7 @@ class TerminalController extends Controller
 	protected $modelDiscovery;
 	protected $controllerDiscovery;
 	protected $classDiscovery;
+	protected $routeDiscovery;
 
 	public function __construct()
 	{
@@ -31,6 +33,7 @@ class TerminalController extends Controller
 		$this->modelDiscovery = null;
 		$this->controllerDiscovery = null;
 		$this->classDiscovery = null;
+		$this->routeDiscovery = null;
 	}
 
 	/**
@@ -64,6 +67,17 @@ class TerminalController extends Controller
 			$this->classDiscovery = new ClassDiscovery();
 		}
 		return $this->classDiscovery;
+	}
+
+	/**
+	 * Get route discovery service (lazy-loaded)
+	 */
+	protected function getRouteDiscovery(): RouteDiscovery
+	{
+		if ($this->routeDiscovery === null) {
+			$this->routeDiscovery = new RouteDiscovery();
+		}
+		return $this->routeDiscovery;
 	}
 
 	/**
@@ -4465,6 +4479,237 @@ class TerminalController extends Controller
 				'success' => false,
 				'status_code' => 'ERROR',
 				'errors' => ['Failed to execute command: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all routes
+	 */
+	public function getRoutes(Request $request)
+	{
+		try {
+			$routeDiscovery = $this->getRouteDiscovery();
+			$routes = $routeDiscovery->getRoutes();
+
+			// Apply filtering if provided
+			$method = $request->query('method');
+			$uri = $request->query('uri');
+			$name = $request->query('name');
+			$middleware = $request->query('middleware');
+			$search = $request->query('search');
+
+			$filteredRoutes = $routes;
+
+			if ($method) {
+				$filteredRoutes = array_filter($filteredRoutes, function ($route) use ($method) {
+					return in_array(strtoupper($method), $route['methods']);
+				});
+			}
+
+			if ($uri) {
+				$filteredRoutes = array_filter($filteredRoutes, function ($route) use ($uri) {
+					return stripos($route['uri'], $uri) !== false;
+				});
+			}
+
+			if ($name) {
+				$filteredRoutes = array_filter($filteredRoutes, function ($route) use ($name) {
+					return $route['name'] && stripos($route['name'], $name) !== false;
+				});
+			}
+
+			if ($middleware) {
+				$filteredRoutes = array_filter($filteredRoutes, function ($route) use ($middleware) {
+					foreach ($route['middleware'] as $mw) {
+						if (stripos($mw['name'], $middleware) !== false) {
+							return true;
+						}
+					}
+					return false;
+				});
+			}
+
+			if ($search) {
+				$searchLower = strtolower($search);
+				$filteredRoutes = array_filter($filteredRoutes, function ($route) use ($searchLower) {
+					return stripos($route['uri'], $searchLower) !== false ||
+						($route['name'] && stripos($route['name'], $searchLower) !== false) ||
+						stripos($route['action'], $searchLower) !== false;
+				});
+			}
+
+			// Re-index array
+			$filteredRoutes = array_values($filteredRoutes);
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'routes' => $filteredRoutes,
+					'total' => count($filteredRoutes),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get routes', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get routes: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get route details
+	 */
+	public function getRouteDetails(Request $request, string $identifier)
+	{
+		try {
+			$routeDiscovery = $this->getRouteDiscovery();
+			$route = $routeDiscovery->getRouteDetails(urldecode($identifier));
+
+			if (!$route) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Route not found'],
+					'result' => (object) [],
+				], 404);
+			}
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) $route,
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get route details', [
+				'error' => $e->getMessage(),
+				'identifier' => $identifier,
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get route details: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Generate route URL
+	 */
+	public function generateRouteUrl(Request $request)
+	{
+		try {
+			$request->validate([
+				'name' => 'required|string',
+				'parameters' => 'sometimes|array',
+			]);
+
+			$routeDiscovery = $this->getRouteDiscovery();
+			$name = $request->input('name');
+			$parameters = $request->input('parameters', []);
+
+			$url = $routeDiscovery->generateUrl($name, $parameters);
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'url' => $url,
+					'name' => $name,
+					'parameters' => $parameters,
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to generate route URL', [
+				'error' => $e->getMessage(),
+				'name' => $request->input('name'),
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to generate URL: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Test route execution (GET only)
+	 */
+	public function testRoute(Request $request)
+	{
+		try {
+			$request->validate([
+				'uri' => 'required|string',
+				'method' => 'sometimes|string|in:GET,HEAD',
+				'parameters' => 'sometimes|array',
+			]);
+
+			$method = strtoupper($request->input('method', 'GET'));
+			
+			// Only allow GET and HEAD methods for safety
+			if (!in_array($method, ['GET', 'HEAD'])) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Only GET and HEAD methods are allowed for route testing'],
+					'result' => (object) [],
+				], 400);
+			}
+
+			$uri = $request->input('uri');
+			$parameters = $request->input('parameters', []);
+
+			// Replace route parameters in URI
+			foreach ($parameters as $key => $value) {
+				$uri = str_replace('{' . $key . '}', $value, $uri);
+				$uri = str_replace('{' . $key . '?}', $value, $uri);
+			}
+
+			// Make a test request using Laravel's HTTP client
+			// Use Illuminate\Http\Request to create a test request
+			$testRequest = \Illuminate\Http\Request::create($uri, $method);
+			$testResponse = app()->handle($testRequest);
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'status' => $testResponse->getStatusCode(),
+					'headers' => $testResponse->headers->all(),
+					'body_preview' => substr($testResponse->getContent(), 0, 1000), // Limit body preview
+					'body_length' => strlen($testResponse->getContent()),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to test route', [
+				'error' => $e->getMessage(),
+				'uri' => $request->input('uri'),
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to test route: ' . $e->getMessage()],
 				'result' => (object) [],
 			], 400);
 		}
