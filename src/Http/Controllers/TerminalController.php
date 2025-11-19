@@ -1859,13 +1859,19 @@ class TerminalController extends Controller
 	{
 		try {
 			$classes = $this->getClassDiscovery()->getClasses();
+			
+			// Filter out classes that have their own dedicated panes
+			$excludedTypes = ['Trait', 'Service', 'Request', 'Provider', 'Middleware', 'Job', 'Exception', 'Command', 'Controller', 'Model'];
+			$filteredClasses = array_filter($classes, function ($class) use ($excludedTypes) {
+				return !isset($class['type']) || !in_array($class['type'], $excludedTypes);
+			});
 
 			return response()->json([
 				'success' => true,
 				'status_code' => 'SUCCESS',
 				'errors' => [],
 				'result' => (object) [
-					'classes' => $classes,
+					'classes' => array_values($filteredClasses),
 				],
 			], 200);
 		} catch (\Throwable $e) {

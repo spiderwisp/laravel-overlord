@@ -2254,9 +2254,9 @@ onUnmounted(() => {
 								</button>
 							</div>
 							
-							<!-- Structure Section -->
+							<!-- Components Section -->
 							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Structure</div>
+								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Components</div>
 								<button
 									@click="toggleControllers"
 									class="terminal-nav-item"
@@ -2378,39 +2378,6 @@ onUnmounted(() => {
 									</svg>
 									<span v-if="!sidebarCollapsed">Exceptions</span>
 								</button>
-								<button
-									@click="toggleCommandClasses"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('command-classes') }"
-									:title="sidebarCollapsed ? 'Command Classes' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Commands</span>
-								</button>
-								<button
-									@click="toggleMigrations"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('migrations') }"
-									:title="sidebarCollapsed ? 'Migrations' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Migrations</span>
-								</button>
-								<button
-									@click="toggleCommands"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('commands') }"
-									:title="sidebarCollapsed ? 'Commands' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Commands</span>
-								</button>
 							</div>
 							
 							<!-- Database Section -->
@@ -2437,6 +2404,44 @@ onUnmounted(() => {
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 									</svg>
 									<span v-if="!sidebarCollapsed">Templates</span>
+								</button>
+								<button
+									@click="toggleMigrations"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('migrations') }"
+									:title="sidebarCollapsed ? 'Migrations' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Migrations</span>
+								</button>
+							</div>
+							
+							<!-- Commands Section -->
+							<div class="terminal-nav-section">
+								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Commands</div>
+								<button
+									@click="toggleCommandClasses"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('command-classes') }"
+									:title="sidebarCollapsed ? 'Command Classes' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Command Classes</span>
+								</button>
+								<button
+									@click="toggleCommands"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('commands') }"
+									:title="sidebarCollapsed ? 'Artisan Commands' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Artisan Commands</span>
 								</button>
 							</div>
 							
