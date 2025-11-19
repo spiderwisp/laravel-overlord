@@ -36,6 +36,22 @@ import TerminalSettings from './Terminal/TerminalSettings.vue';
 import TerminalRoutes from './Terminal/TerminalRoutes.vue';
 import { useTerminalTheme, initThemeRoot } from './useTerminalTheme.js';
 import { useTerminalFont, initFontRoot } from './useTerminalFont.js';
+// New composables
+import { useTerminalTabs, tabConfigs } from './useTerminalTabs.js';
+import { useTerminalCommands } from './useTerminalCommands.js';
+import { useTerminalAi } from './useTerminalAi.js';
+import { useTerminalScans } from './useTerminalScans.js';
+import { useTerminalDatabaseScans } from './useTerminalDatabaseScans.js';
+import { useTerminalIssues } from './useTerminalIssues.js';
+import { useTerminalFavorites } from './useTerminalFavorites.js';
+import { useTerminalResize } from './useTerminalResize.js';
+// New components
+import TerminalSidebar from './Terminal/TerminalSidebar.vue';
+import TerminalTabBar from './Terminal/TerminalTabBar.vue';
+import TerminalInput from './Terminal/TerminalInput.vue';
+import TerminalFavoritesTray from './Terminal/TerminalFavoritesTray.vue';
+import TerminalResizeHandle from './Terminal/TerminalResizeHandle.vue';
+import TerminalToggleButton from './Terminal/TerminalToggleButton.vue';
 
 // Get API base URL
 const api = useOverlordApi();
@@ -61,62 +77,16 @@ const isOpen = computed({
 	set: (value) => emit('update:visible', value),
 });
 
-// Terminal state
-const commandInput = ref('');
-const inputMode = ref('tinker'); // 'tinker', 'shell', 'ai'
-const commandHistory = ref([]);
-const historyIndex = ref(-1);
-const outputHistory = ref([]);
-const isExecuting = ref(false);
+// Refs for component communication
 const outputContainerRef = ref(null);
 const inputRef = ref(null);
 const favoritesRef = ref(null);
 const aiRef = ref(null);
+const scanHistoryRef = ref(null);
+const databaseScanHistoryRef = ref(null);
 
-// AI conversation history (managed here for unified input)
-const aiConversationHistory = ref([]);
-const selectedAiModel = ref(null);
-const isSendingAi = ref(false);
-
-// Tab system state
-const activeTab = ref('terminal');
-const openTabs = ref([
-	{ id: 'terminal', label: 'Terminal', closable: false }
-]);
-
-// Tab configurations
-const tabConfigs = {
-	'terminal': { id: 'terminal', label: 'Terminal', closable: false },
-	'history': { id: 'history', label: 'History', closable: true },
-	'templates': { id: 'templates', label: 'Queries', closable: true },
-	'database': { id: 'database', label: 'Database', closable: true },
-	'horizon': { id: 'horizon', label: 'Horizon', closable: true },
-	'logs': { id: 'logs', label: 'Logs', closable: true },
-	'issues': { id: 'issues', label: 'Issues', closable: true },
-	'controllers': { id: 'controllers', label: 'Controllers', closable: true },
-	'classes': { id: 'classes', label: 'Classes', closable: true },
-	'traits': { id: 'traits', label: 'Traits', closable: true },
-	'services': { id: 'services', label: 'Services', closable: true },
-	'requests': { id: 'requests', label: 'Requests', closable: true },
-	'providers': { id: 'providers', label: 'Providers', closable: true },
-	'middleware': { id: 'middleware', label: 'Middleware', closable: true },
-	'jobs': { id: 'jobs', label: 'Jobs', closable: true },
-	'exceptions': { id: 'exceptions', label: 'Exceptions', closable: true },
-	'command-classes': { id: 'command-classes', label: 'Commands', closable: true },
-	'migrations': { id: 'migrations', label: 'Migrations', closable: true },
-	'commands': { id: 'commands', label: 'Commands', closable: true },
-	'favorites': { id: 'favorites', label: 'Favorites', closable: true },
-	'ai': { id: 'ai', label: 'AI', closable: true },
-	'model-diagram': { id: 'model-diagram', label: 'Models', closable: true },
-	'routes': { id: 'routes', label: 'Routes', closable: true },
-	'scan-config': { id: 'scan-config', label: 'Scan Configuration', closable: true },
-	'scan-results': { id: 'scan-results', label: 'Scan Results', closable: true },
-	'scan-history': { id: 'scan-history', label: 'Scan History', closable: true },
-	'database-scan-config': { id: 'database-scan-config', label: 'Database Scan Configuration', closable: true },
-	'database-scan-results': { id: 'database-scan-results', label: 'Database Scan Results', closable: true },
-	'database-scan-history': { id: 'database-scan-history', label: 'Database Scan History', closable: true },
-	'settings': { id: 'settings', label: 'UI Settings', closable: true },
-};
+// Sidebar navigation state
+const sidebarCollapsed = ref(false);
 
 // Horizon state
 const horizonInstalled = ref(false);
@@ -124,8 +94,6 @@ const horizonInstalled = ref(false);
 // Issues state
 const issuePrefillData = ref(null);
 const logsNavigateTo = ref(null);
-const issuesStats = ref(null);
-const issuesStatsPollingInterval = ref(null);
 
 // Dropdown state (keeping for backward compatibility, but will be replaced by sidebar)
 const showSettingsDropdown = ref(false);
@@ -134,70 +102,61 @@ const showExplorerDropdown = ref(false);
 const showToolsDropdown = ref(false);
 const showQueriesDropdown = ref(false);
 
-// Sidebar navigation state
-const sidebarCollapsed = ref(false);
+// Initialize composables
+const tabs = useTerminalTabs();
+const { activeTab, openTabs, isTabOpen, isTabActive, openTab, closeTab, closeAllTabs, closeOtherTabs, switchTab, ensureTabOpen } = tabs;
 
-// Navigation search state
-const navSearchQuery = ref('');
-const navSearchInputRef = ref(null);
-
-// Navigation sections expanded/collapsed state
-const navSectionsExpanded = ref({});
-
-// Initialize navigation sections state from localStorage
-function initializeNavSectionsState() {
-	try {
-		const saved = localStorage.getItem('overlord_nav_sections_state');
-		if (saved) {
-			const parsed = JSON.parse(saved);
-			// Merge with defaults
-			navSectionsExpanded.value = {
-				'core-features': true, // Primary section expanded by default
-				'code-exploration': true,
-				'tools-scans': true,
-				'utilities': false, // Utilities collapsed by default
-				'system': false, // System collapsed by default
-				'footer': false, // Footer collapsed by default
-				...parsed
-			};
-		} else {
-			// Defaults
-			navSectionsExpanded.value = {
-				'core-features': true,
-				'code-exploration': true,
-				'tools-scans': true,
-				'utilities': false,
-				'system': false,
-				'footer': false,
-			};
-		}
-	} catch (e) {
-		console.error('Failed to load nav sections state:', e);
-		navSectionsExpanded.value = {
-			'core-features': true,
-			'code-exploration': true,
-			'tools-scans': true,
-			'utilities': false,
-			'system': false,
-			'footer': false,
-		};
+// Helper functions for composables
+function scrollToBottom() {
+	if (outputContainerRef.value && typeof outputContainerRef.value.scrollToBottom === 'function') {
+		outputContainerRef.value.scrollToBottom();
 	}
 }
 
-// Save navigation sections state to localStorage
-function saveNavSectionsState() {
-	try {
-		localStorage.setItem('overlord_nav_sections_state', JSON.stringify(navSectionsExpanded.value));
-	} catch (e) {
-		console.error('Failed to save nav sections state:', e);
+function focusInput() {
+	if (inputRef.value && typeof inputRef.value.focus === 'function') {
+		inputRef.value.focus();
 	}
 }
 
-// Toggle section expanded state
-function toggleNavSection(sectionId) {
-	navSectionsExpanded.value[sectionId] = !navSectionsExpanded.value[sectionId];
-	saveNavSectionsState();
+// Initialize commands composable
+const commands = useTerminalCommands(api, {
+	ensureTabOpen,
+	scrollToBottom,
+	focusInput,
+	inputRef,
+});
+const { commandInput, inputMode, commandHistory, historyIndex, outputHistory, isExecuting, addOutput, clearTerminal, clearSession, executeCommand, executeShellCommand, handleKeyDown, useCommandFromHistory } = commands;
+
+// Initialize AI composable
+const ai = useTerminalAi(api, { ensureTabOpen });
+const { aiConversationHistory, selectedAiModel, isSendingAi, loadAiStatus, sendAiMessage } = ai;
+
+// Initialize scans composables
+const scans = useTerminalScans(api, { isTabOpen, closeTab, ensureTabOpen, switchTab });
+const { activeScanId, handleStartScan, startScanPolling, stopScanPolling } = scans;
+
+const databaseScans = useTerminalDatabaseScans(api, { isTabOpen, closeTab, ensureTabOpen, switchTab });
+const { activeDatabaseScanId, handleStartDatabaseScan, startDatabaseScanPolling, stopDatabaseScanPolling } = databaseScans;
+
+// Initialize issues composable
+const issues = useTerminalIssues(api);
+const { issuesStats, issuesCounter, loadIssuesStats, startIssuesStatsPolling, stopIssuesStatsPolling } = issues;
+
+// Initialize favorites composable
+const favorites = useTerminalFavorites({ ensureTabOpen });
+const { showFavoritesTray, topFavorites, getFavoriteTypeColor, getFavoriteTypeLabel, handleFavoritesTrayHover, handleFavoritesTrayLeave, toggleFavorites: toggleFavoritesBase } = favorites;
+
+// Wrapper for toggleFavorites with tab management
+function toggleFavorites() {
+	toggleFavoritesBase(isTabActive, closeTab);
 }
+
+// Initialize resize composable
+const resize = useTerminalResize();
+const { terminalHeight, isResizing, terminalDrawerStyle, loadTerminalHeight, startResize, handleResize, stopResize } = resize;
+
+// Navigation config will be computed and passed to TerminalSidebar
 
 // Navigation configuration structure
 const navigationConfig = computed(() => {
@@ -487,112 +446,15 @@ const navigationConfig = computed(() => {
 		}
 	];
 
-	// Filter items based on search query
-	if (navSearchQuery.value.trim()) {
-		const query = navSearchQuery.value.toLowerCase().trim();
-		return sections.map(section => {
-			const filteredItems = section.items.filter(item => {
-				// Check label
-				if (item.label.toLowerCase().includes(query)) return true;
-				// Check keywords
-				if (item.keywords && item.keywords.some(kw => kw.toLowerCase().includes(query))) return true;
-				return false;
-			});
-			return { ...section, items: filteredItems };
-		}).filter(section => section.items.length > 0);
-	}
-
 	return sections;
 });
 
-// Get filtered navigation items for keyboard navigation
-const filteredNavItems = computed(() => {
-	const items = [];
-	navigationConfig.value.forEach(section => {
-		if (!section.title || navSectionsExpanded.value[section.id] !== false) {
-			section.items.forEach(item => {
-				const isDisabled = item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled);
-				if (!isDisabled) {
-					items.push({ ...item, sectionId: section.id });
-				}
-			});
-		}
-	});
-	return items;
-});
-
-// Keyboard navigation state
-const focusedNavItemIndex = ref(-1);
-
-// Handle keyboard navigation
-function handleNavKeyboard(event) {
-	if (sidebarCollapsed.value) return;
-
-	const items = filteredNavItems.value;
-	if (items.length === 0) return;
-
-	switch (event.key) {
-		case 'ArrowDown':
-			event.preventDefault();
-			focusedNavItemIndex.value = Math.min(focusedNavItemIndex.value + 1, items.length - 1);
-			break;
-		case 'ArrowUp':
-			event.preventDefault();
-			focusedNavItemIndex.value = Math.max(focusedNavItemIndex.value - 1, 0);
-			break;
-		case 'Enter':
-		case ' ':
-			if (focusedNavItemIndex.value >= 0 && focusedNavItemIndex.value < items.length) {
-				event.preventDefault();
-				const item = items[focusedNavItemIndex.value];
-				if (item.action) {
-					item.action();
-				}
-			}
-			break;
-		case 'Escape':
-			if (navSearchQuery.value) {
-				event.preventDefault();
-				navSearchQuery.value = '';
-				focusedNavItemIndex.value = -1;
-			}
-			break;
-	}
-}
-
-// Clear search
-function clearNavSearch() {
-	navSearchQuery.value = '';
-	focusedNavItemIndex.value = -1;
-	if (navSearchInputRef.value) {
-		navSearchInputRef.value.focus();
-	}
-}
-
-// Favorites tray state
-const showFavoritesTray = ref(false);
-const favoritesTrayHoverTimeout = ref(null);
-
-// Scan state
-const activeScanId = ref(null);
-const scanPollingInterval = ref(null);
-const scanHistoryRef = ref(null);
-const activeDatabaseScanId = ref(null);
-const databaseScanPollingInterval = ref(null);
-const databaseScanHistoryRef = ref(null);
+// Navigation config computed - will be passed to TerminalSidebar
 
 // Theme and font system
 const terminalDrawerRef = ref(null);
 const { currentTheme, setTheme } = useTerminalTheme();
 const { fontSize, fontSizeMin, fontSizeMax, adjustFontSize: adjustFontSizeNew } = useTerminalFont();
-
-// Terminal height state (stored in localStorage)
-const terminalHeight = ref(60); // Default height in vh
-const terminalHeightMin = 30; // Minimum height in vh
-const terminalHeightMax = 100; // Maximum height in vh (allows full page height)
-const isResizing = ref(false);
-const resizeStartY = ref(0);
-const resizeStartHeight = ref(0);
 
 // Wrapper ref for global theme application
 const wrapperRef = ref(null);
@@ -621,69 +483,9 @@ function openSettings(event) {
 	showSettingsDropdown.value = false;
 }
 
-// Computed style for terminal output (now uses CSS variables, but keep for backward compatibility)
-const terminalStyle = computed(() => ({
-	fontSize: `var(--terminal-font-size-base, ${fontSize.value}px)`,
-	fontFamily: 'var(--terminal-font-family)',
-	lineHeight: 'var(--terminal-line-height, 1.6)',
-}));
-
-// Computed style for terminal drawer height
-const terminalDrawerStyle = computed(() => ({
-	height: `${terminalHeight.value}vh`,
-}));
-
-// Load terminal height from localStorage
-function loadTerminalHeight() {
-	const saved = localStorage.getItem('developer_terminal_height');
-	if (saved) {
-		const parsed = parseFloat(saved);
-		if (!isNaN(parsed) && parsed >= terminalHeightMin && parsed <= terminalHeightMax) {
-			terminalHeight.value = parsed;
-		}
-	}
-}
-
-// Save terminal height to localStorage
-function saveTerminalHeight(height) {
-	localStorage.setItem('developer_terminal_height', height.toString());
-	terminalHeight.value = height;
-}
-
-// Start resizing
-function startResize(event) {
-	isResizing.value = true;
-	resizeStartY.value = event.clientY || event.touches[0].clientY;
-	resizeStartHeight.value = terminalHeight.value;
-	document.addEventListener('mousemove', handleResize);
-	document.addEventListener('mouseup', stopResize);
-	document.addEventListener('touchmove', handleResize);
-	document.addEventListener('touchend', stopResize);
-	event.preventDefault();
-}
-
-// Handle resize
-function handleResize(event) {
-	if (!isResizing.value) return;
-	
-	const clientY = event.clientY || event.touches[0].clientY;
-	const deltaY = resizeStartY.value - clientY; // Negative because we're dragging up
-	const deltaVh = (deltaY / window.innerHeight) * 100;
-	const newHeight = Math.max(terminalHeightMin, Math.min(terminalHeightMax, resizeStartHeight.value + deltaVh));
-	
-	terminalHeight.value = newHeight;
-}
-
-// Stop resizing
-function stopResize() {
-	if (isResizing.value) {
-		saveTerminalHeight(terminalHeight.value);
-		isResizing.value = false;
-		document.removeEventListener('mousemove', handleResize);
-		document.removeEventListener('mouseup', stopResize);
-		document.removeEventListener('touchmove', handleResize);
-		document.removeEventListener('touchend', stopResize);
-	}
+// Handle resize start (wraps composable function)
+function handleStartResize(event) {
+	startResize(event);
 }
 
 // Insert command from templates/snippets
@@ -691,9 +493,12 @@ function insertCommand(command) {
 	// Preserve line breaks when inserting code
 	commandInput.value = command;
 	nextTick(() => {
-		focusInput();
-		// Auto-resize after inserting multi-line code
-		autoResizeTextarea();
+		if (inputRef.value && typeof inputRef.value.focus === 'function') {
+			inputRef.value.focus();
+		}
+		if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
+			inputRef.value.autoResize();
+		}
 	});
 }
 
@@ -707,14 +512,17 @@ function insertCommandFromAi(command) {
 	// Switch to terminal tab
 	ensureTabOpen('terminal');
 	nextTick(() => {
-		focusInput();
-		// Auto-resize after inserting multi-line code
-		autoResizeTextarea();
+		if (inputRef.value && typeof inputRef.value.focus === 'function') {
+			inputRef.value.focus();
+		}
+		if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
+			inputRef.value.autoResize();
+		}
 	});
 }
 
 // Execute command from AI
-function executeCommandFromAi(command) {
+async function executeCommandFromAi(command) {
 	if (!command) {
 		return;
 	}
@@ -722,8 +530,22 @@ function executeCommandFromAi(command) {
 	commandInput.value = command;
 	// Switch to terminal tab
 	ensureTabOpen('terminal');
-	nextTick(() => {
-		executeCommand();
+	nextTick(async () => {
+		// Check if it's AI mode
+		if (inputMode.value === 'ai') {
+			await sendAiMessage(command, aiRef.value);
+			commandInput.value = '';
+			if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
+				inputRef.value.autoResize();
+			}
+			nextTick(() => {
+				if (inputRef.value && typeof inputRef.value.focus === 'function') {
+					inputRef.value.focus();
+				}
+			});
+		} else {
+			await executeCommand();
+		}
 	});
 }
 
@@ -850,92 +672,8 @@ async function copyOutputToClipboard() {
 	}
 }
 
-// Load AI status and models
-async function loadAiStatus() {
-	try {
-		const response = await axios.get(api.ai.status());
-		if (response.data.success && response.data.available) {
-			// Load models
-			try {
-				const modelsResponse = await axios.get(api.ai.models());
-				if (modelsResponse.data.success && modelsResponse.data.available) {
-					const models = modelsResponse.data.models || [];
-					if (models.length > 0 && !selectedAiModel.value) {
-						selectedAiModel.value = modelsResponse.data.default_model || models[0].name;
-					}
-				}
-			} catch (error) {
-				console.error('Failed to load AI models:', error);
-			}
-		}
-	} catch (error) {
-		console.error('Failed to load AI status:', error);
-	}
-}
-
-// Send message to AI
-async function sendAiMessage(message) {
-	if (!message.trim() || isSendingAi.value) {
-		return;
-	}
-
-	const userMessage = message.trim();
-	
-	// Add user message to conversation history
-	aiConversationHistory.value.push({
-		role: 'user',
-		content: userMessage,
-	});
-
-	// Ensure AI tab is open
-	ensureTabOpen('ai');
-	
-	// Notify AI component to add user message
-	if (aiRef.value && aiRef.value.addUserMessage) {
-		aiRef.value.addUserMessage(userMessage);
-	}
-
-	isSendingAi.value = true;
-
-	try {
-		const response = await axios.post(api.ai.chat(), {
-			message: userMessage,
-			model: selectedAiModel.value,
-			conversation_history: aiConversationHistory.value.slice(-10), // Last 10 messages
-		});
-
-		if (response.data.success) {
-			const aiMessage = response.data.message;
-			
-			// Add AI response to conversation history
-			aiConversationHistory.value.push({
-				role: 'assistant',
-				content: aiMessage,
-			});
-
-			// Notify AI component to add assistant message
-			if (aiRef.value && aiRef.value.addAssistantMessage) {
-				aiRef.value.addAssistantMessage(aiMessage);
-			}
-		} else {
-			const errorMsg = `Error: ${response.data.error || 'Unknown error'}`;
-			if (aiRef.value && aiRef.value.addAssistantMessage) {
-				aiRef.value.addAssistantMessage(errorMsg, true);
-			}
-		}
-	} catch (error) {
-		console.error('Failed to send AI message:', error);
-		const errorMsg = `Error: ${error.response?.data?.error || error.message || 'Failed to communicate with AI'}`;
-		if (aiRef.value && aiRef.value.addAssistantMessage) {
-			aiRef.value.addAssistantMessage(errorMsg, true);
-		}
-	} finally {
-		isSendingAi.value = false;
-	}
-}
-
-// Execute command
-async function executeCommand() {
+// Execute command wrapper - handles AI mode
+async function handleExecuteCommand() {
 	if (!commandInput.value.trim() || isExecuting.value || isSendingAi.value) {
 		return;
 	}
@@ -969,196 +707,25 @@ async function executeCommand() {
 	
 	if (inputMode.value === 'ai') {
 		// Send to AI
-		await sendAiMessage(command);
+		await sendAiMessage(command, aiRef.value);
 		
 		// Clear input
 		commandInput.value = '';
-		if (inputRef.value) {
-			inputRef.value.style.height = 'auto';
+		if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
+			inputRef.value.autoResize();
 		}
 		
 		// Focus input after sending
 		nextTick(() => {
-			focusInput();
+			if (inputRef.value && typeof inputRef.value.focus === 'function') {
+				inputRef.value.focus();
+			}
 		});
 		return;
 	}
 	
-	// Regular command execution (Tinker)
-	// Switch to terminal tab to show output
-	ensureTabOpen('terminal');
-	
-	// Add to history if not duplicate of last command (trimmed for history comparison)
-	const trimmedCommand = command.trim();
-	if (commandHistory.value.length === 0 || commandHistory.value[commandHistory.value.length - 1] !== trimmedCommand) {
-		commandHistory.value.push(trimmedCommand);
-	}
-	historyIndex.value = -1;
-
-	// Add command to output (preserve line breaks for multi-line commands)
-	addOutput('command', command);
-
-	// Clear input
-	commandInput.value = '';
-	// Reset textarea height
-	if (inputRef.value) {
-		inputRef.value.style.height = 'auto';
-	}
-	isExecuting.value = true;
-
-	try {
-		const response = await axios.post(api.url('execute'), {
-			command: command,
-		}, {
-			timeout: 300000, // 5 minutes for long-running commands
-		});
-
-		if (response.data.success) {
-			const result = response.data.result;
-			addOutput(result.type, result.output, result.raw);
-		} else {
-			addOutput('error', {
-				formatted: response.data.errors?.[0] || 'Unknown error',
-				raw: response.data.errors?.[0] || 'Unknown error',
-			});
-		}
-	} catch (error) {
-		let errorMessage = 'Execution failed';
-		
-		// Handle different error response formats
-		if (error.response) {
-			// Server responded with error status
-			const errorData = error.response.data;
-			
-			if (errorData?.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
-				// Use the first error message from the errors array
-				errorMessage = errorData.errors[0];
-			} else if (errorData?.error) {
-				// Single error message
-				errorMessage = errorData.error;
-			} else if (errorData?.message) {
-				// Generic message field
-				errorMessage = errorData.message;
-			} else if (typeof errorData === 'string') {
-				// Error data is a string
-				errorMessage = errorData;
-			} else if (error.response.status === 500) {
-				// 500 error - should not happen but handle gracefully
-				errorMessage = `Server error (500): ${error.response.statusText || 'Internal server error'}. Please check the server logs.`;
-			} else {
-				// Other HTTP errors
-				errorMessage = `Request failed (${error.response.status}): ${error.response.statusText || 'Unknown error'}`;
-			}
-		} else if (error.request) {
-			// Request was made but no response received
-			errorMessage = 'No response from server. Please check your connection and try again.';
-		} else {
-			// Error setting up the request
-			errorMessage = error.message || 'Execution failed';
-		}
-		
-		addOutput('error', {
-			formatted: errorMessage,
-			raw: errorMessage,
-		});
-	} finally {
-		isExecuting.value = false;
-		await nextTick();
-		scrollToBottom();
-		// Refocus input after command execution
-		focusInput();
-	}
-}
-
-// Add output to history
-function addOutput(type, output, raw = null) {
-	outputHistory.value.push({
-		type,
-		output,
-		raw: raw || output,
-		timestamp: new Date(),
-	});
-}
-
-// Clear terminal
-async function clearTerminal() {
-	outputHistory.value = [];
-	await nextTick();
-	scrollToBottom();
-}
-
-// Clear session
-async function clearSession() {
-	try {
-		await axios.delete(api.url('session'));
-		addOutput('text', 'Session cleared');
-	} catch (error) {
-		addOutput('error', {
-			formatted: 'Failed to clear session: ' + (error.response?.data?.errors?.[0] || error.message),
-			raw: 'Failed to clear session: ' + (error.response?.data?.errors?.[0] || error.message),
-		});
-	}
-}
-
-// Tab management functions
-function isTabOpen(tabId) {
-	return openTabs.value.some(tab => tab.id === tabId);
-}
-
-function isTabActive(tabId) {
-	return activeTab.value === tabId;
-}
-
-function openTab(tabId, options = {}) {
-	if (!tabConfigs[tabId]) return;
-	
-	// If tab is not open, add it
-	if (!isTabOpen(tabId)) {
-		openTabs.value.push(tabConfigs[tabId]);
-	}
-	
-	// Make it active
-	activeTab.value = tabId;
-	
-	// Store options for component to use (e.g., initialItem)
-	if (options.itemId || options.highlight || options.filter) {
-		// Store in a way components can access
-		// Components can watch activeTab and check for stored options
-		if (typeof window !== 'undefined') {
-			if (!window.overlordTabOptions) {
-				window.overlordTabOptions = {};
-			}
-			window.overlordTabOptions[tabId] = options;
-		}
-	}
-}
-
-function closeTab(tabId) {
-	// Cannot close terminal tab
-	if (tabId === 'terminal') return;
-	
-	// Remove tab from open tabs
-	const index = openTabs.value.findIndex(tab => tab.id === tabId);
-	if (index !== -1) {
-		openTabs.value.splice(index, 1);
-		
-		// If closed tab was active, switch to terminal
-		if (activeTab.value === tabId) {
-			activeTab.value = 'terminal';
-		}
-	}
-}
-
-function closeAllTabs() {
-	openTabs.value = [{ id: 'terminal', label: 'Terminal', closable: false }];
-	activeTab.value = 'terminal';
-}
-
-function closeOtherTabs(tabId) {
-	openTabs.value = openTabs.value.filter(tab => tab.id === tabId || tab.id === 'terminal');
-	if (activeTab.value !== tabId && activeTab.value !== 'terminal') {
-		activeTab.value = tabId;
-	}
+	// Regular command execution (Tinker) - handled by composable
+	await executeCommand();
 }
 
 // Handle navigation to reference (cross-reference system)
@@ -1206,19 +773,7 @@ async function handleTabContextMenu(event, tabId) {
 	}
 }
 
-function switchTab(tabId) {
-	if (isTabOpen(tabId)) {
-		activeTab.value = tabId;
-	}
-}
-
-function ensureTabOpen(tabId) {
-	if (!isTabOpen(tabId)) {
-		openTab(tabId);
-	} else {
-		switchTab(tabId);
-	}
-}
+// Tab functions are now from composable
 
 // Toggle functions - now use tab system
 function toggleHistory() {
@@ -1245,58 +800,7 @@ function toggleDatabase() {
 	}
 }
 
-function toggleFavorites() {
-	if (isTabActive('favorites')) {
-		closeTab('favorites');
-	} else {
-		ensureTabOpen('favorites');
-	}
-}
-
-// Load favorites from localStorage for tray
-function loadFavoritesForTray() {
-	try {
-		const saved = localStorage.getItem('developer_terminal_favorites');
-		if (saved) {
-			const data = JSON.parse(saved);
-			return data.favorites || [];
-		}
-	} catch (e) {
-		console.error('Failed to load favorites for tray:', e);
-	}
-	return [];
-}
-
-// Get top favorites (most recently used or first 10)
-const topFavorites = computed(() => {
-	const favorites = loadFavoritesForTray();
-	// Return top 10 favorites
-	return favorites.slice(0, 10);
-});
-
-// Get favorite type color
-function getFavoriteTypeColor(type) {
-	const colors = {
-		command: '#007acc',
-		template: '#4fc3f7',
-		snippet: '#9ca3af',
-		builder: '#00d4aa',
-		custom: '#ff9800',
-	};
-	return colors[type] || '#9ca3af';
-}
-
-// Get favorite type label
-function getFavoriteTypeLabel(type) {
-	const labels = {
-		command: 'Command',
-		template: 'Template',
-		snippet: 'Snippet',
-		builder: 'Builder',
-		custom: 'Custom',
-	};
-	return labels[type] || 'Custom';
-}
+// toggleFavorites is provided by useTerminalFavorites composable
 
 // Insert favorite command from tray
 function insertFavoriteCommand(favorite) {
@@ -1310,31 +814,9 @@ function insertFavoriteCommand(favorite) {
 function executeFavoriteCommand(favorite) {
 	if (favorite.content) {
 		commandInput.value = favorite.content;
-		executeCommand();
+		handleExecuteCommand();
 	}
 	showFavoritesTray.value = false;
-}
-
-// Handle favorites tray hover with delay
-function handleFavoritesTrayHover() {
-	if (favoritesTrayHoverTimeout.value) {
-		clearTimeout(favoritesTrayHoverTimeout.value);
-		favoritesTrayHoverTimeout.value = null;
-	}
-	favoritesTrayHoverTimeout.value = setTimeout(() => {
-		showFavoritesTray.value = true;
-	}, 300);
-}
-
-// Handle favorites tray leave with delay
-function handleFavoritesTrayLeave() {
-	if (favoritesTrayHoverTimeout.value) {
-		clearTimeout(favoritesTrayHoverTimeout.value);
-		favoritesTrayHoverTimeout.value = null;
-	}
-	favoritesTrayHoverTimeout.value = setTimeout(() => {
-		showFavoritesTray.value = false;
-	}, 200);
 }
 
 // Handle input focus
@@ -1363,7 +845,7 @@ function toggleAi() {
 	
 	// Focus the input
 	nextTick(() => {
-		if (inputRef.value) {
+		if (inputRef.value && typeof inputRef.value.focus === 'function') {
 			inputRef.value.focus();
 		}
 	});
@@ -1382,89 +864,10 @@ function toggleShell() {
 	
 	// Focus the input
 	nextTick(() => {
-		if (inputRef.value) {
+		if (inputRef.value && typeof inputRef.value.focus === 'function') {
 			inputRef.value.focus();
 		}
 	});
-}
-
-// Execute shell command
-async function executeShellCommand(shellCmd) {
-	if (!shellCmd.trim() || isExecuting.value) {
-		return;
-	}
-
-	// Switch to terminal tab to show output
-	ensureTabOpen('terminal');
-	
-	// Add to history if not duplicate of last command
-	const fullCommand = '/shell ' + shellCmd;
-	const trimmedCommand = fullCommand.trim();
-	if (commandHistory.value.length === 0 || commandHistory.value[commandHistory.value.length - 1] !== trimmedCommand) {
-		commandHistory.value.push(trimmedCommand);
-	}
-	historyIndex.value = -1;
-
-	// Add command to output
-	addOutput('command', fullCommand);
-
-	isExecuting.value = true;
-
-	try {
-		const response = await axios.post(api.shell.execute(), {
-			command: shellCmd,
-		}, {
-			timeout: 65000, // 65 seconds (slightly more than backend timeout)
-		});
-
-		if (response.data.success) {
-			const result = response.data.result;
-			addOutput(result.type || 'text', result.output, result.raw);
-		} else {
-			addOutput('error', {
-				formatted: response.data.errors?.[0] || 'Unknown error',
-				raw: response.data.errors?.[0] || 'Unknown error',
-			});
-		}
-	} catch (error) {
-		let errorMessage = 'Shell command execution failed';
-		
-		// Handle different error response formats
-		if (error.response) {
-			const errorData = error.response.data;
-			
-			if (errorData?.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
-				errorMessage = errorData.errors[0];
-			} else if (errorData?.error) {
-				errorMessage = errorData.error;
-			} else if (errorData?.message) {
-				errorMessage = errorData.message;
-			} else if (typeof errorData === 'string') {
-				errorMessage = errorData;
-			} else if (error.response.status === 500) {
-				errorMessage = `Server error (500): ${error.response.statusText || 'Internal server error'}. Please check the server logs.`;
-			} else {
-				errorMessage = `Request failed (${error.response.status}): ${error.response.statusText || 'Unknown error'}`;
-			}
-		} else if (error.request) {
-			errorMessage = 'No response from server. Please check your connection and try again.';
-		} else if (error.code === 'ECONNABORTED') {
-			errorMessage = 'Command execution timeout. The command may be taking too long to execute.';
-		} else {
-			errorMessage = error.message || 'Shell command execution failed';
-		}
-		
-		addOutput('error', {
-			formatted: errorMessage,
-			raw: errorMessage,
-		});
-	} finally {
-		isExecuting.value = false;
-		await nextTick();
-		scrollToBottom();
-		// Refocus input after command execution
-		focusInput();
-	}
 }
 
 function toggleModelDiagram() {
@@ -1608,70 +1011,6 @@ function toggleIssues() {
 	}
 }
 
-// Load issues stats
-async function loadIssuesStats() {
-	try {
-		const response = await axios.get(api.issues.stats());
-		if (response.data && response.data.success) {
-			issuesStats.value = response.data.result;
-		}
-	} catch (error) {
-		console.error('Failed to load issues stats:', error);
-		issuesStats.value = null;
-	}
-}
-
-// Start issues stats polling
-function startIssuesStatsPolling() {
-	if (issuesStatsPollingInterval.value) {
-		return; // Already polling
-	}
-	
-	// Load immediately
-	loadIssuesStats();
-	
-	// Then poll every 30 seconds
-	issuesStatsPollingInterval.value = setInterval(() => {
-		loadIssuesStats();
-	}, 30000);
-}
-
-// Stop issues stats polling
-function stopIssuesStatsPolling() {
-	if (issuesStatsPollingInterval.value) {
-		clearInterval(issuesStatsPollingInterval.value);
-		issuesStatsPollingInterval.value = null;
-	}
-}
-
-// Computed for issues counter display
-const issuesCounter = computed(() => {
-	if (!issuesStats.value) return null;
-	
-	const openCount = (issuesStats.value.by_status?.open || 0) + (issuesStats.value.by_status?.in_progress || 0);
-	const criticalCount = issuesStats.value.by_priority?.critical || 0;
-	const highCount = issuesStats.value.by_priority?.high || 0;
-	const mediumCount = issuesStats.value.by_priority?.medium || 0;
-	
-	// Determine color based on highest priority
-	let color = 'blue'; // default/low
-	if (criticalCount > 0) {
-		color = 'red';
-	} else if (highCount > 0) {
-		color = 'orange';
-	} else if (mediumCount > 0) {
-		color = 'yellow';
-	}
-	
-	return {
-		count: openCount,
-		color,
-		critical: criticalCount,
-		high: highCount,
-		medium: mediumCount,
-	};
-});
-
 // Toggle Scan Results
 function toggleScanResults() {
 	if (isTabActive('scan-results')) {
@@ -1716,221 +1055,6 @@ function startScan() {
 	showToolsDropdown.value = false;
 }
 
-// Handle scan start from config component
-async function handleStartScan(config) {
-	try {
-		// Check for existing issues first
-		const existingIssuesResponse = await axios.get(api.scan.hasExistingIssues());
-		let clearExisting = false;
-		
-		if (existingIssuesResponse.data && existingIssuesResponse.data.success && existingIssuesResponse.data.result.has_issues) {
-			const unresolvedCount = existingIssuesResponse.data.result.unresolved_count;
-			const result = await Swal.fire({
-				icon: 'question',
-				title: 'Existing Scan Issues Found',
-				html: `You have <strong>${unresolvedCount}</strong> unresolved scan issue${unresolvedCount !== 1 ? 's' : ''} from previous scans.<br><br>Would you like to clear them before starting a new scan?`,
-				showCancelButton: true,
-				confirmButtonText: 'Clear and Scan',
-				cancelButtonText: 'Keep and Scan',
-				confirmButtonColor: '#3085d6',
-				cancelButtonColor: '#6c757d',
-			});
-			
-			if (result.isConfirmed) {
-				clearExisting = true;
-			}
-		}
-		
-		// Close config tab and open scan results tab
-		closeTab('scan-config');
-		ensureTabOpen('scan-results');
-		switchTab('scan-results'); // Switch to results tab immediately so user sees loading state
-		
-		const response = await axios.post(api.scan.start(), {
-			clear_existing: clearExisting,
-			mode: config.mode,
-			paths: config.paths || [],
-		});
-		
-		// Add logging to debug production issue
-		console.log('Codebase scan start response:', response.data);
-		
-		// Check if we have a scan_id even if success is missing
-		const scanId = response.data?.result?.scan_id || response.data?.scan_id;
-		if (response.data && (response.data.success || scanId)) {
-			if (scanId) {
-				activeScanId.value = scanId;
-				
-				// Start polling immediately
-				startScanPolling();
-				
-				// Request notification permission
-				if ('Notification' in window && Notification.permission === 'default') {
-					Notification.requestPermission();
-				}
-				return; // Exit early on success
-			}
-		}
-		
-		// Only show error if we truly don't have a scan_id
-		const errorCode = response.data?.code;
-		let errorMessage = response.data?.error || 'Unknown error';
-		
-		if (errorCode === 'QUOTA_EXCEEDED') {
-			errorMessage = response.data.error || 'Unknown error';
-		}
-		
-		Swal.fire({
-			icon: 'error',
-			title: 'Failed to start scan',
-			text: errorMessage,
-			toast: true,
-			position: 'top-end',
-			showConfirmButton: false,
-			timer: 3000,
-		});
-	} catch (error) {
-		console.error('Failed to start scan:', error);
-		// Check for QUOTA_EXCEEDED code and use error message from response
-		const errorCode = error.response?.data?.code;
-		let errorMessage = error.response?.data?.error || 'Unknown error';
-		
-		if (errorCode === 'QUOTA_EXCEEDED') {
-			errorMessage = error.response?.data?.error || 'Unknown error';
-		}
-		
-		Swal.fire({
-			icon: 'error',
-			title: 'Failed to start scan',
-			text: errorMessage,
-			toast: true,
-			position: 'top-end',
-			showConfirmButton: false,
-			timer: 3000,
-		});
-	}
-}
-
-// Start polling for scan status
-function startScanPolling() {
-	// Clear any existing interval
-	if (scanPollingInterval.value) {
-		clearInterval(scanPollingInterval.value);
-	}
-	
-	// Poll every 2.5 seconds
-	scanPollingInterval.value = setInterval(async () => {
-		if (!activeScanId.value) {
-			stopScanPolling();
-			return;
-		}
-		
-		try {
-			const response = await axios.get(api.scan.status(activeScanId.value));
-			if (response.data && response.data.success) {
-				const status = response.data.result;
-				
-				if (status.status === 'completed') {
-					stopScanPolling();
-					
-					// Close config tab if it's still open
-					if (isTabOpen('scan-config')) {
-						closeTab('scan-config');
-					}
-					
-					// Ensure scan results tab is open and active
-					ensureTabOpen('scan-results');
-					switchTab('scan-results');
-					
-					// Show browser notification
-					if ('Notification' in window && Notification.permission === 'granted') {
-						const notification = new Notification('Codebase Scan Complete', {
-							body: `Scan completed successfully. Found ${status.total_issues_found || 0} issues. Click to view results.`,
-							icon: '/favicon.ico',
-							tag: 'scan-complete',
-						});
-						
-						// Make notification clickable to focus the terminal
-						notification.onclick = () => {
-							window.focus();
-							ensureTabOpen('scan-results');
-							switchTab('scan-results');
-							notification.close();
-						};
-					}
-					
-					// Show toast notification
-					Swal.fire({
-						icon: 'success',
-						title: 'Scan Complete',
-						text: `Found ${status.total_issues_found || 0} issues. Results tab opened.`,
-						toast: true,
-						position: 'top-end',
-						showConfirmButton: false,
-						timer: 4000,
-					});
-				} else if (status.status === 'failed') {
-					stopScanPolling();
-					
-					// Check if it's a rate limit error
-					const isRateLimit = status.rate_limit_exceeded || 
-					                   (status.error && (
-					                       status.error.toLowerCase().includes('rate limit') ||
-					                       status.error.toLowerCase().includes('quota exceeded') ||
-					                       status.error.toLowerCase().includes('rate limit exceeded')
-					                   ));
-					
-					const errorTitle = isRateLimit ? 'Rate Limit Exceeded' : 'Scan Failed';
-					let errorText = status.error || (isRateLimit ? 'Rate limit exceeded. Please upgrade your plan.' : 'Unknown error');
-					
-					// For rate limit errors, ensure we have a proper message with link
-					if (isRateLimit) {
-						// Remove any existing HTML tags from the error message to avoid duplication
-						const cleanError = errorText.replace(/<[^>]*>/g, '').trim();
-						
-						// Build the message with proper HTML link
-						errorText = `${cleanError} Please upgrade your plan at <a href="https://laravel-overlord.com/signin" target="_blank" rel="noopener noreferrer">laravel-overlord.com/signin</a> to continue.`;
-						
-						// Add animation indicator
-						errorText = `<span class="rate-limit-indicator"></span>${errorText}<span class="rate-limit-indicator"></span>`;
-					}
-					
-					// Show error notification
-					if ('Notification' in window && Notification.permission === 'granted') {
-						// Strip HTML for notification
-						const plainText = errorText.replace(/<[^>]*>/g, '');
-						new Notification(errorTitle, {
-							body: plainText,
-							icon: '/favicon.ico',
-							tag: 'scan-failed',
-						});
-					}
-					
-					Swal.fire({
-						icon: isRateLimit ? 'warning' : 'error',
-						title: errorTitle,
-						html: errorText,
-						toast: true,
-						position: 'top-end',
-						showConfirmButton: false,
-						timer: isRateLimit ? 6000 : 3000,
-					});
-				}
-			}
-		} catch (error) {
-			console.error('Failed to check scan status:', error);
-		}
-	}, 2500);
-}
-
-// Stop polling for scan status
-function stopScanPolling() {
-	if (scanPollingInterval.value) {
-		clearInterval(scanPollingInterval.value);
-		scanPollingInterval.value = null;
-	}
-}
-
 // Database scan functions
 function toggleDatabaseScanHistory() {
 	if (isTabActive('database-scan-history')) {
@@ -1962,207 +1086,6 @@ function handleDatabaseIssuesCleared() {
 function startDatabaseScan() {
 	ensureTabOpen('database-scan-config');
 	showToolsDropdown.value = false;
-}
-
-async function handleStartDatabaseScan(config) {
-	try {
-		// Check for existing issues first
-		const existingIssuesResponse = await axios.get(api.databaseScan.hasExistingIssues());
-		let clearExisting = false;
-		
-		if (existingIssuesResponse.data && existingIssuesResponse.data.success && existingIssuesResponse.data.result.has_issues) {
-			const unresolvedCount = existingIssuesResponse.data.result.unresolved_count;
-			const result = await Swal.fire({
-				icon: 'question',
-				title: 'Existing Database Scan Issues Found',
-				html: `You have <strong>${unresolvedCount}</strong> unresolved database scan issue${unresolvedCount !== 1 ? 's' : ''} from previous scans.<br><br>Would you like to clear them before starting a new scan?`,
-				showCancelButton: true,
-				confirmButtonText: 'Clear and Scan',
-				cancelButtonText: 'Keep and Scan',
-			});
-			
-			if (result.isConfirmed) {
-				clearExisting = true;
-			}
-		}
-		
-		// Close config tab and open scan results tab
-		closeTab('database-scan-config');
-		ensureTabOpen('database-scan-results');
-		
-		const response = await axios.post(api.databaseScan.start(), {
-			clear_existing: clearExisting,
-			type: config.type,
-			mode: config.mode,
-			tables: config.tables || [],
-			sample_size: config.sample_size || 100,
-		});
-		
-		// Add logging to debug production issue
-		console.log('Database scan start response:', response.data);
-		
-		// Check if we have a scan_id even if success is missing
-		const scanId = response.data?.result?.scan_id || response.data?.scan_id;
-		if (response.data && (response.data.success || scanId)) {
-			if (scanId) {
-				activeDatabaseScanId.value = scanId;
-				
-				// Start polling immediately
-				startDatabaseScanPolling();
-				
-				// Request notification permission
-				if ('Notification' in window && Notification.permission === 'default') {
-					Notification.requestPermission();
-				}
-				return; // Exit early on success
-			}
-		}
-		
-		// Only show error if we truly don't have a scan_id
-		const errorCode = response.data?.code;
-		let errorMessage = response.data?.error || 'Unknown error';
-		
-		if (errorCode === 'QUOTA_EXCEEDED') {
-			errorMessage = response.data.error || 'Unknown error';
-		}
-		
-		Swal.fire({
-			icon: 'error',
-			title: 'Failed to start database scan',
-			text: errorMessage,
-			toast: true,
-			position: 'top-end',
-			showConfirmButton: false,
-			timer: 3000,
-		});
-	} catch (error) {
-		console.error('Failed to start database scan:', error);
-		// Check for QUOTA_EXCEEDED code and use error message from response
-		const errorCode = error.response?.data?.code;
-		let errorMessage = error.response?.data?.error || 'Unknown error';
-		
-		if (errorCode === 'QUOTA_EXCEEDED') {
-			errorMessage = error.response?.data?.error || 'Unknown error';
-		}
-		
-		Swal.fire({
-			icon: 'error',
-			title: 'Failed to start database scan',
-			text: errorMessage,
-			toast: true,
-			position: 'top-end',
-			showConfirmButton: false,
-			timer: 3000,
-		});
-	}
-}
-
-function startDatabaseScanPolling() {
-	if (databaseScanPollingInterval.value) {
-		clearInterval(databaseScanPollingInterval.value);
-	}
-	
-	databaseScanPollingInterval.value = setInterval(async () => {
-		if (!activeDatabaseScanId.value) {
-			stopDatabaseScanPolling();
-			return;
-		}
-		
-		try {
-			const response = await axios.get(api.databaseScan.status(activeDatabaseScanId.value));
-			if (response.data && response.data.success) {
-				const status = response.data.result;
-				
-				if (status.status === 'completed') {
-					stopDatabaseScanPolling();
-					
-					// Close config tab if it's still open
-					if (isTabOpen('database-scan-config')) {
-						closeTab('database-scan-config');
-					}
-					
-					// Ensure scan results tab is open and active
-					ensureTabOpen('database-scan-results');
-					switchTab('database-scan-results');
-					
-					// Show browser notification
-					if ('Notification' in window && Notification.permission === 'granted') {
-						const notification = new Notification('Database Scan Complete', {
-							body: `Scan completed successfully. Found ${status.total_issues_found || 0} issues. Click to view results.`,
-							icon: '/favicon.ico',
-						});
-						
-						notification.onclick = () => {
-							window.focus();
-							ensureTabOpen('database-scan-results');
-							switchTab('database-scan-results');
-							notification.close();
-						};
-					}
-					
-					// Show toast notification with proper styling
-					Swal.fire({
-						icon: 'success',
-						title: 'Database Scan Complete',
-						text: `Found ${status.total_issues_found || 0} issue${status.total_issues_found !== 1 ? 's' : ''}`,
-						toast: true,
-						position: 'top-end',
-						showConfirmButton: false,
-						timer: 3000,
-						width: 'auto',
-						padding: '1rem',
-					});
-					
-					// No need to force reload - the component's checkStatus() will detect completion
-					// and automatically load results via loadResults() in the status check handler
-				} else if (status.status === 'failed') {
-					stopDatabaseScanPolling();
-					
-					// Check if it's a rate limit error
-					const isRateLimit = status.rate_limit_exceeded || 
-					                   (status.error && (
-					                       status.error.toLowerCase().includes('rate limit') ||
-					                       status.error.toLowerCase().includes('quota exceeded') ||
-					                       status.error.toLowerCase().includes('rate limit exceeded')
-					                   ));
-					
-					const errorTitle = isRateLimit ? 'Rate Limit Exceeded' : 'Database Scan Failed';
-					let errorText = status.error || (isRateLimit ? 'Rate limit exceeded. Please upgrade your plan.' : 'Unknown error');
-					
-					// For rate limit errors, ensure we have a proper message with link
-					if (isRateLimit) {
-						// Remove any existing HTML tags from the error message to avoid duplication
-						const cleanError = errorText.replace(/<[^>]*>/g, '').trim();
-						
-						// Build the message with proper HTML link
-						errorText = `${cleanError} Please upgrade your plan at <a href="https://laravel-overlord.com/signin" target="_blank" rel="noopener noreferrer">laravel-overlord.com/signin</a> to continue.`;
-						
-						// Add animation indicator
-						errorText = `<span class="rate-limit-indicator"></span>${errorText}<span class="rate-limit-indicator"></span>`;
-					}
-					
-					Swal.fire({
-						icon: isRateLimit ? 'warning' : 'error',
-						title: errorTitle,
-						html: errorText,
-						toast: true,
-						position: 'top-end',
-						showConfirmButton: false,
-						timer: isRateLimit ? 6000 : 5000,
-					});
-				}
-			}
-		} catch (error) {
-			console.error('Failed to check database scan status:', error);
-		}
-	}, 2500);
-}
-
-function stopDatabaseScanPolling() {
-	if (databaseScanPollingInterval.value) {
-		clearInterval(databaseScanPollingInterval.value);
-		databaseScanPollingInterval.value = null;
-	}
 }
 
 // Handle create issue from logs
@@ -2286,99 +1209,14 @@ async function showHelp() {
 	}
 }
 
-// Use command from history
-async function useCommandFromHistory(log) {
-	// Set command in input
-	commandInput.value = log.command;
-	
-	// Switch to terminal tab to show output
-	ensureTabOpen('terminal');
-	
-	// Show the output from this log entry
-	outputHistory.value = [];
-	
-	// Add the command
-	addOutput('command', log.command);
-	
-	// Add the output or error
-	if (log.success && log.output) {
-		// Try to parse output type
-		let outputType = log.output_type || 'text';
-		let outputData = log.output;
-		
-		// Try to parse as JSON if it's a json type
-		if (outputType === 'json' || outputType === 'object') {
-			try {
-				outputData = JSON.parse(log.output);
-				// Format for JsonViewer
-				addOutput(outputType, outputData);
-			} catch (e) {
-				// If parsing fails, treat as text
-				addOutput('text', log.output);
-			}
-		} else {
-			addOutput(outputType, log.output);
-		}
-	} else if (!log.success && log.error) {
-		addOutput('error', {
-			formatted: log.error,
-			raw: log.error,
-		});
-	}
-	
-	// Switch to terminal tab to show output
-	ensureTabOpen('terminal');
-	
-	// Scroll to show the output
-	await nextTick();
-	scrollToBottom();
-	focusInput();
-}
+// Use command from history - handled by composable
 
-// Scroll to bottom
-function scrollToBottom() {
-	if (outputContainerRef.value && typeof outputContainerRef.value.scrollToBottom === 'function') {
-		outputContainerRef.value.scrollToBottom();
-	}
-}
-
-// Handle keyboard input
-function handleKeyDown(event) {
+// Handle keyboard input wrapper
+function handleKeyDownWrapper(event) {
 	// Enter to execute
 	if (event.key === 'Enter' && !event.shiftKey) {
 		event.preventDefault();
-		executeCommand();
-		return;
-	}
-
-	// Up arrow for history
-	if (event.key === 'ArrowUp') {
-		event.preventDefault();
-		if (commandHistory.value.length > 0) {
-			if (historyIndex.value === -1) {
-				historyIndex.value = commandHistory.value.length - 1;
-			} else if (historyIndex.value > 0) {
-				historyIndex.value--;
-			}
-			if (historyIndex.value >= 0) {
-				commandInput.value = commandHistory.value[historyIndex.value];
-			}
-		}
-		return;
-	}
-
-	// Down arrow for history
-	if (event.key === 'ArrowDown') {
-		event.preventDefault();
-		if (historyIndex.value >= 0) {
-			if (historyIndex.value < commandHistory.value.length - 1) {
-				historyIndex.value++;
-				commandInput.value = commandHistory.value[historyIndex.value];
-			} else {
-				historyIndex.value = -1;
-				commandInput.value = '';
-			}
-		}
+		handleExecuteCommand();
 		return;
 	}
 
@@ -2387,6 +1225,12 @@ function handleKeyDown(event) {
 		event.preventDefault();
 		clearTerminal();
 		return;
+	}
+
+	// History navigation handled by composable
+	const handled = handleKeyDown(event);
+	if (handled) {
+		return; // Event was handled by composable
 	}
 }
 
@@ -2410,27 +1254,7 @@ function closeTerminal() {
 	emit('close');
 }
 
-// Auto-resize textarea based on content
-function autoResizeTextarea() {
-	if (inputRef.value) {
-		// Reset height to auto to get the correct scrollHeight
-		inputRef.value.style.height = 'auto';
-		// Set height based on scrollHeight, with min and max constraints
-		const newHeight = Math.min(Math.max(inputRef.value.scrollHeight, 40), 200);
-		inputRef.value.style.height = `${newHeight}px`;
-	}
-}
-
-// Focus input field
-function focusInput() {
-	if (inputRef.value) {
-		inputRef.value.focus();
-		// Auto-resize when focusing
-		nextTick(() => {
-			autoResizeTextarea();
-		});
-	}
-}
+// Focus and auto-resize handled by TerminalInput component
 
 // Watch for terminal opening to focus input
 watch(isOpen, (newValue) => {
@@ -2456,8 +1280,6 @@ function handleClickOutside(event) {
 onMounted(async () => {
 	// Load preferences from localStorage
 	loadTerminalHeight();
-	// Initialize navigation sections state
-	initializeNavSectionsState();
 	// Initialize theme and font after next tick to ensure ref is available
 	await nextTick();
 	// Try to initialize immediately, and also watch for when drawer opens
@@ -2544,17 +1366,17 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-	// Clean up resize listeners
+	// Clean up resize listeners (handled by composable)
 	stopResize();
 	
 	// Clean up click outside listener
 	document.removeEventListener('click', handleClickOutside);
 	
-	// Clean up scan polling
+	// Clean up scan polling (handled by composables)
 	stopScanPolling();
 	stopDatabaseScanPolling();
 	
-	// Clean up issues stats polling
+	// Clean up issues stats polling (handled by composable)
 	stopIssuesStatsPolling();
 	
 	// Clean up SweetAlert2 z-index style
@@ -2567,291 +1389,56 @@ onUnmounted(() => {
 <template>
 	<div ref="wrapperRef" class="developer-terminal-wrapper" :data-embedded="visible && !props.floating">
 		<!-- Toggle Button (fixed at bottom left when closed) -->
-		<button
+		<TerminalToggleButton
 			v-if="!isOpen && props.floating"
 			@click="isOpen = true"
-			class="terminal-toggle-btn"
-			title="Open Laravel Overlord"
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-			</svg>
-			<span>DEV</span>
-		</button>
+		/>
 
 		<!-- Terminal Drawer -->
 		<transition :name="props.floating ? 'slide-up' : ''">
 			<div v-if="isOpen" ref="terminalDrawerRef" class="terminal-drawer" :style="props.floating ? terminalDrawerStyle : {}">
 				<!-- Resize Handle (only show when floating) -->
-				<div
+				<TerminalResizeHandle
 					v-if="props.floating"
-					class="terminal-resize-handle"
-					@mousedown="startResize"
-					@touchstart="startResize"
-					:class="{ 'terminal-resizing': isResizing }"
-					title="Drag to resize terminal"
-				>
-					<div class="terminal-resize-handle-indicator"></div>
-				</div>
+					:is-resizing="isResizing"
+					@start-resize="handleStartResize"
+				/>
 				
 				<!-- Terminal Layout with Sidebar -->
 				<div class="terminal-layout">
 					<!-- Sidebar Navigation -->
-					<aside class="terminal-sidebar" :class="{ 'collapsed': sidebarCollapsed }">
-						<div class="terminal-sidebar-header">
-							<div v-if="!sidebarCollapsed" class="terminal-sidebar-branding">
-								<div class="terminal-sidebar-title-wrapper">
-									<span class="terminal-beta-badge-sidebar">BETA</span>
-									<span class="terminal-sidebar-title-laravel">Laravel</span>
-									<span class="terminal-sidebar-title-overlord">Overlord</span>
-								</div>
-							</div>
-							<div v-if="!sidebarCollapsed" class="terminal-sidebar-nav-label">Navigation</div>
-							<button
-								@click="sidebarCollapsed = !sidebarCollapsed"
-								class="terminal-sidebar-toggle"
-								:title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-							>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path v-if="!sidebarCollapsed" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-									<path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-								</svg>
-							</button>
-						</div>
-						
-						<nav class="terminal-sidebar-nav" @keydown="handleNavKeyboard">
-							<!-- Search Input -->
-							<div v-if="!sidebarCollapsed" class="terminal-nav-search">
-								<div class="terminal-nav-search-wrapper">
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="terminal-nav-search-icon">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-									</svg>
-									<input
-										ref="navSearchInputRef"
-										v-model="navSearchQuery"
-										type="text"
-										class="terminal-nav-search-input"
-										placeholder="Search navigation..."
-										@keydown.escape="clearNavSearch"
-									/>
-									<button
-										v-if="navSearchQuery"
-										@click="clearNavSearch"
-										class="terminal-nav-search-clear"
-										title="Clear search"
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-										</svg>
-									</button>
-								</div>
-							</div>
-							
-							<!-- Navigation Sections -->
-							<template v-if="navigationConfig && navigationConfig.length > 0">
-								<div
-									v-for="section in navigationConfig"
-									:key="section.id"
-									class="terminal-nav-section"
-									:class="{
-										'nav-section-primary': section.priority === 'primary',
-										'nav-section-secondary': section.priority === 'secondary',
-										'nav-section-tertiary': section.priority === 'tertiary'
-									}"
-								>
-									<!-- Section Header (collapsible if has title) -->
-									<div
-										v-if="section.title"
-										@click="toggleNavSection(section.id)"
-										class="terminal-nav-section-header"
-										:class="{ 'collapsed': !navSectionsExpanded[section.id] }"
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-											class="terminal-nav-section-chevron"
-											:class="{ 'expanded': navSectionsExpanded[section.id] }"
-										>
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-										</svg>
-										<span v-if="!sidebarCollapsed" class="terminal-nav-section-title">{{ section.title }}</span>
-									</div>
-									
-									<!-- Section Items -->
-									<transition name="nav-section">
-										<div
-											v-show="!section.title || navSectionsExpanded[section.id]"
-											class="terminal-nav-section-items"
-										>
-											<button
-												v-for="item in section.items"
-												:key="item.id"
-												@click="item.action && item.action()"
-												class="terminal-nav-item"
-												:class="{
-													'active': item.isActive && item.isActive(),
-													'disabled': item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled),
-													'nav-item-primary': item.priority === 'primary',
-													'nav-item-secondary': item.priority === 'secondary',
-													'nav-item-tertiary': item.priority === 'tertiary'
-												}"
-												:disabled="item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)"
-												:title="sidebarCollapsed ? item.label : ''"
-											>
-												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
-													<path v-if="item.icon2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon2" />
-												</svg>
-												<span v-if="!sidebarCollapsed" class="terminal-nav-item-label">{{ item.label }}</span>
-												<span
-													v-if="!sidebarCollapsed && item.badge"
-													class="terminal-nav-item-badge"
-													:class="{
-														'badge-error': item.badge && item.badge.color === 'red',
-														'badge-warning': item.badge && (item.badge.color === 'orange' || item.badge.color === 'yellow'),
-														'badge-info': item.badge && item.badge.color === 'blue'
-													}"
-												>
-													{{ item.badge && item.badge.count ? item.badge.count : '' }}
-												</span>
-											</button>
-										</div>
-									</transition>
-								</div>
-							</template>
-							
-							<!-- No Results -->
-							<div v-if="navSearchQuery && navigationConfig.every(s => s.items.length === 0)" class="terminal-nav-no-results">
-								<p>No results found</p>
-							</div>
-						</nav>
-					</aside>
+					<TerminalSidebar
+						v-model:collapsed="sidebarCollapsed"
+						:navigation-config="navigationConfig"
+						@toggle-section="() => {}"
+					/>
 					
 					<!-- Main Content Area -->
 					<div class="terminal-main-content">
 						<!-- Favorites Tray (Top-Aligned Full-Width Drawer) -->
-						<div 
-							class="terminal-favorites-tray"
-							:class="{ 'drawer-open': showFavoritesTray }"
+						<TerminalFavoritesTray
+							:show="showFavoritesTray"
+							:top-favorites="topFavorites"
+							:get-favorite-type-color="getFavoriteTypeColor"
+							:get-favorite-type-label="getFavoriteTypeLabel"
+							@insert-favorite="insertFavoriteCommand"
+							@execute-favorite="executeFavoriteCommand"
+							@toggle-favorites="toggleFavorites"
 							@mouseenter="handleFavoritesTrayHover"
 							@mouseleave="handleFavoritesTrayLeave"
-						>
-							<div class="terminal-favorites-tray-shelf">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-								</svg>
-								<span class="terminal-favorites-tray-label">Favorites</span>
-							</div>
-							<transition name="favorites-tray">
-								<div 
-									v-if="showFavoritesTray" 
-									class="terminal-favorites-tray-content"
-								>
-									<div class="terminal-favorites-tray-header">
-										<h3>Quick Access</h3>
-										<button @click="toggleFavorites" class="terminal-favorites-tray-view-all">
-											View All
-										</button>
-									</div>
-									<div v-if="topFavorites.length > 0" class="terminal-favorites-tray-list">
-										<div
-											v-for="favorite in topFavorites"
-											:key="favorite.id"
-											class="terminal-favorites-tray-item"
-										>
-											<div class="terminal-favorites-tray-item-info">
-												<span class="terminal-favorites-tray-item-name">{{ favorite.name }}</span>
-												<span 
-													class="terminal-favorites-tray-item-type"
-													:style="{ color: getFavoriteTypeColor(favorite.type) }"
-												>
-													{{ getFavoriteTypeLabel(favorite.type) }}
-												</span>
-											</div>
-											<div class="terminal-favorites-tray-item-actions">
-												<button
-													@click="insertFavoriteCommand(favorite)"
-													class="terminal-favorites-tray-action-btn"
-													title="Insert"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0110.5 3h6a2.25 2.25 0 012.25 2.25v13.5A2.25 2.25 0 0116.5 21h-6a2.25 2.25 0 01-2.25-2.25V15m-3 0l3-3m0 0l3 3m-3-3H15" />
-													</svg>
-												</button>
-												<button
-													@click="executeFavoriteCommand(favorite)"
-													class="terminal-favorites-tray-action-btn"
-													title="Execute"
-												>
-													<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
-													</svg>
-												</button>
-											</div>
-										</div>
-									</div>
-									<div v-else class="terminal-favorites-tray-empty">
-										<p>No favorites yet. Add commands to favorites for quick access.</p>
-									</div>
-								</div>
-							</transition>
-						</div>
+						/>
 						
 						<!-- Tab Bar -->
-						<div v-if="openTabs.length > 0" class="terminal-tabs" :class="{ 'favorites-drawer-open': showFavoritesTray }">
-							<div class="terminal-tabs-header">
-								<div class="terminal-tabs-container">
-									<button
-										v-for="tab in openTabs"
-										:key="tab.id"
-										@click="switchTab(tab.id)"
-										@contextmenu.prevent="handleTabContextMenu($event, tab.id)"
-										:class="['terminal-tab', { 'active': isTabActive(tab.id) }]"
-										:title="tab.label"
-									>
-										<span class="terminal-tab-label">{{ tab.label }}</span>
-										<button
-											v-if="tab.closable"
-											@click.stop="closeTab(tab.id)"
-											class="terminal-tab-close"
-											title="Close tab"
-										>
-											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-											</svg>
-										</button>
-									</button>
-								</div>
-								<!-- Issues/Notifications Actions -->
-								<div class="terminal-nav-actions">
-									<!-- Issues Counter -->
-									<button
-										v-if="issuesCounter"
-										@click="toggleIssues"
-										class="terminal-issues-counter"
-										:class="`terminal-issues-counter-${issuesCounter.color}`"
-										:title="`${issuesCounter.count} open issues${issuesCounter.critical > 0 ? `, ${issuesCounter.critical} critical` : ''}${issuesCounter.high > 0 ? `, ${issuesCounter.high} high priority` : ''}`"
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-										</svg>
-										<span class="terminal-issues-counter-badge">{{ issuesCounter.count }}</span>
-									</button>
-									<!-- Notifications Placeholder -->
-									<button
-										class="terminal-notifications-btn"
-										title="Notifications (Coming Soon)"
-										disabled
-									>
-										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-										</svg>
-									</button>
-								</div>
-							</div>
-						</div>
+						<TerminalTabBar
+							:open-tabs="openTabs"
+							:active-tab="activeTab"
+							:issues-counter="issuesCounter"
+							:favorites-drawer-open="showFavoritesTray"
+							@switch-tab="switchTab"
+							@close-tab="closeTab"
+							@close-other-tabs="closeOtherTabs"
+							@toggle-issues="toggleIssues"
+						/>
 
 						<!-- Content Area (panels and output) -->
 						<div class="terminal-content-area">
@@ -3084,68 +1671,18 @@ onUnmounted(() => {
 						</div>
 
 						<!-- Terminal Input Area -->
-						<div class="terminal-input-area">
-					<!-- Mode Selector (Segmented Control) -->
-					<div class="terminal-mode-selector">
-						<button 
-							class="terminal-mode-btn" 
-							:class="{ 'active': inputMode === 'tinker' }"
-							@click="inputMode = 'tinker'; handleInputFocus()"
-							title="Tinker (PHP)"
-						>
-							<span class="terminal-mode-label">PHP</span>
-						</button>
-						<button 
-							class="terminal-mode-btn" 
-							:class="{ 'active': inputMode === 'shell' }"
-							@click="inputMode = 'shell'; handleInputFocus()"
-							title="Shell (CMD)"
-						>
-							<span class="terminal-mode-label">CMD</span>
-						</button>
-						<button 
-							class="terminal-mode-btn" 
-							:class="{ 'active': inputMode === 'ai' }"
-							@click="inputMode = 'ai'; handleInputFocus()"
-							title="AI Assistant"
-						>
-							<span class="terminal-mode-label">AI</span>
-						</button>
-					</div>
-
-					<textarea
-						ref="inputRef"
-						v-model="commandInput"
-						@keydown="handleKeyDown"
-						@input="autoResizeTextarea"
-						@focus="handleInputFocus"
-						:disabled="isExecuting"
-						class="terminal-input"
-						:class="`mode-${inputMode}`"
-						:style="terminalStyle"
-						:placeholder="inputMode === 'tinker' ? 'Enter PHP code...' : inputMode === 'shell' ? 'Enter shell command...' : 'Ask AI a question...'"
-						autocomplete="off"
-						spellcheck="false"
-						rows="1"
-					/>
-					<button
-						@click="addCurrentCommandToFavorites"
-						:disabled="!commandInput.trim() || isExecuting"
-						class="terminal-btn terminal-btn-secondary terminal-btn-icon"
-						title="Add to Favorites"
-					>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-						</svg>
-					</button>
-					<button
-						@click="executeCommand"
-						:disabled="!commandInput.trim() || isExecuting || isSendingAi"
-						class="terminal-btn terminal-btn-primary"
-					>
-						{{ isSendingAi ? 'Sending...' : 'Execute' }}
-					</button>
-						</div>
+						<TerminalInput
+							ref="inputRef"
+							v-model:command-input="commandInput"
+							v-model:input-mode="inputMode"
+							:is-executing="isExecuting"
+							:is-sending-ai="isSendingAi"
+							:font-size="fontSize"
+							@execute="handleExecuteCommand"
+							@add-to-favorites="addCurrentCommandToFavorites"
+							@focus="handleInputFocus"
+							@keydown="handleKeyDownWrapper"
+						/>
 					</div>
 				</div>
 			</div>
