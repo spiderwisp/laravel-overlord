@@ -1882,6 +1882,249 @@ class TerminalController extends Controller
 	}
 
 	/**
+	 * Get classes filtered by type
+	 */
+	private function getClassesByType(string $type): array
+	{
+		$classes = $this->getClassDiscovery()->getClasses();
+		return array_filter($classes, function ($class) use ($type) {
+			return isset($class['type']) && $class['type'] === $type;
+		});
+	}
+
+	/**
+	 * Get all traits
+	 */
+	public function getTraits(Request $request)
+	{
+		try {
+			$traits = $this->getClassesByType('Trait');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($traits),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze traits', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze traits: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all services
+	 */
+	public function getServices(Request $request)
+	{
+		try {
+			$services = $this->getClassesByType('Service');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($services),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze services', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze services: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all requests
+	 */
+	public function getRequests(Request $request)
+	{
+		try {
+			$requests = $this->getClassesByType('Request');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($requests),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze requests', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze requests: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all providers
+	 */
+	public function getProviders(Request $request)
+	{
+		try {
+			$providers = $this->getClassesByType('Provider');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($providers),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze providers', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze providers: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all middleware classes
+	 */
+	public function getMiddlewareClasses(Request $request)
+	{
+		try {
+			$middleware = $this->getClassesByType('Middleware');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($middleware),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze middleware', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze middleware: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all jobs
+	 */
+	public function getJobs(Request $request)
+	{
+		try {
+			$jobs = $this->getClassesByType('Job');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($jobs),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze jobs', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze jobs: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all exceptions
+	 */
+	public function getExceptions(Request $request)
+	{
+		try {
+			$exceptions = $this->getClassesByType('Exception');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($exceptions),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze exceptions', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze exceptions: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
+	 * Get all command classes
+	 */
+	public function getCommandClasses(Request $request)
+	{
+		try {
+			$commandClasses = $this->getClassesByType('Command');
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'classes' => array_values($commandClasses),
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to analyze command classes', [
+				'error' => $e->getMessage(),
+			]);
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to analyze command classes: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 400);
+		}
+	}
+
+	/**
 	 * Get model fields/columns for a given model
 	 */
 	public function getModelFields(Request $request)

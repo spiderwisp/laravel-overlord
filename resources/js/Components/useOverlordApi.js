@@ -203,6 +203,38 @@ export function useOverlordApi() {
                 const params = new URLSearchParams({ controller, method });
                 return `${cleanBaseUrl}/controllers/method-source?${params.toString()}`;
             },
+        },
+        // Traits endpoints
+        traits: {
+            list: () => `${cleanBaseUrl}/traits`,
+        },
+        // Services endpoints
+        services: {
+            list: () => `${cleanBaseUrl}/services`,
+        },
+        // Requests endpoints
+        requests: {
+            list: () => `${cleanBaseUrl}/requests`,
+        },
+        // Providers endpoints
+        providers: {
+            list: () => `${cleanBaseUrl}/providers`,
+        },
+        // Middleware endpoints
+        middleware: {
+            list: () => `${cleanBaseUrl}/middleware`,
+        },
+        // Jobs endpoints
+        jobs: {
+            list: () => `${cleanBaseUrl}/jobs`,
+        },
+        // Exceptions endpoints
+        exceptions: {
+            list: () => `${cleanBaseUrl}/exceptions`,
+        },
+        // Command Classes endpoints
+        commandClasses: {
+            list: () => `${cleanBaseUrl}/command-classes`,
         }
     };
 }

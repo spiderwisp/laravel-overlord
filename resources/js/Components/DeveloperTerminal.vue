@@ -9,6 +9,14 @@ import TerminalOutput from './Terminal/TerminalOutput.vue';
 import TerminalModelDiagram from './Terminal/TerminalModelDiagram.vue';
 import TerminalControllers from './Terminal/TerminalControllers.vue';
 import TerminalClasses from './Terminal/TerminalClasses.vue';
+import TerminalTraits from './Terminal/TerminalTraits.vue';
+import TerminalServices from './Terminal/TerminalServices.vue';
+import TerminalRequests from './Terminal/TerminalRequests.vue';
+import TerminalProviders from './Terminal/TerminalProviders.vue';
+import TerminalMiddleware from './Terminal/TerminalMiddleware.vue';
+import TerminalJobs from './Terminal/TerminalJobs.vue';
+import TerminalExceptions from './Terminal/TerminalExceptions.vue';
+import TerminalCommandClasses from './Terminal/TerminalCommandClasses.vue';
 import TerminalMigrations from './Terminal/TerminalMigrations.vue';
 import TerminalCommands from './Terminal/TerminalCommands.vue';
 import TerminalFavorites from './Terminal/TerminalFavorites.vue';
@@ -86,6 +94,14 @@ const tabConfigs = {
 	'issues': { id: 'issues', label: 'Issues', closable: true },
 	'controllers': { id: 'controllers', label: 'Controllers', closable: true },
 	'classes': { id: 'classes', label: 'Classes', closable: true },
+	'traits': { id: 'traits', label: 'Traits', closable: true },
+	'services': { id: 'services', label: 'Services', closable: true },
+	'requests': { id: 'requests', label: 'Requests', closable: true },
+	'providers': { id: 'providers', label: 'Providers', closable: true },
+	'middleware': { id: 'middleware', label: 'Middleware', closable: true },
+	'jobs': { id: 'jobs', label: 'Jobs', closable: true },
+	'exceptions': { id: 'exceptions', label: 'Exceptions', closable: true },
+	'command-classes': { id: 'command-classes', label: 'Commands', closable: true },
 	'migrations': { id: 'migrations', label: 'Migrations', closable: true },
 	'commands': { id: 'commands', label: 'Commands', closable: true },
 	'favorites': { id: 'favorites', label: 'Favorites', closable: true },
@@ -1079,6 +1095,70 @@ function toggleClasses() {
 		closeTab('classes');
 	} else {
 		ensureTabOpen('classes');
+	}
+}
+
+function toggleTraits() {
+	if (isTabActive('traits')) {
+		closeTab('traits');
+	} else {
+		ensureTabOpen('traits');
+	}
+}
+
+function toggleServices() {
+	if (isTabActive('services')) {
+		closeTab('services');
+	} else {
+		ensureTabOpen('services');
+	}
+}
+
+function toggleRequests() {
+	if (isTabActive('requests')) {
+		closeTab('requests');
+	} else {
+		ensureTabOpen('requests');
+	}
+}
+
+function toggleProviders() {
+	if (isTabActive('providers')) {
+		closeTab('providers');
+	} else {
+		ensureTabOpen('providers');
+	}
+}
+
+function toggleMiddleware() {
+	if (isTabActive('middleware')) {
+		closeTab('middleware');
+	} else {
+		ensureTabOpen('middleware');
+	}
+}
+
+function toggleJobs() {
+	if (isTabActive('jobs')) {
+		closeTab('jobs');
+	} else {
+		ensureTabOpen('jobs');
+	}
+}
+
+function toggleExceptions() {
+	if (isTabActive('exceptions')) {
+		closeTab('exceptions');
+	} else {
+		ensureTabOpen('exceptions');
+	}
+}
+
+function toggleCommandClasses() {
+	if (isTabActive('command-classes')) {
+		closeTab('command-classes');
+	} else {
+		ensureTabOpen('command-classes');
 	}
 }
 
@@ -2222,6 +2302,94 @@ onUnmounted(() => {
 									<span v-if="!sidebarCollapsed">Models</span>
 								</button>
 								<button
+									@click="toggleTraits"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('traits') }"
+									:title="sidebarCollapsed ? 'Traits' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Traits</span>
+								</button>
+								<button
+									@click="toggleServices"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('services') }"
+									:title="sidebarCollapsed ? 'Services' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Services</span>
+								</button>
+								<button
+									@click="toggleRequests"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('requests') }"
+									:title="sidebarCollapsed ? 'Requests' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Requests</span>
+								</button>
+								<button
+									@click="toggleProviders"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('providers') }"
+									:title="sidebarCollapsed ? 'Providers' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Providers</span>
+								</button>
+								<button
+									@click="toggleMiddleware"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('middleware') }"
+									:title="sidebarCollapsed ? 'Middleware' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Middleware</span>
+								</button>
+								<button
+									@click="toggleJobs"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('jobs') }"
+									:title="sidebarCollapsed ? 'Jobs' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Jobs</span>
+								</button>
+								<button
+									@click="toggleExceptions"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('exceptions') }"
+									:title="sidebarCollapsed ? 'Exceptions' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Exceptions</span>
+								</button>
+								<button
+									@click="toggleCommandClasses"
+									class="terminal-nav-item"
+									:class="{ 'active': isTabActive('command-classes') }"
+									:title="sidebarCollapsed ? 'Command Classes' : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+									</svg>
+									<span v-if="!sidebarCollapsed">Commands</span>
+								</button>
+								<button
 									@click="toggleMigrations"
 									class="terminal-nav-item"
 									:class="{ 'active': isTabActive('migrations') }"
@@ -2547,6 +2715,54 @@ onUnmounted(() => {
 					<TerminalClasses
 						:visible="isTabActive('classes')"
 						@close="closeTab('classes')"
+					/>
+
+					<!-- Traits View -->
+					<TerminalTraits
+						:visible="isTabActive('traits')"
+						@close="closeTab('traits')"
+					/>
+
+					<!-- Services View -->
+					<TerminalServices
+						:visible="isTabActive('services')"
+						@close="closeTab('services')"
+					/>
+
+					<!-- Requests View -->
+					<TerminalRequests
+						:visible="isTabActive('requests')"
+						@close="closeTab('requests')"
+					/>
+
+					<!-- Providers View -->
+					<TerminalProviders
+						:visible="isTabActive('providers')"
+						@close="closeTab('providers')"
+					/>
+
+					<!-- Middleware View -->
+					<TerminalMiddleware
+						:visible="isTabActive('middleware')"
+						@close="closeTab('middleware')"
+					/>
+
+					<!-- Jobs View -->
+					<TerminalJobs
+						:visible="isTabActive('jobs')"
+						@close="closeTab('jobs')"
+					/>
+
+					<!-- Exceptions View -->
+					<TerminalExceptions
+						:visible="isTabActive('exceptions')"
+						@close="closeTab('exceptions')"
+					/>
+
+					<!-- Command Classes View -->
+					<TerminalCommandClasses
+						:visible="isTabActive('command-classes')"
+						@close="closeTab('command-classes')"
 					/>
 
 					<!-- Migrations View -->

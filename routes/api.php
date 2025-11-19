@@ -31,6 +31,14 @@ Route::middleware('web')->group(function () {
             Route::get('/controllers', [TerminalController::class, 'getControllers']);
             Route::get('/controllers/method-source', [TerminalController::class, 'getMethodSourceCode']);
             Route::get('/classes', [TerminalController::class, 'getClasses']);
+            Route::get('/traits', [TerminalController::class, 'getTraits']);
+            Route::get('/services', [TerminalController::class, 'getServices']);
+            Route::get('/requests', [TerminalController::class, 'getRequests']);
+            Route::get('/providers', [TerminalController::class, 'getProviders']);
+			Route::get('/middleware', [TerminalController::class, 'getMiddlewareClasses']);
+            Route::get('/jobs', [TerminalController::class, 'getJobs']);
+            Route::get('/exceptions', [TerminalController::class, 'getExceptions']);
+            Route::get('/command-classes', [TerminalController::class, 'getCommandClasses']);
             Route::get('/commands', [TerminalController::class, 'getCommands']);
             Route::post('/commands/execute', [TerminalController::class, 'executeArtisanCommand']);
             
