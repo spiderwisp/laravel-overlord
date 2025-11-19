@@ -63,6 +63,7 @@ const isOpen = computed({
 
 // Terminal state
 const commandInput = ref('');
+const inputMode = ref('tinker'); // 'tinker', 'shell', 'ai'
 const commandHistory = ref([]);
 const historyIndex = ref(-1);
 const outputHistory = ref([]);
@@ -135,6 +136,438 @@ const showQueriesDropdown = ref(false);
 
 // Sidebar navigation state
 const sidebarCollapsed = ref(false);
+
+// Navigation search state
+const navSearchQuery = ref('');
+const navSearchInputRef = ref(null);
+
+// Navigation sections expanded/collapsed state
+const navSectionsExpanded = ref({});
+
+// Initialize navigation sections state from localStorage
+function initializeNavSectionsState() {
+	try {
+		const saved = localStorage.getItem('overlord_nav_sections_state');
+		if (saved) {
+			const parsed = JSON.parse(saved);
+			// Merge with defaults
+			navSectionsExpanded.value = {
+				'core-features': true, // Primary section expanded by default
+				'code-exploration': true,
+				'tools-scans': true,
+				'utilities': false, // Utilities collapsed by default
+				'system': false, // System collapsed by default
+				'footer': false, // Footer collapsed by default
+				...parsed
+			};
+		} else {
+			// Defaults
+			navSectionsExpanded.value = {
+				'core-features': true,
+				'code-exploration': true,
+				'tools-scans': true,
+				'utilities': false,
+				'system': false,
+				'footer': false,
+			};
+		}
+	} catch (e) {
+		console.error('Failed to load nav sections state:', e);
+		navSectionsExpanded.value = {
+			'core-features': true,
+			'code-exploration': true,
+			'tools-scans': true,
+			'utilities': false,
+			'system': false,
+			'footer': false,
+		};
+	}
+}
+
+// Save navigation sections state to localStorage
+function saveNavSectionsState() {
+	try {
+		localStorage.setItem('overlord_nav_sections_state', JSON.stringify(navSectionsExpanded.value));
+	} catch (e) {
+		console.error('Failed to save nav sections state:', e);
+	}
+}
+
+// Toggle section expanded state
+function toggleNavSection(sectionId) {
+	navSectionsExpanded.value[sectionId] = !navSectionsExpanded.value[sectionId];
+	saveNavSectionsState();
+}
+
+// Navigation configuration structure
+const navigationConfig = computed(() => {
+	const sections = [
+		{
+			id: 'general',
+			title: 'GENERAL',
+			priority: 'primary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'terminal',
+					label: 'Terminal',
+					icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+					action: () => openTab('terminal'),
+					isActive: () => isTabActive('terminal'),
+					priority: 'primary',
+					keywords: ['terminal', 'console', 'tinker', 'shell']
+				},
+				{
+					id: 'ai',
+					label: 'AI Chat',
+					icon: 'M13 10V3L4 14h7v7l9-11h-7z',
+					action: toggleAi,
+					isActive: () => isTabActive('ai'),
+					priority: 'primary',
+					keywords: ['ai', 'assistant', 'chat', 'help', 'gpt']
+				},
+				{
+					id: 'history',
+					label: 'History',
+					icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: toggleHistory,
+					isActive: () => isTabActive('history'),
+					priority: 'primary',
+					keywords: ['history', 'past', 'commands']
+				}
+			]
+		},
+		{
+			id: 'database',
+			title: 'DATABASE',
+			priority: 'primary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'database',
+					label: 'Explorer',
+					icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
+					action: toggleDatabase,
+					isActive: () => isTabActive('database'),
+					priority: 'primary',
+					keywords: ['database', 'sql', 'query', 'table']
+				},
+				{
+					id: 'migrations',
+					label: 'Migrations',
+					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+					action: toggleMigrations,
+					isActive: () => isTabActive('migrations'),
+					priority: 'primary',
+					keywords: ['migrations', 'schema', 'alter']
+				},
+				{
+					id: 'database-scan-config',
+					label: 'DB Scans',
+					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: startDatabaseScan,
+					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
+					priority: 'primary',
+					keywords: ['scan', 'database', 'schema', 'analyze']
+				}
+			]
+		},
+		{
+			id: 'codebase',
+			title: 'CODEBASE',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'routes',
+					label: 'Routes',
+					icon: 'M13 7l5 5m0 0l-5 5m5-5H6',
+					action: toggleRoutes,
+					isActive: () => isTabActive('routes'),
+					priority: 'secondary',
+					keywords: ['routes', 'endpoints', 'api']
+				},
+				{
+					id: 'controllers',
+					label: 'Controllers',
+					icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+					action: toggleControllers,
+					isActive: () => isTabActive('controllers'),
+					priority: 'secondary',
+					keywords: ['controllers', 'http', 'logic']
+				},
+				{
+					id: 'model-diagram',
+					label: 'Models (Diagram)',
+					icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',
+					action: toggleModelDiagram,
+					isActive: () => isTabActive('model-diagram'),
+					priority: 'secondary',
+					keywords: ['models', 'diagram', 'eloquent', 'relationships']
+				},
+				{
+					id: 'scan-config',
+					label: 'Code Scans',
+					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: startScan,
+					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
+					priority: 'secondary',
+					keywords: ['scan', 'codebase', 'analyze', 'security']
+				}
+			]
+		},
+		{
+			id: 'tools',
+			title: 'TOOLS',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'commands',
+					label: 'Artisan Commands',
+					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+					action: toggleCommands,
+					isActive: () => isTabActive('commands'),
+					priority: 'secondary',
+					keywords: ['artisan', 'cli']
+				},
+				{
+					id: 'issues',
+					label: 'Issues',
+					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+					action: toggleIssues,
+					isActive: () => isTabActive('issues'),
+					priority: 'secondary',
+					keywords: ['issues', 'bugs', 'problems'],
+					badge: issuesCounter
+				},
+				{
+					id: 'templates',
+					label: 'Templates',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleTemplates,
+					isActive: () => isTabActive('templates'),
+					priority: 'secondary',
+					keywords: ['templates', 'snippets']
+				}
+			]
+		},
+		{
+			id: 'system',
+			title: 'SYSTEM',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'logs',
+					label: 'Logs',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleLogs,
+					isActive: () => isTabActive('logs'),
+					priority: 'secondary',
+					keywords: ['logs', 'errors', 'debug']
+				},
+				{
+					id: 'jobs',
+					label: 'Jobs / Horizon',
+					icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+					action: toggleJobs,
+					isActive: () => isTabActive('jobs') || isTabActive('horizon'),
+					priority: 'secondary',
+					keywords: ['jobs', 'queues', 'workers', 'horizon']
+				},
+				{
+					id: 'exceptions',
+					label: 'Exceptions',
+					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+					action: toggleExceptions,
+					isActive: () => isTabActive('exceptions'),
+					priority: 'secondary',
+					keywords: ['exceptions', 'errors']
+				}
+			]
+		},
+		{
+			id: 'reference',
+			title: 'REFERENCE',
+			priority: 'tertiary',
+			defaultExpanded: false,
+			items: [
+				{
+					id: 'classes',
+					label: 'Classes',
+					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+					action: toggleClasses,
+					isActive: () => isTabActive('classes'),
+					priority: 'tertiary',
+					keywords: ['classes']
+				},
+				{
+					id: 'traits',
+					label: 'Traits',
+					icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01',
+					action: toggleTraits,
+					isActive: () => isTabActive('traits'),
+					priority: 'tertiary',
+					keywords: ['traits']
+				},
+				{
+					id: 'providers',
+					label: 'Providers',
+					icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
+					action: toggleProviders,
+					isActive: () => isTabActive('providers'),
+					priority: 'tertiary',
+					keywords: ['providers', 'service providers', 'boot']
+				},
+				{
+					id: 'services',
+					label: 'Services',
+					icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
+					action: toggleServices,
+					isActive: () => isTabActive('services'),
+					priority: 'tertiary',
+					keywords: ['services', 'logic']
+				},
+				{
+					id: 'requests',
+					label: 'Requests',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleRequests,
+					isActive: () => isTabActive('requests'),
+					priority: 'tertiary',
+					keywords: ['requests', 'validation']
+				},
+				{
+					id: 'middleware',
+					label: 'Middleware',
+					icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+					action: toggleMiddleware,
+					isActive: () => isTabActive('middleware'),
+					priority: 'tertiary',
+					keywords: ['middleware', 'layers']
+				},
+				{
+					id: 'command-classes',
+					label: 'Command Classes',
+					icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+					action: toggleCommandClasses,
+					isActive: () => isTabActive('command-classes'),
+					priority: 'tertiary',
+					keywords: ['commands', 'classes']
+				}
+			]
+		},
+		{
+			id: 'footer',
+			title: '',
+			priority: 'tertiary',
+			defaultExpanded: false,
+			items: [
+				{
+					id: 'help',
+					label: 'Help',
+					icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: showHelp,
+					isActive: () => false,
+					priority: 'tertiary',
+					keywords: ['help', 'docs']
+				},
+				{
+					id: 'settings',
+					label: 'UI Settings',
+					icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
+					icon2: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+					action: openSettings,
+					isActive: () => isTabActive('settings'),
+					priority: 'tertiary',
+					keywords: ['settings', 'config']
+				}
+			]
+		}
+	];
+
+	// Filter items based on search query
+	if (navSearchQuery.value.trim()) {
+		const query = navSearchQuery.value.toLowerCase().trim();
+		return sections.map(section => {
+			const filteredItems = section.items.filter(item => {
+				// Check label
+				if (item.label.toLowerCase().includes(query)) return true;
+				// Check keywords
+				if (item.keywords && item.keywords.some(kw => kw.toLowerCase().includes(query))) return true;
+				return false;
+			});
+			return { ...section, items: filteredItems };
+		}).filter(section => section.items.length > 0);
+	}
+
+	return sections;
+});
+
+// Get filtered navigation items for keyboard navigation
+const filteredNavItems = computed(() => {
+	const items = [];
+	navigationConfig.value.forEach(section => {
+		if (!section.title || navSectionsExpanded.value[section.id] !== false) {
+			section.items.forEach(item => {
+				const isDisabled = item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled);
+				if (!isDisabled) {
+					items.push({ ...item, sectionId: section.id });
+				}
+			});
+		}
+	});
+	return items;
+});
+
+// Keyboard navigation state
+const focusedNavItemIndex = ref(-1);
+
+// Handle keyboard navigation
+function handleNavKeyboard(event) {
+	if (sidebarCollapsed.value) return;
+
+	const items = filteredNavItems.value;
+	if (items.length === 0) return;
+
+	switch (event.key) {
+		case 'ArrowDown':
+			event.preventDefault();
+			focusedNavItemIndex.value = Math.min(focusedNavItemIndex.value + 1, items.length - 1);
+			break;
+		case 'ArrowUp':
+			event.preventDefault();
+			focusedNavItemIndex.value = Math.max(focusedNavItemIndex.value - 1, 0);
+			break;
+		case 'Enter':
+		case ' ':
+			if (focusedNavItemIndex.value >= 0 && focusedNavItemIndex.value < items.length) {
+				event.preventDefault();
+				const item = items[focusedNavItemIndex.value];
+				if (item.action) {
+					item.action();
+				}
+			}
+			break;
+		case 'Escape':
+			if (navSearchQuery.value) {
+				event.preventDefault();
+				navSearchQuery.value = '';
+				focusedNavItemIndex.value = -1;
+			}
+			break;
+	}
+}
+
+// Clear search
+function clearNavSearch() {
+	navSearchQuery.value = '';
+	focusedNavItemIndex.value = -1;
+	if (navSearchInputRef.value) {
+		navSearchInputRef.value.focus();
+	}
+}
 
 // Favorites tray state
 const showFavoritesTray = ref(false);
@@ -508,67 +941,50 @@ async function executeCommand() {
 	}
 
 	// Preserve the full command including line breaks for execution
-	const command = commandInput.value.trim();
+	let command = commandInput.value.trim();
 	
-	// Check if command starts with /shell
+	// Check for mode overrides via prefixes
 	if (command.startsWith('/shell')) {
-		// Extract the command after /shell
-		const shellCmd = command.substring(6).trim();
-		
-		if (!shellCmd) {
-			// If just /shell, toggle shell mode
-			toggleShell();
-			return;
-		}
-		
-		// Clear input but restore /shell prefix to keep shell mode active
-		commandInput.value = '/shell ';
-		if (inputRef.value) {
-			inputRef.value.style.height = 'auto';
-		}
-		
-		// Execute shell command
-		await executeShellCommand(shellCmd);
-		
-		// Focus input after sending
-		nextTick(() => {
-			if (inputRef.value) {
-				inputRef.value.focus();
-			}
-		});
+		inputMode.value = 'shell';
+		command = command.substring(6).trim();
+	} else if (command.startsWith('/ai')) {
+		inputMode.value = 'ai';
+		command = command.substring(3).trim();
+	} else if (command.startsWith('/tinker')) {
+		inputMode.value = 'tinker';
+		command = command.substring(7).trim();
+	}
+
+	if (!command) {
+		// Just changing mode
+		commandInput.value = '';
+		return;
+	}
+
+	// Handle based on input mode
+	if (inputMode.value === 'shell') {
+		await executeShellCommand(command);
 		return;
 	}
 	
-	// Check if command starts with /ai
-	if (command.startsWith('/ai')) {
-		// Extract the message after /ai
-		const aiMessage = command.substring(3).trim();
-		
-		if (!aiMessage) {
-			// If just /ai, focus input and show AI tab
-			toggleAi();
-			return;
-		}
-		
-		// Clear input but restore /ai prefix to keep AI mode active
-		commandInput.value = '/ai ';
-		if (inputRef.value) {
-			inputRef.value.style.height = 'auto';
-		}
-		
+	if (inputMode.value === 'ai') {
 		// Send to AI
-		await sendAiMessage(aiMessage);
+		await sendAiMessage(command);
+		
+		// Clear input
+		commandInput.value = '';
+		if (inputRef.value) {
+			inputRef.value.style.height = 'auto';
+		}
 		
 		// Focus input after sending
 		nextTick(() => {
-			if (inputRef.value) {
-				inputRef.value.focus();
-			}
+			focusInput();
 		});
 		return;
 	}
 	
-	// Regular command execution
+	// Regular command execution (Tinker)
 	// Switch to terminal tab to show output
 	ensureTabOpen('terminal');
 	
@@ -583,7 +999,6 @@ async function executeCommand() {
 	addOutput('command', command);
 
 	// Clear input
-	const cmd = commandInput.value;
 	commandInput.value = '';
 	// Reset textarea height
 	if (inputRef.value) {
@@ -593,7 +1008,7 @@ async function executeCommand() {
 
 	try {
 		const response = await axios.post(api.url('execute'), {
-			command: cmd,
+			command: command,
 		}, {
 			timeout: 300000, // 5 minutes for long-running commands
 		});
@@ -922,67 +1337,53 @@ function handleFavoritesTrayLeave() {
 	}, 200);
 }
 
+// Handle input focus
+function handleInputFocus() {
+	// Switch to terminal tab when input is focused
+	if (activeTab.value !== 'terminal') {
+		activeTab.value = 'terminal';
+	}
+}
+
 function toggleAi() {
-	let trimmed = commandInput.value.trim();
-	
-	// Remove /shell prefix if present
-	if (trimmed.startsWith('/shell')) {
-		trimmed = trimmed.replace(/^\/shell\s*/, '').trim();
-	}
-	
-	// Toggle /ai prefix: remove if present, add if not
-	if (trimmed.startsWith('/ai')) {
-		// Remove /ai prefix (handle both "/ai" and "/ai " cases)
-		commandInput.value = trimmed.replace(/^\/ai\s*/, '').trim();
+	// Toggle input mode
+	if (inputMode.value === 'ai') {
+		inputMode.value = 'tinker';
 	} else {
-		// Add /ai prefix
-		commandInput.value = '/ai ' + (trimmed ? trimmed + ' ' : '');
+		inputMode.value = 'ai';
 	}
 	
-	// Ensure AI tab is open to show conversation
-	ensureTabOpen('ai');
+	// Switch to terminal tab (where input is)
+	activeTab.value = 'terminal';
 	
-	// Load AI status if not already loaded
-	loadAiStatus();
+	// Load AI status if switching to AI
+	if (inputMode.value === 'ai') {
+		loadAiStatus();
+	}
 	
 	// Focus the input
 	nextTick(() => {
 		if (inputRef.value) {
 			inputRef.value.focus();
-			// Move cursor to end
-			const length = inputRef.value.value.length;
-			inputRef.value.setSelectionRange(length, length);
 		}
 	});
 }
 
 function toggleShell() {
-	let trimmed = commandInput.value.trim();
-	
-	// Remove /ai prefix if present
-	if (trimmed.startsWith('/ai')) {
-		trimmed = trimmed.replace(/^\/ai\s*/, '').trim();
-	}
-	
-	// Toggle /shell prefix: remove if present, add if not
-	if (trimmed.startsWith('/shell')) {
-		// Remove /shell prefix (handle both "/shell" and "/shell " cases)
-		commandInput.value = trimmed.replace(/^\/shell\s*/, '').trim();
+	// Toggle input mode
+	if (inputMode.value === 'shell') {
+		inputMode.value = 'tinker';
 	} else {
-		// Add /shell prefix
-		commandInput.value = '/shell ' + (trimmed ? trimmed + ' ' : '');
+		inputMode.value = 'shell';
 	}
 	
-	// Switch to terminal tab to show output
-	ensureTabOpen('terminal');
+	// Switch to terminal tab (where input is)
+	activeTab.value = 'terminal';
 	
 	// Focus the input
 	nextTick(() => {
 		if (inputRef.value) {
 			inputRef.value.focus();
-			// Move cursor to end
-			const length = inputRef.value.value.length;
-			inputRef.value.setSelectionRange(length, length);
 		}
 	});
 }
@@ -2055,6 +2456,8 @@ function handleClickOutside(event) {
 onMounted(async () => {
 	// Load preferences from localStorage
 	loadTerminalHeight();
+	// Initialize navigation sections state
+	initializeNavSectionsState();
 	// Initialize theme and font after next tick to ensure ref is available
 	await nextTick();
 	// Try to initialize immediately, and also watch for when drawer opens
@@ -2216,340 +2619,112 @@ onUnmounted(() => {
 							</button>
 						</div>
 						
-						<nav class="terminal-sidebar-nav">
-							<!-- Quick Actions Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Quick Actions</div>
-								<button
-									@click="toggleHistory"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('history') }"
-									:title="sidebarCollapsed ? 'History' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						<nav class="terminal-sidebar-nav" @keydown="handleNavKeyboard">
+							<!-- Search Input -->
+							<div v-if="!sidebarCollapsed" class="terminal-nav-search">
+								<div class="terminal-nav-search-wrapper">
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="terminal-nav-search-icon">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 									</svg>
-									<span v-if="!sidebarCollapsed">History</span>
-								</button>
-								<button
-									@click="toggleFavorites"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('favorites') }"
-									:title="sidebarCollapsed ? 'Favorites' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Favorites</span>
-								</button>
-								<button
-									@click="showHelp"
-									class="terminal-nav-item"
-									:title="sidebarCollapsed ? 'Help' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Help</span>
-								</button>
+									<input
+										ref="navSearchInputRef"
+										v-model="navSearchQuery"
+										type="text"
+										class="terminal-nav-search-input"
+										placeholder="Search navigation..."
+										@keydown.escape="clearNavSearch"
+									/>
+									<button
+										v-if="navSearchQuery"
+										@click="clearNavSearch"
+										class="terminal-nav-search-clear"
+										title="Clear search"
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
 							</div>
 							
-							<!-- Components Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Components</div>
-								<button
-									@click="toggleControllers"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('controllers') }"
-									:title="sidebarCollapsed ? 'Controllers' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Controllers</span>
-								</button>
-								<button
-									@click="toggleRoutes"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('routes') }"
-									:title="sidebarCollapsed ? 'Routes' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Routes</span>
-								</button>
-								<button
-									@click="toggleClasses"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('classes') }"
-									:title="sidebarCollapsed ? 'Classes' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Classes</span>
-								</button>
-								<button
-									@click="toggleModelDiagram"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('model-diagram') }"
-									:title="sidebarCollapsed ? 'Models' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Models</span>
-								</button>
-								<button
-									@click="toggleTraits"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('traits') }"
-									:title="sidebarCollapsed ? 'Traits' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Traits</span>
-								</button>
-								<button
-									@click="toggleServices"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('services') }"
-									:title="sidebarCollapsed ? 'Services' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Services</span>
-								</button>
-								<button
-									@click="toggleRequests"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('requests') }"
-									:title="sidebarCollapsed ? 'Requests' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Requests</span>
-								</button>
-								<button
-									@click="toggleProviders"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('providers') }"
-									:title="sidebarCollapsed ? 'Providers' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Providers</span>
-								</button>
-								<button
-									@click="toggleMiddleware"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('middleware') }"
-									:title="sidebarCollapsed ? 'Middleware' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Middleware</span>
-								</button>
-								<button
-									@click="toggleJobs"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('jobs') }"
-									:title="sidebarCollapsed ? 'Jobs' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Jobs</span>
-								</button>
-								<button
-									@click="toggleExceptions"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('exceptions') }"
-									:title="sidebarCollapsed ? 'Exceptions' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Exceptions</span>
-								</button>
-							</div>
-							
-							<!-- Database Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Database</div>
-								<button
-									@click="toggleDatabase"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('database') }"
-									:title="sidebarCollapsed ? 'Database' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Explorer</span>
-								</button>
-								<button
-									@click="toggleTemplates"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('templates') }"
-									:title="sidebarCollapsed ? 'Templates' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Templates</span>
-								</button>
-								<button
-									@click="toggleMigrations"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('migrations') }"
-									:title="sidebarCollapsed ? 'Migrations' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Migrations</span>
-								</button>
-							</div>
-							
-							<!-- Commands Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Commands</div>
-								<button
-									@click="toggleCommandClasses"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('command-classes') }"
-									:title="sidebarCollapsed ? 'Command Classes' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Command Classes</span>
-								</button>
-								<button
-									@click="toggleCommands"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('commands') }"
-									:title="sidebarCollapsed ? 'Artisan Commands' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Artisan Commands</span>
-								</button>
-							</div>
-							
-							<!-- Tools Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Tools</div>
-								<button
-									@click="startScan"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('scan-config') || isTabActive('scan-results') }"
-									:title="sidebarCollapsed ? 'Scan Codebase' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Scan Codebase</span>
-								</button>
-								<button
-									@click="toggleScanHistory"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('scan-history') }"
-									:title="sidebarCollapsed ? 'Scan History' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Scan History</span>
-								</button>
-								<button
-									@click="startDatabaseScan"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('database-scan-config') || isTabActive('database-scan-results') }"
-									:title="sidebarCollapsed ? 'Scan Database' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Scan Database</span>
-								</button>
-								<button
-									@click="toggleDatabaseScanHistory"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('database-scan-history') }"
-									:title="sidebarCollapsed ? 'Database Scan History' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">DB Scan History</span>
-								</button>
-							</div>
-							
-							<!-- System Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">System</div>
-								<button
-									@click="toggleLogs"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('logs') }"
-									:title="sidebarCollapsed ? 'Logs' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Logs</span>
-								</button>
-								<button
-									@click="toggleIssues"
-									class="terminal-nav-item"
-									:class="{ 'active': isTabActive('issues') }"
-									:title="sidebarCollapsed ? 'Issues' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Issues</span>
-								</button>
-								<button
-									@click="toggleHorizon"
-									class="terminal-nav-item"
-									:class="{ 
-										'active': isTabActive('horizon'),
-										'disabled': !horizonInstalled
+							<!-- Navigation Sections -->
+							<template v-if="navigationConfig && navigationConfig.length > 0">
+								<div
+									v-for="section in navigationConfig"
+									:key="section.id"
+									class="terminal-nav-section"
+									:class="{
+										'nav-section-primary': section.priority === 'primary',
+										'nav-section-secondary': section.priority === 'secondary',
+										'nav-section-tertiary': section.priority === 'tertiary'
 									}"
-									:disabled="!horizonInstalled"
-									:title="sidebarCollapsed ? (horizonInstalled ? 'Horizon' : 'Horizon (Not Installed)') : ''"
 								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">Horizon</span>
-								</button>
-							</div>
+									<!-- Section Header (collapsible if has title) -->
+									<div
+										v-if="section.title"
+										@click="toggleNavSection(section.id)"
+										class="terminal-nav-section-header"
+										:class="{ 'collapsed': !navSectionsExpanded[section.id] }"
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+											class="terminal-nav-section-chevron"
+											:class="{ 'expanded': navSectionsExpanded[section.id] }"
+										>
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+										</svg>
+										<span v-if="!sidebarCollapsed" class="terminal-nav-section-title">{{ section.title }}</span>
+									</div>
+									
+									<!-- Section Items -->
+									<transition name="nav-section">
+										<div
+											v-show="!section.title || navSectionsExpanded[section.id]"
+											class="terminal-nav-section-items"
+										>
+											<button
+												v-for="item in section.items"
+												:key="item.id"
+												@click="item.action && item.action()"
+												class="terminal-nav-item"
+												:class="{
+													'active': item.isActive && item.isActive(),
+													'disabled': item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled),
+													'nav-item-primary': item.priority === 'primary',
+													'nav-item-secondary': item.priority === 'secondary',
+													'nav-item-tertiary': item.priority === 'tertiary'
+												}"
+												:disabled="item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)"
+												:title="sidebarCollapsed ? item.label : ''"
+											>
+												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+													<path v-if="item.icon2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon2" />
+												</svg>
+												<span v-if="!sidebarCollapsed" class="terminal-nav-item-label">{{ item.label }}</span>
+												<span
+													v-if="!sidebarCollapsed && item.badge"
+													class="terminal-nav-item-badge"
+													:class="{
+														'badge-error': item.badge && item.badge.color === 'red',
+														'badge-warning': item.badge && (item.badge.color === 'orange' || item.badge.color === 'yellow'),
+														'badge-info': item.badge && item.badge.color === 'blue'
+													}"
+												>
+													{{ item.badge && item.badge.count ? item.badge.count : '' }}
+												</span>
+											</button>
+										</div>
+									</transition>
+								</div>
+							</template>
 							
-							<!-- Settings Section -->
-							<div class="terminal-nav-section">
-								<div v-if="!sidebarCollapsed" class="terminal-nav-section-title">Settings</div>
-								<button
-									@click="openSettings($event)"
-									class="terminal-nav-item"
-									:title="sidebarCollapsed ? 'UI Settings' : ''"
-								>
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-									</svg>
-									<span v-if="!sidebarCollapsed">UI Settings</span>
-								</button>
+							<!-- No Results -->
+							<div v-if="navSearchQuery && navigationConfig.every(s => s.items.length === 0)" class="terminal-nav-no-results">
+								<p>No results found</p>
 							</div>
 						</nav>
 					</aside>
@@ -2910,37 +3085,45 @@ onUnmounted(() => {
 
 						<!-- Terminal Input Area -->
 						<div class="terminal-input-area">
-					<!-- AI Toggle Button -->
-					<button
-						@click="toggleShell"
-						class="terminal-btn terminal-btn-secondary terminal-btn-icon terminal-shell-toggle"
-						:class="{ 'terminal-btn-active': commandInput.trim().startsWith('/shell') }"
-						title="Toggle Shell Terminal (/shell prefix)"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-						</svg>
-					</button>
-					<button
-						@click="toggleAi"
-						class="terminal-btn terminal-btn-secondary terminal-btn-icon terminal-ai-toggle"
-						:class="{ 'terminal-btn-active': commandInput.trim().startsWith('/ai') }"
-						title="Toggle AI Assistant (/ai prefix)"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-						</svg>
-					</button>
-					<div class="terminal-prompt">$</div>
+					<!-- Mode Selector (Segmented Control) -->
+					<div class="terminal-mode-selector">
+						<button 
+							class="terminal-mode-btn" 
+							:class="{ 'active': inputMode === 'tinker' }"
+							@click="inputMode = 'tinker'; handleInputFocus()"
+							title="Tinker (PHP)"
+						>
+							<span class="terminal-mode-label">PHP</span>
+						</button>
+						<button 
+							class="terminal-mode-btn" 
+							:class="{ 'active': inputMode === 'shell' }"
+							@click="inputMode = 'shell'; handleInputFocus()"
+							title="Shell (CMD)"
+						>
+							<span class="terminal-mode-label">CMD</span>
+						</button>
+						<button 
+							class="terminal-mode-btn" 
+							:class="{ 'active': inputMode === 'ai' }"
+							@click="inputMode = 'ai'; handleInputFocus()"
+							title="AI Assistant"
+						>
+							<span class="terminal-mode-label">AI</span>
+						</button>
+					</div>
+
 					<textarea
 						ref="inputRef"
 						v-model="commandInput"
 						@keydown="handleKeyDown"
 						@input="autoResizeTextarea"
+						@focus="handleInputFocus"
 						:disabled="isExecuting"
 						class="terminal-input"
+						:class="`mode-${inputMode}`"
 						:style="terminalStyle"
-						placeholder="Enter command, type /shell for shell commands, or /ai for AI questions... (Shift+Enter for newline)"
+						:placeholder="inputMode === 'tinker' ? 'Enter PHP code...' : inputMode === 'shell' ? 'Enter shell command...' : 'Ask AI a question...'"
 						autocomplete="off"
 						spellcheck="false"
 						rows="1"
@@ -3407,7 +3590,7 @@ onUnmounted(() => {
 	max-height: 500px;
 	overflow-y: auto;
 	overflow-x: hidden;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	z-index: 9999; /* Below shelf (10003) and tabs (10002) but above content */
 	margin-top: 0;
 }
@@ -3846,6 +4029,206 @@ onUnmounted(() => {
 	background: rgba(244, 135, 113, 0.1);
 }
 
+/* Navigation Search */
+.terminal-nav-search {
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var(--terminal-border, #3e3e42);
+}
+
+.terminal-nav-search-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.terminal-nav-search-icon {
+	position: absolute;
+	left: 8px;
+	width: 16px !important;
+	height: 16px !important;
+	color: var(--terminal-text-secondary, #858585);
+	pointer-events: none;
+	z-index: 1;
+}
+
+.terminal-nav-search-input {
+	width: 100%;
+	padding: 6px 32px 6px 32px;
+	background: var(--terminal-bg-tertiary, #2d2d30);
+	border: 1px solid var(--terminal-border, #3e3e42);
+	border-radius: 4px;
+	color: var(--terminal-text, #d4d4d4);
+	font-size: var(--terminal-font-size-sm, 12px);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
+	transition: all 0.2s;
+}
+
+.terminal-nav-search-input:focus {
+	outline: none;
+	border-color: var(--terminal-primary, #0e639c);
+	background: var(--terminal-bg-secondary, #252526);
+}
+
+.terminal-nav-search-input::placeholder {
+	color: var(--terminal-text-secondary, #858585);
+}
+
+.terminal-nav-search-clear {
+	position: absolute;
+	right: 6px;
+	background: transparent;
+	border: none;
+	color: var(--terminal-text-secondary, #858585);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
+}
+
+.terminal-nav-search-clear:hover {
+	background: var(--terminal-bg-tertiary, #2d2d30);
+	color: var(--terminal-text, #ffffff);
+}
+
+.terminal-nav-search-clear svg {
+	width: 14px !important;
+	height: 14px !important;
+}
+
+/* Navigation Section Header */
+.terminal-nav-section-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.2s;
+	border-radius: 4px;
+	margin-bottom: 4px;
+}
+
+.terminal-nav-section-header:hover {
+	background: var(--terminal-bg-tertiary, #2d2d30);
+}
+
+.terminal-nav-section-chevron {
+	width: 14px !important;
+	height: 14px !important;
+	color: var(--terminal-text-secondary, #858585);
+	transition: transform 0.2s;
+	flex-shrink: 0;
+}
+
+.terminal-nav-section-chevron.expanded {
+	transform: rotate(90deg);
+}
+
+.terminal-nav-section-items {
+	overflow: hidden;
+}
+
+/* Navigation Section Transitions */
+.nav-section-enter-active,
+.nav-section-leave-active {
+	transition: all 0.3s ease;
+	max-height: 2000px;
+}
+
+.nav-section-enter-from,
+.nav-section-leave-to {
+	max-height: 0;
+	opacity: 0;
+	overflow: hidden;
+}
+
+/* Priority-based Navigation Styles */
+.nav-section-primary {
+	margin-bottom: 20px;
+}
+
+.nav-section-secondary {
+	margin-bottom: 16px;
+}
+
+.nav-section-tertiary {
+	margin-bottom: 12px;
+}
+
+.nav-item-primary {
+	font-weight: 600;
+	padding: 10px 12px;
+}
+
+.nav-item-primary svg {
+	width: 18px !important;
+	height: 18px !important;
+}
+
+.nav-item-secondary {
+	font-weight: 500;
+}
+
+.nav-item-tertiary {
+	font-weight: 400;
+	opacity: 0.85;
+}
+
+.nav-item-tertiary:hover {
+	opacity: 1;
+}
+
+/* Navigation Item Badge */
+.terminal-nav-item-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 6px;
+	border-radius: 9px;
+	font-size: 10px;
+	font-weight: 600;
+	margin-left: auto;
+	background: var(--terminal-primary, #0e639c);
+	color: white;
+}
+
+.terminal-nav-item-badge.badge-error {
+	background: var(--terminal-error, #f48771);
+}
+
+.terminal-nav-item-badge.badge-warning {
+	background: #f59e0b;
+}
+
+.terminal-nav-item-badge.badge-info {
+	background: var(--terminal-primary, #0e639c);
+}
+
+/* No Results */
+.terminal-nav-no-results {
+	padding: 24px 12px;
+	text-align: center;
+	color: var(--terminal-text-secondary, #858585);
+	font-size: var(--terminal-font-size-sm, 12px);
+}
+
+/* Footer section styling (tertiary) */
+.nav-section-tertiary .terminal-nav-section-title {
+	font-size: var(--terminal-font-size-xs, 10px);
+	opacity: 0.7;
+}
+
+.nav-section-tertiary .terminal-nav-item {
+	font-size: var(--terminal-font-size-xs, 11px);
+	padding: 6px 12px;
+}
+
 .terminal-main-content {
 	flex: 1;
 	display: flex;
@@ -3882,7 +4265,7 @@ onUnmounted(() => {
 	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	min-width: 200px;
 	z-index: 10003; /* Higher than scan components (10002) to ensure dropdown appears above */
 	overflow: hidden;
@@ -4062,7 +4445,7 @@ onUnmounted(() => {
 	border-radius: 2px;
 	text-transform: uppercase;
 	margin-left: 4px;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 1px 2px var(--terminal-shadow-medium, rgba(0, 0, 0, 0.2));
 	line-height: 1.2;
 }
 
@@ -4076,7 +4459,7 @@ onUnmounted(() => {
 	border-radius: 3px;
 	text-transform: uppercase;
 	margin-left: 8px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 1px 3px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	line-height: 1.2;
 }
 
@@ -4227,6 +4610,98 @@ onUnmounted(() => {
 .terminal-btn-sm {
 	padding: 4px 8px;
 	font-size: var(--terminal-font-size-xs, 11px);
+}
+
+
+/* Mode Selector Control */
+.terminal-mode-control {
+	display: flex;
+	align-items: center;
+	background: var(--terminal-bg-tertiary, #3e3e42);
+	border-radius: 4px;
+	padding: 2px;
+	border: 1px solid var(--terminal-border-hover, #464647);
+	height: 32px;
+}
+
+.terminal-mode-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 0 10px;
+	background: transparent;
+	border: none;
+	color: var(--terminal-text-muted, #a0a0a0);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	border-radius: 2px;
+	transition: all 0.15s ease;
+}
+
+.terminal-mode-btn:hover {
+	color: var(--terminal-text, #d4d4d4);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-mode-btn.active {
+	color: #fff;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.terminal-mode-btn.active.mode-tinker {
+	background: #4f5d95; /* PHP Blue */
+}
+
+.terminal-mode-btn.active.mode-shell {
+	background: #42b883; /* Shell Greenish */
+	color: #1e1e1e;
+}
+
+.terminal-mode-btn.active.mode-ai {
+	background: #8e44ad; /* AI Purple */
+}
+
+/* Input styling based on mode */
+.terminal-input.mode-tinker {
+	border-left: 3px solid #4f5d95;
+}
+
+.terminal-input.mode-shell {
+	border-left: 3px solid #42b883;
+}
+
+.terminal-input.mode-ai {
+	border-left: 3px solid #8e44ad;
+}
+
+/* Sidebar Header Styling */
+.nav-section-header {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	color: var(--terminal-text-muted, #858585);
+	text-transform: uppercase;
+	padding: 8px 12px 4px;
+	margin-top: 8px;
+	display: flex;
+	align-items: center;
+	user-select: none;
+}
+
+.nav-section-header:first-child {
+	margin-top: 0;
+}
+
+/* Hide legacy styles */
+.terminal-mode-wrapper,
+.terminal-mode-select,
+.terminal-mode-icon,
+.terminal-shell-toggle, 
+.terminal-ai-toggle {
+	display: none !important;
 }
 
 </style>
