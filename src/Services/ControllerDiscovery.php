@@ -95,6 +95,20 @@ class ControllerDiscovery
 
 					$namespace = $reflection->getNamespaceName();
 
+					// Get parent class hierarchy
+					$parentClass = $reflection->getParentClass();
+					$parentChain = [];
+					$currentParent = $parentClass;
+					while ($currentParent) {
+						$parentChain[] = $currentParent->getName();
+						$currentParent = $currentParent->getParentClass();
+					}
+
+					// Get file info
+					$fileName = $reflection->getFileName();
+					$startLine = $reflection->getStartLine();
+					$endLine = $reflection->getEndLine();
+
 					// Get all public methods
 					$methods = $reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 					$controllerMethods = [];
@@ -134,6 +148,10 @@ class ControllerDiscovery
 						'namespace' => $namespace,
 						'path' => $relativePath,
 						'methods' => $controllerMethods,
+						'filePath' => $fileName ? str_replace(base_path() . DIRECTORY_SEPARATOR, '', $fileName) : null,
+						'startLine' => $startLine,
+						'endLine' => $endLine,
+						'parentChain' => $parentChain,
 					];
 				} catch (\Throwable $e) {
 					// Skip controllers that can't be analyzed

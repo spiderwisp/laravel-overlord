@@ -608,9 +608,31 @@ onMounted(() => {
 									</span>
 								</span>
 							</div>
+							<div v-if="selectedController.filePath" class="terminal-controllers-info-item">
+								<span class="terminal-controllers-info-label">File:</span>
+								<span class="terminal-controllers-info-value">{{ selectedController.filePath }}:{{ selectedController.startLine }}-{{ selectedController.endLine }}</span>
+							</div>
 							<div class="terminal-controllers-info-item">
 								<span class="terminal-controllers-info-label">Methods:</span>
 								<span class="terminal-controllers-info-value">{{ selectedController.methods.length }}</span>
+							</div>
+						</div>
+						<!-- Inheritance Hierarchy -->
+						<div v-if="selectedController.parentChain && selectedController.parentChain.length > 0" class="terminal-controllers-details-section">
+							<h4>Inheritance Hierarchy</h4>
+							<div class="terminal-controllers-hierarchy">
+								<div
+									v-for="(parent, index) in [...selectedController.parentChain].reverse()"
+									:key="parent"
+									class="terminal-controllers-hierarchy-item"
+								>
+									<span v-if="index > 0" class="terminal-controllers-hierarchy-arrow">↓</span>
+									<span class="terminal-controllers-hierarchy-class">{{ parent }}</span>
+								</div>
+								<div class="terminal-controllers-hierarchy-item">
+									<span class="terminal-controllers-hierarchy-arrow">↓</span>
+									<span class="terminal-controllers-hierarchy-class current">{{ selectedController.fullName }}</span>
+								</div>
 							</div>
 						</div>
 						<div class="terminal-controllers-methods">
@@ -1068,6 +1090,49 @@ onMounted(() => {
 .terminal-controllers-path-class {
 	color: var(--terminal-text);
 	font-family: 'Courier New', monospace;
+}
+
+.terminal-controllers-details-section {
+	margin-bottom: 24px;
+}
+
+.terminal-controllers-details-section h4 {
+	color: var(--terminal-text);
+	font-size: 14px;
+	font-weight: 600;
+	margin: 0 0 12px 0;
+}
+
+.terminal-controllers-hierarchy {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 16px;
+	background: var(--terminal-bg-secondary);
+	border-radius: 4px;
+	border: 1px solid var(--terminal-border);
+}
+
+.terminal-controllers-hierarchy-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.terminal-controllers-hierarchy-arrow {
+	color: var(--terminal-text-muted);
+	font-size: 14px;
+}
+
+.terminal-controllers-hierarchy-class {
+	color: var(--terminal-text);
+	font-size: 12px;
+	font-family: 'Courier New', monospace;
+}
+
+.terminal-controllers-hierarchy-class.current {
+	color: var(--terminal-accent);
+	font-weight: 600;
 }
 
 .terminal-controllers-methods {
