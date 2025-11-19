@@ -195,6 +195,14 @@ export function useOverlordApi() {
             details: (identifier) => `${cleanBaseUrl}/routes/${encodeURIComponent(identifier)}`,
             generateUrl: () => `${cleanBaseUrl}/routes/generate-url`,
             test: () => `${cleanBaseUrl}/routes/test`,
+        },
+        // Controllers endpoints
+        controllers: {
+            list: () => `${cleanBaseUrl}/controllers`,
+            methodSource: (controller, method) => {
+                const params = new URLSearchParams({ controller, method });
+                return `${cleanBaseUrl}/controllers/method-source?${params.toString()}`;
+            },
         }
     };
 }

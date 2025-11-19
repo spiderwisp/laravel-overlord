@@ -29,6 +29,7 @@ Route::middleware('web')->group(function () {
             Route::get('/model-relationships', [TerminalController::class, 'getModelRelationships']);
             Route::get('/model-fields', [TerminalController::class, 'getModelFields']);
             Route::get('/controllers', [TerminalController::class, 'getControllers']);
+            Route::get('/controllers/method-source', [TerminalController::class, 'getMethodSourceCode']);
             Route::get('/classes', [TerminalController::class, 'getClasses']);
             Route::get('/commands', [TerminalController::class, 'getCommands']);
             Route::post('/commands/execute', [TerminalController::class, 'executeArtisanCommand']);

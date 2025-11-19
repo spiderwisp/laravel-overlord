@@ -1746,6 +1746,86 @@ class TerminalController extends Controller
 	/**
 	 * Get all controllers and their methods
 	 */
+	public function getMethodSourceCode(Request $request)
+	{
+		try {
+			$controller = $request->input('controller');
+			$method = $request->input('method');
+
+			if (!$controller || !$method) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Controller and method parameters are required'],
+					'result' => null,
+				], 400);
+			}
+
+			// Check if class exists
+			if (!class_exists($controller)) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Controller class not found'],
+					'result' => null,
+				], 404);
+			}
+
+			$reflection = new \ReflectionClass($controller);
+
+			// Check if method exists
+			if (!$reflection->hasMethod($method)) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Method not found'],
+					'result' => null,
+				], 404);
+			}
+
+			$methodReflection = $reflection->getMethod($method);
+
+			// Get file path and read source
+			$fileName = $reflection->getFileName();
+			if (!$fileName || !file_exists($fileName)) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Source file not found'],
+					'result' => null,
+				], 404);
+			}
+
+			$sourceLines = file($fileName);
+			$startLine = $methodReflection->getStartLine() - 1; // Convert to 0-based index
+			$endLine = $methodReflection->getEndLine(); // This is 1-based
+
+			// Extract method code
+			$methodCode = implode('', array_slice($sourceLines, $startLine, $endLine - $startLine));
+
+			// Remove leading/trailing whitespace but preserve indentation
+			$methodCode = rtrim($methodCode);
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => [
+					'source' => $methodCode,
+					'startLine' => $methodReflection->getStartLine(),
+					'endLine' => $methodReflection->getEndLine(),
+				],
+			]);
+		} catch (\Throwable $e) {
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to retrieve method source: ' . $e->getMessage()],
+				'result' => null,
+			], 500);
+		}
+	}
+
 	public function getControllers(Request $request)
 	{
 		try {
