@@ -157,8 +157,10 @@ const emit = defineEmits(['insert-favorite', 'execute-favorite', 'toggle-favorit
 	pointer-events: auto;
 	position: absolute;
 	top: 0; /* Extend to top of page */
-	left: calc(-50vw + 110px + 50%); /* Position from left edge of main content */
-	width: calc(100vw - 220px); /* Full width minus sidebar */
+	left: 50%;
+	transform: translateX(-50%);
+	width: 200px;
+	max-width: calc(100vw - 240px); /* Account for sidebar and padding */
 	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-top: none;

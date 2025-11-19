@@ -25,39 +25,29 @@ const navSectionsExpanded = ref({});
 function initializeNavSectionsState() {
 	try {
 		const saved = localStorage.getItem('overlord_nav_sections_state');
+		// Initialize with defaults from navigationConfig
+		const defaults = {};
+		props.navigationConfig.forEach(section => {
+			defaults[section.id] = section.defaultExpanded !== false;
+		});
+		
 		if (saved) {
 			const parsed = JSON.parse(saved);
-			// Merge with defaults
+			// Merge saved state with defaults (saved takes precedence)
 			navSectionsExpanded.value = {
-				'core-features': true,
-				'code-exploration': true,
-				'tools-scans': true,
-				'utilities': false,
-				'system': false,
-				'footer': false,
+				...defaults,
 				...parsed
 			};
 		} else {
-			// Defaults
-			navSectionsExpanded.value = {
-				'core-features': true,
-				'code-exploration': true,
-				'tools-scans': true,
-				'utilities': false,
-				'system': false,
-				'footer': false,
-			};
+			navSectionsExpanded.value = defaults;
 		}
 	} catch (e) {
 		console.error('Failed to load nav sections state:', e);
-		navSectionsExpanded.value = {
-			'core-features': true,
-			'code-exploration': true,
-			'tools-scans': true,
-			'utilities': false,
-			'system': false,
-			'footer': false,
-		};
+		// Fallback to defaults from navigationConfig
+		navSectionsExpanded.value = {};
+		props.navigationConfig.forEach(section => {
+			navSectionsExpanded.value[section.id] = section.defaultExpanded !== false;
+		});
 	}
 }
 
@@ -100,7 +90,8 @@ const filteredNavigationConfig = computed(() => {
 const filteredNavItems = computed(() => {
 	const items = [];
 	filteredNavigationConfig.value.forEach(section => {
-		if (!section.title || navSectionsExpanded.value[section.id] !== false) {
+		const isExpanded = !section.title || (navSectionsExpanded.value[section.id] !== undefined ? navSectionsExpanded.value[section.id] : section.defaultExpanded !== false);
+		if (isExpanded) {
 			section.items.forEach(item => {
 				const isDisabled = item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled);
 				if (!isDisabled) {
@@ -237,7 +228,7 @@ onMounted(() => {
 						v-if="section.title"
 						@click="toggleNavSection(section.id)"
 						class="terminal-nav-section-header"
-						:class="{ 'collapsed': !navSectionsExpanded[section.id] }"
+						:class="{ 'collapsed': !(navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false) }"
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -245,7 +236,7 @@ onMounted(() => {
 							viewBox="0 0 24 24"
 							stroke="currentColor"
 							class="terminal-nav-section-chevron"
-							:class="{ 'expanded': navSectionsExpanded[section.id] }"
+							:class="{ 'expanded': navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false }"
 						>
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 						</svg>
@@ -255,7 +246,7 @@ onMounted(() => {
 					<!-- Section Items -->
 					<transition name="nav-section">
 						<div
-							v-show="!section.title || navSectionsExpanded[section.id]"
+							v-show="!section.title || (navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false)"
 							class="terminal-nav-section-items"
 						>
 							<button
