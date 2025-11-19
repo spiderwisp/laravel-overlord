@@ -2863,11 +2863,13 @@ onUnmounted(() => {
 /* Tab Bar */
 .terminal-tabs {
 	background: var(--terminal-bg-secondary, #252526);
-	border-bottom: 1px solid var(--terminal-border, #3e3e42);
+	border-bottom: none; /* Remove border, tabs will handle their own borders */
 	padding-top: 8px; /* Space for resize handle */
+	padding-bottom: 0; /* Remove bottom padding */
 	transition: margin-top 0.3s ease;
 	position: relative;
-	z-index: 1;
+	z-index: 10002; /* Above favorites tray */
+	margin-bottom: 0; /* Remove margin to make tabs look connected */
 }
 
 
@@ -2876,15 +2878,17 @@ onUnmounted(() => {
 	justify-content: space-between;
 	align-items: center;
 	gap: 12px;
+	padding: 0; /* Remove any default padding */
+	margin: 0; /* Remove any default margin */
 }
 
 .terminal-tabs-container {
 	flex: 1;
 	min-width: 0;
 	display: flex;
-	align-items: center;
+	align-items: flex-end; /* Align tabs to bottom of container */
 	gap: 4px;
-	padding: 8px 12px;
+	padding: 8px 0 0 0; /* Only top padding for resize handle, no side padding */
 	overflow-x: auto;
 	overflow-y: hidden;
 	scrollbar-width: thin;
@@ -2896,7 +2900,7 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 8px 12px;
+	padding: 8px 12px 0 12px; /* Match tabs container top padding, no bottom padding */
 }
 
 .terminal-tabs-container::-webkit-scrollbar {
@@ -2921,8 +2925,9 @@ onUnmounted(() => {
 	align-items: center;
 	gap: 6px;
 	padding: 8px 14px;
-	background: var(--terminal-bg, #1e1e1e);
+	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
+	border-bottom: 1px solid var(--terminal-border, #3e3e42); /* Keep bottom border for inactive tabs */
 	border-radius: 6px 6px 0 0;
 	color: var(--terminal-text, #d4d4d4);
 	font-size: var(--terminal-font-size-sm, 12px);
@@ -2933,6 +2938,7 @@ onUnmounted(() => {
 	min-width: 80px;
 	flex-shrink: 0;
 	max-width: 200px;
+	margin-bottom: 0; /* Remove any margin */
 }
 
 .terminal-tab:hover {
@@ -2944,9 +2950,11 @@ onUnmounted(() => {
 	background: var(--terminal-bg, #1e1e1e);
 	border-color: var(--terminal-primary, #0e639c);
 	border-bottom-color: var(--terminal-bg, #1e1e1e);
+	border-bottom-width: 1px;
 	color: var(--terminal-text, #ffffff);
 	font-weight: 500;
 	z-index: 1;
+	margin-bottom: -1px; /* Connect to content below */
 }
 
 .terminal-tab.active::after {
@@ -3101,30 +3109,36 @@ onUnmounted(() => {
 
 /* Favorites Tray (Top-Aligned Full-Width Drawer) */
 .terminal-favorites-tray {
-	position: relative;
-	z-index: 10000; /* Below resize handle (10001) but above content */
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 10003; /* High enough to be visible */
 	pointer-events: none;
-	width: 100%;
+	width: 200px;
+	overflow: visible; /* Allow content to break out */
 }
 
 .terminal-favorites-tray-shelf {
 	pointer-events: auto;
 	display: flex;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: center;
 	gap: 6px;
 	height: 24px; /* More visible, easier to hover */
 	padding: 0 12px;
 	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-top: none;
-	border-right: none;
-	border-radius: 0 0 0 4px;
+	border-radius: 0 0 4px 4px;
 	color: var(--terminal-text-secondary, #858585);
 	cursor: pointer;
 	transition: all 0.2s ease;
-	width: auto;
-	margin-left: auto; /* Push to the right */
+	width: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 10003; /* Above tabs (10002) and tray content */
 }
 
 .terminal-favorites-tray-shelf:hover {
@@ -3159,18 +3173,21 @@ onUnmounted(() => {
 
 .terminal-favorites-tray-content {
 	pointer-events: auto;
-	position: relative;
-	width: 100%;
+	position: absolute;
+	top: 0; /* Extend to top of page */
+	left: calc(-50vw + 110px + 50%); /* Position from left edge of main content */
+	width: calc(100vw - 220px); /* Full width minus sidebar */
 	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-top: none;
 	border-radius: 0 0 8px 8px;
 	padding: 16px;
+	padding-top: 40px; /* Space for the shelf button */
 	max-height: 500px;
 	overflow-y: auto;
 	overflow-x: hidden;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-	z-index: 10001; /* Ensure it's above other content */
+	z-index: 9999; /* Below shelf (10003) and tabs (10002) but above content */
 	margin-top: 0;
 }
 
@@ -3309,6 +3326,8 @@ onUnmounted(() => {
 	overflow: hidden;
 	min-height: 0;
 	position: relative;
+	border-top: 1px solid var(--terminal-primary, #0e639c); /* Connect active tab border */
+	margin-top: 0; /* No margin needed, border connects directly */
 }
 
 /* Resize Handle */
@@ -3367,7 +3386,7 @@ onUnmounted(() => {
 }
 
 .terminal-layout.favorites-drawer-open {
-	padding-top: 524px; /* 24px shelf + 500px max drawer height */
+	/* No padding needed since tray is absolutely positioned */
 }
 
 /* Sidebar Navigation */
@@ -3611,7 +3630,7 @@ onUnmounted(() => {
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
-	overflow: hidden;
+	overflow: visible; /* Allow favorites tray to be visible */
 	position: relative; /* For absolute positioning of overlay */
 }
 
