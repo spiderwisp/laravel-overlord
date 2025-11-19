@@ -294,12 +294,12 @@ class InstallCommand extends Command
 		$this->line('   <fg=cyan>Before:</>');
 		$this->line('   <fg=gray>Route::get(\'/{any}\', function () {</>');
 		$this->line('   <fg=gray>    return view(\'app\');</>');
-		$this->line('   <fg=gray>})->where(\'any\', \'^(?!admin/tinker).*\');</>');
+		$this->line('   <fg=gray>})->where(\'any\', \'^(?!api).*\');</>');
 		$this->newLine();
 		$this->line('   <fg=cyan>After:</>');
 		$this->line('   <fg=gray>Route::get(\'/{any}\', function () {</>');
 		$this->line('   <fg=gray>    return view(\'app\');</>');
-		$this->line("   <fg=gray>})->where('any', '^(?!admin/tinker|{$defaultRoute}|{$routePrefix}).*');</>");
+		$this->line("   <fg=gray>})->where('any', '^(?!api|{$defaultRoute}|{$routePrefix}).*');</>");
 		$this->newLine();
 	}
 }
