@@ -373,8 +373,8 @@ const previewStyle = computed(() => ({
 	position: relative;
 	z-index: 10005;
 	box-shadow: 
-		0 4px 20px rgba(0, 0, 0, 0.3),
-		0 8px 32px rgba(0, 0, 0, 0.2),
+		0 4px 20px var(--terminal-shadow, rgba(0, 0, 0, 0.3)),
+		0 8px 32px var(--terminal-shadow-medium, rgba(0, 0, 0, 0.2)),
 		0 0 0 1px var(--terminal-border, #3e3e42);
 	overflow: visible;
 	display: flex;

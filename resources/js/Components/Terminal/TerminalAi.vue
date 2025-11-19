@@ -953,7 +953,7 @@ function dismissQuotaMessage(messageId) {
 	position: absolute;
 	top: 8px;
 	right: 8px;
-	background: rgba(255, 255, 255, 0.2);
+	background: color-mix(in srgb, var(--terminal-text) 20%, transparent);
 	border: none;
 	border-radius: 4px;
 	width: 24px;
@@ -962,13 +962,13 @@ function dismissQuotaMessage(messageId) {
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	color: white;
+	color: var(--terminal-text);
 	padding: 0;
 	transition: background 0.2s;
 }
 
 .terminal-ai-message-dismiss:hover {
-	background: rgba(255, 255, 255, 0.3);
+	background: color-mix(in srgb, var(--terminal-text) 30%, transparent);
 }
 
 .terminal-ai-message-dismiss svg {
@@ -994,12 +994,13 @@ function dismissQuotaMessage(messageId) {
 .terminal-ai-alert-icon {
 	width: 20px;
 	height: 20px;
-	color: #ff9800;
+	color: var(--terminal-warning);
 	transition: color 0.2s;
 }
 
 .terminal-ai-api-key-alert:hover .terminal-ai-alert-icon {
-	color: #ff6f00;
+	color: var(--terminal-warning);
+	opacity: 0.8;
 }
 
 .terminal-ai-tooltip {
@@ -1016,7 +1017,7 @@ function dismissQuotaMessage(messageId) {
 	border: 1px solid var(--terminal-border);
 	border-radius: 8px;
 	padding: 12px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	color: var(--terminal-text);
 }
 
@@ -1274,7 +1275,7 @@ function dismissQuotaMessage(messageId) {
 }
 
 .terminal-ai-error-hint code {
-	background: rgba(0, 0, 0, 0.2);
+	background: var(--terminal-shadow-light, rgba(0, 0, 0, 0.2));
 	padding: 2px 6px;
 	border-radius: 3px;
 	font-family: 'Courier New', 'Monaco', 'Menlo', monospace;

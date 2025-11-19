@@ -1365,7 +1365,7 @@ onUnmounted(() => {
 	border-radius: 3px;
 	text-transform: uppercase;
 	margin-left: 4px;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 1px 2px var(--terminal-shadow-medium, rgba(0, 0, 0, 0.2));
 }
 
 .terminal-model-diagram-controls {

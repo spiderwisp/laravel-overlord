@@ -1582,8 +1582,8 @@ onUnmounted(() => {
 }
 
 .terminal-logs-action-icon {
-	background: rgba(0, 122, 204, 0.1);
-	border: 1px solid #007acc;
+	background: color-mix(in srgb, var(--terminal-primary) 10%, transparent);
+	border: 1px solid var(--terminal-primary);
 	border-radius: 4px;
 	padding: 4px 8px;
 	cursor: pointer;
@@ -1594,8 +1594,8 @@ onUnmounted(() => {
 }
 
 .terminal-logs-action-icon:hover {
-	background: rgba(0, 122, 204, 0.2);
-	border-color: #0098ff;
+	background: color-mix(in srgb, var(--terminal-primary) 20%, transparent);
+	border-color: var(--terminal-primary-hover);
 }
 
 .terminal-logs-action-icon svg {

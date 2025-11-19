@@ -644,12 +644,12 @@ watch(migrationType, () => {
 	background: var(--terminal-bg-secondary, #f5f5f5);
 	border-radius: 8px;
 	border: 1px solid var(--terminal-border, #e5e5e5);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	box-shadow: 0 1px 3px var(--terminal-shadow-light, rgba(0, 0, 0, 0.05));
 	transition: box-shadow 0.2s ease;
 }
 
 .builder-section:hover {
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 2px 6px var(--terminal-shadow-light, rgba(0, 0, 0, 0.08));
 }
 
 .builder-section-ai {
@@ -852,7 +852,7 @@ textarea.terminal-input {
 
 .builder-column-item:hover {
 	border-color: var(--terminal-primary, #0e639c);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	box-shadow: 0 2px 4px var(--terminal-shadow-light, rgba(0, 0, 0, 0.05));
 }
 
 .builder-column-header {

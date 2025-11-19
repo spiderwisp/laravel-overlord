@@ -412,8 +412,8 @@ defineExpose({
 }
 
 .scan-type-badge.type-schema {
-	background: rgba(14, 99, 156, 0.2);
-	color: #0e639c;
+	background: color-mix(in srgb, var(--terminal-primary) 20%, transparent);
+	color: var(--terminal-primary);
 }
 
 .scan-type-badge.type-data {

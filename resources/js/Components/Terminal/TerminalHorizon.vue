@@ -2011,7 +2011,7 @@ onUnmounted(() => {
 .terminal-horizon-search:focus {
 	outline: none;
 	border-color: var(--terminal-primary, #0e639c) !important;
-	box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 	background: var(--terminal-bg, #1e1e1e) !important;
 }
 
@@ -2400,7 +2400,7 @@ onUnmounted(() => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.7);
+	background: var(--terminal-overlay, rgba(0, 0, 0, 0.7));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2416,7 +2416,7 @@ onUnmounted(() => {
 	max-height: 90vh;
 	display: flex;
 	flex-direction: column;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 }
 
 .terminal-horizon-modal-header {
@@ -2480,7 +2480,7 @@ onUnmounted(() => {
 .terminal-horizon-modal .terminal-select:focus,
 .terminal-horizon-modal textarea.terminal-input:focus {
 	border-color: var(--terminal-primary, #0e639c);
-	box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 	background: var(--terminal-bg-tertiary, #2d2d30);
 }
 
@@ -2928,11 +2928,11 @@ onUnmounted(() => {
 
 .terminal-horizon-command-btn-primary {
 	border-color: var(--terminal-primary);
-	background: rgba(14, 99, 156, 0.1);
+	background: color-mix(in srgb, var(--terminal-primary) 10%, transparent);
 }
 
 .terminal-horizon-command-btn-primary:hover:not(:disabled) {
-	background: rgba(14, 99, 156, 0.2);
+	background: color-mix(in srgb, var(--terminal-primary) 20%, transparent);
 	border-color: var(--terminal-primary-hover);
 }
 

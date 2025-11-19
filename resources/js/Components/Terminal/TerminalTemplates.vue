@@ -949,7 +949,7 @@ onMounted(() => {
 	background: var(--terminal-bg-tertiary);
 	border-color: var(--terminal-primary);
 	transform: translateY(-2px);
-	box-shadow: 0 4px 8px rgba(14, 99, 156, 0.2);
+	box-shadow: 0 4px 8px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .terminal-template-item-name {

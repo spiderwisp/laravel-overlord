@@ -946,7 +946,7 @@ watch(() => props.visible, (newVal) => {
 .sidebar-search-input:focus {
 	outline: none;
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .sidebar-search-input::placeholder {
@@ -1397,7 +1397,7 @@ watch(() => props.visible, (newVal) => {
 .sql-textarea:focus {
 	outline: none;
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .view-query-results {
@@ -1427,7 +1427,7 @@ watch(() => props.visible, (newVal) => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.7);
+	background: var(--terminal-overlay, rgba(0, 0, 0, 0.7));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1506,7 +1506,7 @@ watch(() => props.visible, (newVal) => {
 .terminal-select:focus {
 	outline: none;
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .terminal-input-search {

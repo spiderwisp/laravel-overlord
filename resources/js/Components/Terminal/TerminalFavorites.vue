@@ -912,7 +912,7 @@ onMounted(() => {
 .terminal-favorites-search-input:focus {
 	outline: none;
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .terminal-favorites-search-input::placeholder {
@@ -1187,11 +1187,11 @@ onMounted(() => {
 
 .terminal-favorites-category-header {
 	margin: 0 0 12px 0;
-	color: #d1d5db;
+	color: var(--terminal-text-secondary);
 	font-size: 14px;
 	font-weight: 500;
 	padding-left: 8px;
-	border-left: 3px solid #007acc;
+	border-left: 3px solid var(--terminal-primary);
 }
 
 .terminal-favorites-list {
@@ -1210,7 +1210,7 @@ onMounted(() => {
 
 .terminal-favorites-item:hover {
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 1px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 1px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .terminal-favorites-item-header {
@@ -1258,12 +1258,12 @@ onMounted(() => {
 .terminal-favorites-action-btn:hover {
 	background: var(--terminal-border);
 	border-color: var(--terminal-primary);
-	color: #007acc;
+	color: var(--terminal-primary);
 }
 
 .terminal-favorites-action-btn-danger:hover {
-	border-color: #ef4444;
-	color: #ef4444;
+	border-color: var(--terminal-error);
+	color: var(--terminal-error);
 }
 
 .terminal-favorites-action-btn svg {
@@ -1279,7 +1279,7 @@ onMounted(() => {
 }
 
 .terminal-favorites-item-code {
-	color: #4fc3f7;
+	color: var(--terminal-accent);
 	font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 	font-size: 12px;
 	white-space: pre-wrap;
@@ -1330,7 +1330,7 @@ onMounted(() => {
 	left: 0 !important;
 	right: 0 !important;
 	bottom: 0 !important;
-	background: rgba(0, 0, 0, 0.7);
+	background: var(--terminal-overlay, rgba(0, 0, 0, 0.7));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1390,7 +1390,7 @@ onMounted(() => {
 .terminal-favorites-form-field select:focus {
 	outline: none;
 	border-color: var(--terminal-primary);
-	box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2));
 }
 
 .terminal-favorites-form-field textarea {
@@ -1416,7 +1416,7 @@ onMounted(() => {
 	padding: 4px 8px;
 	background: var(--terminal-primary);
 	border-radius: 12px;
-	color: #ffffff;
+	color: var(--terminal-text, #ffffff);
 	font-size: 12px;
 }
 

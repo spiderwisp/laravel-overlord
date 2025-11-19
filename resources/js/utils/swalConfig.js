@@ -155,7 +155,7 @@ if (typeof document !== 'undefined') {
 			}
 			.swal2-terminal-input:focus {
 				border-color: var(--terminal-primary, #0e639c) !important;
-				box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.2) !important;
+				box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.2)) !important;
 			}
 			.swal2-terminal-validation {
 				background: var(--terminal-bg-secondary, #252526) !important;
@@ -188,7 +188,7 @@ if (typeof document !== 'undefined') {
 			.swal2-toast.swal2-terminal-popup {
 				background: var(--terminal-bg-secondary, #252526) !important;
 				border: 1px solid var(--terminal-border, #3e3e42) !important;
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+				box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.5)) !important;
 				max-width: 400px !important;
 				width: auto !important;
 				padding: 1rem !important;

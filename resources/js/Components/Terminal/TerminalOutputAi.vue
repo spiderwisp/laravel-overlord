@@ -1044,7 +1044,7 @@ function escapeHtml(text) {
 
 .terminal-output-ai-code-action-btn:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 2px 4px var(--terminal-shadow-medium, rgba(0, 0, 0, 0.2));
 }
 
 .terminal-output-ai-code-action-btn:active {

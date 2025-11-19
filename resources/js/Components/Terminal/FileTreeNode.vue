@@ -121,7 +121,7 @@ function handleClick() {
 }
 
 .file-tree-item.selected {
-	background: rgba(14, 99, 156, 0.2);
+	background: color-mix(in srgb, var(--terminal-primary) 20%, transparent);
 }
 
 .file-tree-toggle {

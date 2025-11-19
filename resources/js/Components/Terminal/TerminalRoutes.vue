@@ -244,7 +244,7 @@ async function testRoute() {
 				html: `
 					<p><strong>Status:</strong> ${result.status}</p>
 					<p><strong>Body Length:</strong> ${result.body_length} bytes</p>
-					<pre style="text-align: left; max-height: 300px; overflow: auto; background: #1e1e1e; padding: 10px; border-radius: 4px; color: #d4d4d4;">${result.body_preview}</pre>
+					<pre style="text-align: left; max-height: 300px; overflow: auto; background: var(--terminal-code-bg, #1e1e1e); padding: 10px; border-radius: 4px; color: var(--terminal-text, #d4d4d4); border: 1px solid var(--terminal-code-border, #3e3e42);">${result.body_preview}</pre>
 				`,
 				width: '800px',
 			});
@@ -916,7 +916,7 @@ onMounted(() => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.7);
+	background: var(--terminal-overlay, rgba(0, 0, 0, 0.7));
 	display: flex;
 	align-items: center;
 	justify-content: center;

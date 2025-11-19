@@ -403,7 +403,7 @@ function exportSingleItem(format = 'txt') {
 	border: 1px solid var(--terminal-border);
 	border-radius: 4px;
 	min-width: 140px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	z-index: 1000;
 }
 
@@ -576,7 +576,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-section-desc {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	margin-bottom: 16px;
 	font-size: 14px;
 	line-height: 1.5;
@@ -606,7 +606,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code {
-	background: #1e1e1e;
+	background: var(--terminal-code-bg, #1e1e1e);
 	padding: 12px 16px;
 	border-radius: 6px;
 	border-left: 4px solid #ce9178;
@@ -617,9 +617,9 @@ function exportSingleItem(format = 'txt') {
 	display: block;
 	line-height: 1.6;
 	overflow-x: auto;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 8px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	margin: 0;
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 /* PHP Syntax Highlighting Colors */
@@ -659,7 +659,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code-inline {
-	background: #1e1e1e;
+	background: var(--terminal-code-bg, #1e1e1e);
 	padding: 4px 8px;
 	border-radius: 4px;
 	border-left: 3px solid #ce9178;
@@ -697,7 +697,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code-inline .php-operator {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 .terminal-help .help-code-inline .php-comment {
@@ -813,7 +813,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-feature-desc {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.5;
 }
@@ -844,7 +844,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-feature-detail {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.5;
 }
@@ -874,7 +874,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-note-text {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.6;
 }
@@ -958,7 +958,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-section-desc {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	margin-bottom: 16px;
 	font-size: 14px;
 	line-height: 1.5;
@@ -988,7 +988,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code {
-	background: #1e1e1e;
+	background: var(--terminal-code-bg, #1e1e1e);
 	padding: 12px 16px;
 	border-radius: 6px;
 	border-left: 4px solid #ce9178;
@@ -999,9 +999,9 @@ function exportSingleItem(format = 'txt') {
 	display: block;
 	line-height: 1.6;
 	overflow-x: auto;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 8px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	margin: 0;
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 /* PHP Syntax Highlighting Colors */
@@ -1041,7 +1041,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code-inline {
-	background: #1e1e1e;
+	background: var(--terminal-code-bg, #1e1e1e);
 	padding: 4px 8px;
 	border-radius: 4px;
 	border-left: 3px solid #ce9178;
@@ -1079,7 +1079,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-code-inline .php-operator {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 .terminal-help .help-code-inline .php-comment {
@@ -1195,7 +1195,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-feature-desc {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.5;
 }
@@ -1226,7 +1226,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-feature-detail {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.5;
 }
@@ -1256,7 +1256,7 @@ function exportSingleItem(format = 'txt') {
 }
 
 .terminal-help .help-note-text {
-	color: #d4d4d4;
+	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
 	line-height: 1.6;
 }

@@ -144,13 +144,13 @@ defineExpose({
 }
 
 .terminal-actions-overlay .terminal-btn {
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 8px var(--terminal-shadow, rgba(0, 0, 0, 0.3));
 	background: var(--terminal-bg-secondary, #252526);
 	border: 1px solid var(--terminal-border, #3e3e42);
 }
 
 .terminal-actions-overlay .terminal-btn:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+	box-shadow: 0 4px 12px var(--terminal-shadow, rgba(0, 0, 0, 0.4));
 	background: var(--terminal-bg-tertiary, #2d2d30);
 }
 

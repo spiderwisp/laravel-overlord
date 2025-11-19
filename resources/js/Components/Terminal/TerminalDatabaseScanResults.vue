@@ -1442,10 +1442,10 @@ onUnmounted(() => {
 
 .issue-type {
 	padding: 0.25rem 0.5rem;
-	background: rgba(14, 99, 156, 0.2);
+	background: color-mix(in srgb, var(--terminal-primary) 20%, transparent);
 	border-radius: 4px;
 	font-size: 0.75rem;
-	color: #0e639c;
+	color: var(--terminal-primary);
 	text-transform: uppercase;
 }
 

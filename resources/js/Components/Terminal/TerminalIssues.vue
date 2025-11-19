@@ -1110,7 +1110,7 @@ onMounted(() => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: color-mix(in srgb, var(--terminal-text, #333333) 70%, transparent);
+	background: var(--terminal-overlay, rgba(0, 0, 0, 0.7));
 	display: flex;
 	align-items: center;
 	justify-content: center;

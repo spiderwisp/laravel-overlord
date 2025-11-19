@@ -172,8 +172,8 @@ watch(selectedTheme, (newTheme) => {
 
 .terminal-theme-toggle-select:focus {
 	outline: none;
-	border-color: #0e639c;
-	box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.3);
+	border-color: var(--terminal-primary);
+	box-shadow: 0 0 0 2px var(--terminal-primary-shadow, rgba(14, 99, 156, 0.3));
 }
 
 .terminal-theme-toggle-select option {

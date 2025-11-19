@@ -347,14 +347,14 @@ onUnmounted(() => {
 }
 
 .terminal-dropdown-option-selected {
-	background: rgba(14, 99, 156, 0.15);
+	background: color-mix(in srgb, var(--terminal-primary) 15%, transparent);
 	color: var(--terminal-primary, #0e639c);
 	font-weight: 600;
 }
 
 .terminal-dropdown-option-selected:hover,
 .terminal-dropdown-option-selected.terminal-dropdown-option-highlighted {
-	background: rgba(14, 99, 156, 0.25);
+	background: color-mix(in srgb, var(--terminal-primary) 25%, transparent);
 }
 
 .terminal-dropdown-option-content {
