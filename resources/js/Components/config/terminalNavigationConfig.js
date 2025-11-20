@@ -37,44 +37,9 @@ export function buildNavigationConfig({
 }) {
 	const sections = [
 		{
-			id: 'core',
-			title: 'CORE',
+			id: 'explore',
+			title: 'EXPLORE',
 			priority: 'primary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'terminal',
-					label: 'Terminal',
-					icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-					action: () => openTab('terminal'),
-					isActive: () => isTabActive('terminal'),
-					priority: 'primary',
-					keywords: ['terminal', 'console', 'tinker', 'shell']
-				},
-				{
-					id: 'ai',
-					label: 'AI Chat',
-					icon: 'M13 10V3L4 14h7v7l9-11h-7z',
-					action: toggleAi,
-					isActive: () => isTabActive('ai'),
-					priority: 'primary',
-					keywords: ['ai', 'assistant', 'chat', 'help', 'gpt']
-				},
-				{
-					id: 'history',
-					label: 'History',
-					icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: toggleHistory,
-					isActive: () => isTabActive('history'),
-					priority: 'primary',
-					keywords: ['history', 'past', 'commands']
-				}
-			]
-		},
-		{
-			id: 'code',
-			title: 'CODE',
-			priority: 'secondary',
 			defaultExpanded: true,
 			items: [
 				{
@@ -103,15 +68,6 @@ export function buildNavigationConfig({
 					isActive: () => isTabActive('model-diagram'),
 					priority: 'secondary',
 					keywords: ['models', 'diagram', 'eloquent', 'relationships']
-				},
-				{
-					id: 'scan-config',
-					label: 'Code Scans',
-					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: startScan,
-					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
-					priority: 'secondary',
-					keywords: ['scan', 'codebase', 'analyze', 'security']
 				},
 				{
 					id: 'classes',
@@ -179,9 +135,9 @@ export function buildNavigationConfig({
 			]
 		},
 		{
-			id: 'system',
-			title: 'SYSTEM',
-			priority: 'secondary',
+			id: 'database',
+			title: 'DATABASE',
+			priority: 'primary',
 			defaultExpanded: true,
 			items: [
 				{
@@ -201,6 +157,23 @@ export function buildNavigationConfig({
 					isActive: () => isTabActive('migrations'),
 					priority: 'primary',
 					keywords: ['migrations', 'schema', 'alter']
+				}
+			]
+		},
+		{
+			id: 'analyze',
+			title: 'ANALYZE',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'scan-config',
+					label: 'Code Scans',
+					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: startScan,
+					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
+					priority: 'secondary',
+					keywords: ['scan', 'codebase', 'analyze', 'security']
 				},
 				{
 					id: 'database-scan-config',
@@ -208,18 +181,17 @@ export function buildNavigationConfig({
 					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
 					action: startDatabaseScan,
 					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
-					priority: 'primary',
-					keywords: ['scan', 'database', 'schema', 'analyze']
-				},
-				{
-					id: 'commands',
-					label: 'Artisan Commands',
-					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
-					action: toggleCommands,
-					isActive: () => isTabActive('commands'),
 					priority: 'secondary',
-					keywords: ['artisan', 'cli']
-				},
+					keywords: ['scan', 'database', 'schema', 'analyze']
+				}
+			]
+		},
+		{
+			id: 'issues',
+			title: 'ISSUES',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
 				{
 					id: 'issues',
 					label: 'Issues',
@@ -229,6 +201,23 @@ export function buildNavigationConfig({
 					priority: 'secondary',
 					keywords: ['issues', 'bugs', 'problems'],
 					badge: issuesCounter
+				}
+			]
+		},
+		{
+			id: 'tools',
+			title: 'TOOLS',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'commands',
+					label: 'Artisan Commands',
+					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+					action: toggleCommands,
+					isActive: () => isTabActive('commands'),
+					priority: 'secondary',
+					keywords: ['artisan', 'cli']
 				},
 				{
 					id: 'templates',
@@ -240,14 +229,22 @@ export function buildNavigationConfig({
 					keywords: ['templates', 'snippets']
 				},
 				{
-					id: 'logs',
-					label: 'Logs',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleLogs,
-					isActive: () => isTabActive('logs'),
-					priority: 'secondary',
-					keywords: ['logs', 'errors', 'debug']
-				},
+					id: 'history',
+					label: 'History',
+					icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: toggleHistory,
+					isActive: () => isTabActive('history'),
+					priority: 'tertiary',
+					keywords: ['history', 'past', 'commands']
+				}
+			]
+		},
+		{
+			id: 'queues',
+			title: 'QUEUES',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
 				{
 					id: 'jobs',
 					label: 'Jobs',
@@ -278,11 +275,20 @@ export function buildNavigationConfig({
 			]
 		},
 		{
-			id: 'footer',
-			title: '',
-			priority: 'tertiary',
+			id: 'system',
+			title: 'SYSTEM',
+			priority: 'secondary',
 			defaultExpanded: true,
 			items: [
+				{
+					id: 'logs',
+					label: 'Logs',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleLogs,
+					isActive: () => isTabActive('logs'),
+					priority: 'secondary',
+					keywords: ['logs', 'errors', 'debug']
+				},
 				{
 					id: 'settings',
 					label: 'Settings',

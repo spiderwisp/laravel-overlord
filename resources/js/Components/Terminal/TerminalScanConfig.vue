@@ -1,7 +1,22 @@
 <template>
 	<div v-if="visible" class="terminal-scan-config">
 		<div class="terminal-scan-config-header">
-			<h2>Configure Codebase Scan</h2>
+			<div class="scan-view-tabs">
+				<button
+					@click="viewMode = 'config'"
+					class="scan-view-tab"
+					:class="{ active: viewMode === 'config' }"
+				>
+					Configure
+				</button>
+				<button
+					@click="viewMode = 'history'"
+					class="scan-view-tab"
+					:class="{ active: viewMode === 'history' }"
+				>
+					History
+				</button>
+			</div>
 			<button @click="emit('close')" class="terminal-btn terminal-btn-close" title="Close">
 				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -9,7 +24,8 @@
 			</button>
 		</div>
 
-		<div class="terminal-scan-config-content">
+		<!-- Configuration View -->
+		<div v-if="viewMode === 'config'" class="terminal-scan-config-content">
 			<!-- Scan Mode Selection -->
 			<div class="scan-mode-selection">
 				<div class="scan-mode-option" @click="scanMode = 'full'; onModeChange()">
@@ -130,6 +146,15 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- History View -->
+		<TerminalScanHistory
+			v-if="viewMode === 'history'"
+			:visible="true"
+			@close="emit('close')"
+			@view-scan="handleViewScan"
+			@view-issues="handleViewScanIssues"
+		/>
 	</div>
 </template>
 
@@ -138,6 +163,7 @@ import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useOverlordApi } from '../useOverlordApi';
 import FileTreeNode from './FileTreeNode.vue';
+import TerminalScanHistory from './TerminalScanHistory.vue';
 
 const props = defineProps({
 	visible: {
@@ -146,15 +172,24 @@ const props = defineProps({
 	},
 });
 
-const emit = defineEmits(['close', 'start-scan']);
+const emit = defineEmits(['close', 'start-scan', 'view-scan', 'view-issues']);
 
 const api = useOverlordApi();
 
+const viewMode = ref('config'); // 'config' or 'history'
 const scanMode = ref('full'); // 'full' or 'selective'
 const fileTree = ref(null);
 const loadingFiles = ref(false);
 const selectedPaths = ref([]);
 const expandedPaths = ref(new Set());
+
+function handleViewScan(scanId) {
+	emit('view-scan', scanId);
+}
+
+function handleViewScanIssues(scanId) {
+	emit('view-issues', scanId);
+}
 
 function onModeChange() {
 	if (scanMode.value === 'selective' && !fileTree.value) {
@@ -271,6 +306,35 @@ function startScan() {
 	align-items: center;
 	padding: 1rem 1.5rem;
 	border-bottom: 1px solid var(--terminal-border, #e5e5e5);
+	gap: 1rem;
+}
+
+.scan-view-tabs {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.scan-view-tab {
+	padding: 0.5rem 1rem;
+	background: transparent;
+	border: 1px solid var(--terminal-border, #e5e5e5);
+	border-radius: 4px;
+	color: var(--terminal-text-secondary, #858585);
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.scan-view-tab:hover {
+	background: var(--terminal-bg-secondary, #f5f5f5);
+	color: var(--terminal-text, #333333);
+}
+
+.scan-view-tab.active {
+	background: var(--terminal-primary, #0e639c);
+	color: white;
+	border-color: var(--terminal-primary, #0e639c);
 }
 
 .terminal-scan-config-header h2 {

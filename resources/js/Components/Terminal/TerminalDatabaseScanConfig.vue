@@ -1,7 +1,22 @@
 <template>
 	<div v-if="visible" class="terminal-database-scan-config">
 		<div class="terminal-database-scan-config-header">
-			<h2>Configure Database Scan</h2>
+			<div class="scan-view-tabs">
+				<button
+					@click="viewMode = 'config'"
+					class="scan-view-tab"
+					:class="{ active: viewMode === 'config' }"
+				>
+					Configure
+				</button>
+				<button
+					@click="viewMode = 'history'"
+					class="scan-view-tab"
+					:class="{ active: viewMode === 'history' }"
+				>
+					History
+				</button>
+			</div>
 			<button @click="emit('close')" class="terminal-btn terminal-btn-close" title="Close">
 				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -9,7 +24,8 @@
 			</button>
 		</div>
 
-		<div class="terminal-database-scan-config-content">
+		<!-- Configuration View -->
+		<div v-if="viewMode === 'config'" class="terminal-database-scan-config-content">
 			<!-- Scan Type Selection -->
 			<div class="scan-type-selection">
 				<h3>Scan Type</h3>
@@ -205,6 +221,15 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- History View -->
+		<TerminalDatabaseScanHistory
+			v-if="viewMode === 'history'"
+			:visible="true"
+			@close="emit('close')"
+			@view-scan="handleViewDatabaseScan"
+			@view-issues="handleViewDatabaseScanIssues"
+		/>
 	</div>
 </template>
 
@@ -212,6 +237,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useOverlordApi } from '../useOverlordApi';
+import TerminalDatabaseScanHistory from './TerminalDatabaseScanHistory.vue';
 
 const props = defineProps({
 	visible: {
@@ -220,10 +246,11 @@ const props = defineProps({
 	},
 });
 
-const emit = defineEmits(['close', 'start-scan']);
+const emit = defineEmits(['close', 'start-scan', 'view-scan', 'view-issues']);
 
 const api = useOverlordApi();
 
+const viewMode = ref('config'); // 'config' or 'history'
 const scanType = ref('schema'); // 'schema' or 'data'
 const scanMode = ref('full'); // 'full' or 'selective'
 const tables = ref([]);
@@ -231,6 +258,14 @@ const loadingTables = ref(false);
 const selectedTables = ref([]);
 const sampleSize = ref(100);
 const overrideSampleSize = ref(false);
+
+function handleViewDatabaseScan(scanId) {
+	emit('view-scan', scanId);
+}
+
+function handleViewDatabaseScanIssues(scanId) {
+	emit('view-issues', scanId);
+}
 
 function onTypeChange() {
 	// Reset sample size override when switching types
@@ -312,6 +347,35 @@ onMounted(() => {
 	align-items: center;
 	padding: 1rem 1.5rem;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
+	gap: 1rem;
+}
+
+.scan-view-tabs {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.scan-view-tab {
+	padding: 0.5rem 1rem;
+	background: transparent;
+	border: 1px solid var(--terminal-border, #3e3e42);
+	border-radius: 4px;
+	color: var(--terminal-text-secondary, #858585);
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.scan-view-tab:hover {
+	background: var(--terminal-bg-tertiary, #2d2d30);
+	color: var(--terminal-text, #d4d4d4);
+}
+
+.scan-view-tab.active {
+	background: var(--terminal-primary, #0e639c);
+	color: white;
+	border-color: var(--terminal-primary, #0e639c);
 }
 
 .terminal-database-scan-config-header h2 {

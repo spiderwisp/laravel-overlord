@@ -258,6 +258,8 @@ defineExpose({
 		:visible="true"
 		@close="closeTab('scan-config')"
 		@start-scan="handleStartScan"
+		@view-scan="handleViewScan"
+		@view-issues="handleViewScanIssues"
 	/>
 	<TerminalScanResults
 		v-if="isTabActive('scan-results')"
@@ -282,6 +284,8 @@ defineExpose({
 		:visible="true"
 		@close="closeTab('database-scan-config')"
 		@start-scan="handleStartDatabaseScan"
+		@view-scan="handleViewDatabaseScan"
+		@view-issues="handleViewDatabaseScanIssues"
 	/>
 	<TerminalDatabaseScanResults
 		v-if="isTabActive('database-scan-results')"
