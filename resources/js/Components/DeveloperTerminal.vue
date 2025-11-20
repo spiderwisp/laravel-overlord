@@ -238,6 +238,7 @@ const navigationConfig = computed(() => {
 		toggleProviders,
 		toggleMiddleware,
 		toggleJobs,
+		toggleHorizon,
 		toggleExceptions,
 		toggleCommandClasses,
 		toggleClasses,
