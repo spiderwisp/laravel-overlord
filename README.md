@@ -127,7 +127,7 @@ The AI assistant is optional and requires an external API key. The API URL is co
 # Enable AI features (optional)
 LARAVEL_OVERLORD_AI_ENABLED=true
 
-# API key is required for AI features (get from your service provider)
+# API key is required for AI features (get from laravel-overlord.com)
 LARAVEL_OVERLORD_API_KEY=your_api_key_here
 
 # Optional: Encryption key (defaults to API key if not set)
@@ -299,7 +299,7 @@ The AI assistant provides context-aware assistance with access to your codebase,
 
 ### Getting Started with AI
 
-1. Obtain an API key from your service provider
+1. Obtain an API key from laravel-overlord.com
 2. Add to your `.env` file:
    ```env
    LARAVEL_OVERLORD_AI_ENABLED=true

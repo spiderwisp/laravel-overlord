@@ -38,6 +38,7 @@ import { useTerminalTheme, initThemeRoot } from './useTerminalTheme.js';
 import { useTerminalFont, initFontRoot } from './useTerminalFont.js';
 // New composables
 import { useTerminalTabs, tabConfigs } from './useTerminalTabs.js';
+import { buildNavigationConfig } from './config/terminalNavigationConfig.js';
 import { useTerminalCommands } from './useTerminalCommands.js';
 import { useTerminalAi } from './useTerminalAi.js';
 import { useTerminalScans } from './useTerminalScans.js';
@@ -45,6 +46,8 @@ import { useTerminalDatabaseScans } from './useTerminalDatabaseScans.js';
 import { useTerminalIssues } from './useTerminalIssues.js';
 import { useTerminalFavorites } from './useTerminalFavorites.js';
 import { useTerminalResize } from './useTerminalResize.js';
+import { useTerminalHorizon } from './useTerminalHorizon.js';
+import { useTerminalNavigation } from './useTerminalNavigation.js';
 // New components
 import TerminalSidebar from './Terminal/TerminalSidebar.vue';
 import TerminalTabBar from './Terminal/TerminalTabBar.vue';
@@ -52,6 +55,7 @@ import TerminalInput from './Terminal/TerminalInput.vue';
 import TerminalFavoritesTray from './Terminal/TerminalFavoritesTray.vue';
 import TerminalResizeHandle from './Terminal/TerminalResizeHandle.vue';
 import TerminalToggleButton from './Terminal/TerminalToggleButton.vue';
+import TerminalTabContent from './Terminal/TerminalTabContent.vue';
 
 // Get API base URL
 const api = useOverlordApi();
@@ -88,23 +92,22 @@ const databaseScanHistoryRef = ref(null);
 // Sidebar navigation state
 const sidebarCollapsed = ref(false);
 
-// Horizon state
-const horizonInstalled = ref(false);
+// Initialize Horizon composable
+const horizon = useTerminalHorizon(api);
+const { horizonInstalled, loadHorizonStatus } = horizon;
+
+// Initialize Navigation composable
+const navigation = useTerminalNavigation();
+const { logsNavigateTo, handleNavigateToReference: handleNavigateToReferenceBase, handleNavigateToSource: handleNavigateToSourceBase } = navigation;
 
 // Issues state
 const issuePrefillData = ref(null);
-const logsNavigateTo = ref(null);
 
-// Dropdown state (keeping for backward compatibility, but will be replaced by sidebar)
-const showSettingsDropdown = ref(false);
-const showCommandsDropdown = ref(false);
-const showExplorerDropdown = ref(false);
-const showToolsDropdown = ref(false);
-const showQueriesDropdown = ref(false);
+// Dropdown state removed - sidebar replaces dropdowns
 
 // Initialize composables
 const tabs = useTerminalTabs();
-const { activeTab, openTabs, isTabOpen, isTabActive, openTab, closeTab, closeAllTabs, closeOtherTabs, switchTab, ensureTabOpen } = tabs;
+const { activeTab, openTabs, isTabOpen, isTabActive, openTab, closeTab, closeAllTabs, closeOtherTabs, switchTab, ensureTabOpen, createToggleFunction } = tabs;
 
 // Helper functions for composables
 function scrollToBottom() {
@@ -126,7 +129,24 @@ const commands = useTerminalCommands(api, {
 	focusInput,
 	inputRef,
 });
-const { commandInput, inputMode, commandHistory, historyIndex, outputHistory, isExecuting, addOutput, clearTerminal, clearSession, executeCommand, executeShellCommand, handleKeyDown, useCommandFromHistory } = commands;
+const { commandInput, inputMode, commandHistory, historyIndex, outputHistory, isExecuting, addOutput, clearTerminal, clearSession, executeCommand, executeShellCommand, handleKeyDown, useCommandFromHistory, insertCommand: insertCommandBase, insertCommandFromAi: insertCommandFromAiBase, executeCommandFromAi: executeCommandFromAiBase, executeCommandFromFavorite: executeCommandFromFavoriteBase, copyOutputToClipboard: copyOutputToClipboardBase, showHelp: showHelpBase } = commands;
+
+// Wrapper functions that pass refs
+function insertCommand(command) {
+	insertCommandBase(command, inputRef.value);
+}
+
+function insertCommandFromAi(command) {
+	insertCommandFromAiBase(command, inputRef.value);
+}
+
+async function executeCommandFromAi(command) {
+	await executeCommandFromAiBase(command, inputRef.value, inputMode, sendAiMessage, aiRef.value);
+}
+
+function executeCommandFromFavorite(command) {
+	executeCommandFromFavoriteBase(command);
+}
 
 // Initialize AI composable
 const ai = useTerminalAi(api, { ensureTabOpen });
@@ -134,14 +154,52 @@ const { aiConversationHistory, selectedAiModel, isSendingAi, loadAiStatus, sendA
 
 // Initialize scans composables
 const scans = useTerminalScans(api, { isTabOpen, closeTab, ensureTabOpen, switchTab });
-const { activeScanId, handleStartScan, startScanPolling, stopScanPolling } = scans;
+const { activeScanId, handleStartScan, startScanPolling, stopScanPolling, handleViewScan: handleViewScanBase, handleViewScanIssues: handleViewScanIssuesBase, handleScanIssuesCleared: handleScanIssuesClearedBase } = scans;
 
 const databaseScans = useTerminalDatabaseScans(api, { isTabOpen, closeTab, ensureTabOpen, switchTab });
-const { activeDatabaseScanId, handleStartDatabaseScan, startDatabaseScanPolling, stopDatabaseScanPolling } = databaseScans;
+const { activeDatabaseScanId, handleStartDatabaseScan, startDatabaseScanPolling, stopDatabaseScanPolling, handleViewDatabaseScan: handleViewDatabaseScanBase, handleViewDatabaseScanIssues: handleViewDatabaseScanIssuesBase, handleDatabaseIssuesCleared: handleDatabaseIssuesClearedBase } = databaseScans;
+
+// Wrapper functions that pass refs
+function handleViewScan(scanId) {
+	handleViewScanBase(scanId, closeTab, ensureTabOpen, switchTab);
+}
+
+function handleViewScanIssues(scanId) {
+	handleViewScanIssuesBase(scanId, closeTab, ensureTabOpen, switchTab);
+}
+
+function handleScanIssuesCleared() {
+	handleScanIssuesClearedBase(scanHistoryRef);
+}
+
+function handleViewDatabaseScan(scanId) {
+	handleViewDatabaseScanBase(scanId, closeTab, ensureTabOpen, switchTab);
+}
+
+function handleViewDatabaseScanIssues(scanId) {
+	handleViewDatabaseScanIssuesBase(scanId, closeTab, ensureTabOpen, switchTab);
+}
+
+function handleDatabaseIssuesCleared() {
+	handleDatabaseIssuesClearedBase(databaseScanHistoryRef);
+}
 
 // Initialize issues composable
 const issues = useTerminalIssues(api);
-const { issuesStats, issuesCounter, loadIssuesStats, startIssuesStatsPolling, stopIssuesStatsPolling } = issues;
+const { issuesStats, issuesCounter, loadIssuesStats, startIssuesStatsPolling, stopIssuesStatsPolling, handleCreateIssueFromLogs: handleCreateIssueFromLogsBase, handleCreateIssueFromTerminal: handleCreateIssueFromTerminalBase, handleCreateIssueFromScan: handleCreateIssueFromScanBase } = issues;
+
+// Wrapper functions that pass refs
+function handleCreateIssueFromLogs(prefillData) {
+	handleCreateIssueFromLogsBase(prefillData, issuePrefillData, ensureTabOpen, nextTick);
+}
+
+function handleCreateIssueFromTerminal(prefillData) {
+	handleCreateIssueFromTerminalBase(prefillData, issuePrefillData, ensureTabOpen, nextTick);
+}
+
+function handleCreateIssueFromScan(prefillData) {
+	handleCreateIssueFromScanBase(prefillData, issuePrefillData, ensureTabOpen, switchTab, nextTick);
+}
 
 // Initialize favorites composable
 const favorites = useTerminalFavorites({ ensureTabOpen });
@@ -156,300 +214,39 @@ function toggleFavorites() {
 const resize = useTerminalResize();
 const { terminalHeight, isResizing, terminalDrawerStyle, loadTerminalHeight, startResize, handleResize, stopResize } = resize;
 
-// Navigation config will be computed and passed to TerminalSidebar
-
-// Navigation configuration structure
-const navigationConfig = computed(() => {
-	const sections = [
-		{
-			id: 'general',
-			title: 'GENERAL',
-			priority: 'primary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'terminal',
-					label: 'Terminal',
-					icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-					action: () => openTab('terminal'),
-					isActive: () => isTabActive('terminal'),
-					priority: 'primary',
-					keywords: ['terminal', 'console', 'tinker', 'shell']
-				},
-				{
-					id: 'ai',
-					label: 'AI Chat',
-					icon: 'M13 10V3L4 14h7v7l9-11h-7z',
-					action: toggleAi,
-					isActive: () => isTabActive('ai'),
-					priority: 'primary',
-					keywords: ['ai', 'assistant', 'chat', 'help', 'gpt']
-				},
-				{
-					id: 'history',
-					label: 'History',
-					icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: toggleHistory,
-					isActive: () => isTabActive('history'),
-					priority: 'primary',
-					keywords: ['history', 'past', 'commands']
-				}
-			]
-		},
-		{
-			id: 'database',
-			title: 'DATABASE',
-			priority: 'primary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'database',
-					label: 'Explorer',
-					icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
-					action: toggleDatabase,
-					isActive: () => isTabActive('database'),
-					priority: 'primary',
-					keywords: ['database', 'sql', 'query', 'table']
-				},
-				{
-					id: 'migrations',
-					label: 'Migrations',
-					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
-					action: toggleMigrations,
-					isActive: () => isTabActive('migrations'),
-					priority: 'primary',
-					keywords: ['migrations', 'schema', 'alter']
-				},
-				{
-					id: 'database-scan-config',
-					label: 'DB Scans',
-					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: startDatabaseScan,
-					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
-					priority: 'primary',
-					keywords: ['scan', 'database', 'schema', 'analyze']
-				}
-			]
-		},
-		{
-			id: 'codebase',
-			title: 'CODEBASE',
-			priority: 'secondary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'routes',
-					label: 'Routes',
-					icon: 'M13 7l5 5m0 0l-5 5m5-5H6',
-					action: toggleRoutes,
-					isActive: () => isTabActive('routes'),
-					priority: 'secondary',
-					keywords: ['routes', 'endpoints', 'api']
-				},
-				{
-					id: 'controllers',
-					label: 'Controllers',
-					icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-					action: toggleControllers,
-					isActive: () => isTabActive('controllers'),
-					priority: 'secondary',
-					keywords: ['controllers', 'http', 'logic']
-				},
-				{
-					id: 'model-diagram',
-					label: 'Models (Diagram)',
-					icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',
-					action: toggleModelDiagram,
-					isActive: () => isTabActive('model-diagram'),
-					priority: 'secondary',
-					keywords: ['models', 'diagram', 'eloquent', 'relationships']
-				},
-				{
-					id: 'scan-config',
-					label: 'Code Scans',
-					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: startScan,
-					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
-					priority: 'secondary',
-					keywords: ['scan', 'codebase', 'analyze', 'security']
-				}
-			]
-		},
-		{
-			id: 'tools',
-			title: 'TOOLS',
-			priority: 'secondary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'commands',
-					label: 'Artisan Commands',
-					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
-					action: toggleCommands,
-					isActive: () => isTabActive('commands'),
-					priority: 'secondary',
-					keywords: ['artisan', 'cli']
-				},
-				{
-					id: 'issues',
-					label: 'Issues',
-					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-					action: toggleIssues,
-					isActive: () => isTabActive('issues'),
-					priority: 'secondary',
-					keywords: ['issues', 'bugs', 'problems'],
-					badge: issuesCounter
-				},
-				{
-					id: 'templates',
-					label: 'Templates',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleTemplates,
-					isActive: () => isTabActive('templates'),
-					priority: 'secondary',
-					keywords: ['templates', 'snippets']
-				}
-			]
-		},
-		{
-			id: 'system',
-			title: 'SYSTEM',
-			priority: 'secondary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'logs',
-					label: 'Logs',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleLogs,
-					isActive: () => isTabActive('logs'),
-					priority: 'secondary',
-					keywords: ['logs', 'errors', 'debug']
-				},
-				{
-					id: 'jobs',
-					label: 'Jobs / Horizon',
-					icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-					action: toggleJobs,
-					isActive: () => isTabActive('jobs') || isTabActive('horizon'),
-					priority: 'secondary',
-					keywords: ['jobs', 'queues', 'workers', 'horizon']
-				},
-				{
-					id: 'exceptions',
-					label: 'Exceptions',
-					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-					action: toggleExceptions,
-					isActive: () => isTabActive('exceptions'),
-					priority: 'secondary',
-					keywords: ['exceptions', 'errors']
-				}
-			]
-		},
-		{
-			id: 'reference',
-			title: 'REFERENCE',
-			priority: 'tertiary',
-			defaultExpanded: false,
-			items: [
-				{
-					id: 'classes',
-					label: 'Classes',
-					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
-					action: toggleClasses,
-					isActive: () => isTabActive('classes'),
-					priority: 'tertiary',
-					keywords: ['classes']
-				},
-				{
-					id: 'traits',
-					label: 'Traits',
-					icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01',
-					action: toggleTraits,
-					isActive: () => isTabActive('traits'),
-					priority: 'tertiary',
-					keywords: ['traits']
-				},
-				{
-					id: 'providers',
-					label: 'Providers',
-					icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
-					action: toggleProviders,
-					isActive: () => isTabActive('providers'),
-					priority: 'tertiary',
-					keywords: ['providers', 'service providers', 'boot']
-				},
-				{
-					id: 'services',
-					label: 'Services',
-					icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
-					action: toggleServices,
-					isActive: () => isTabActive('services'),
-					priority: 'tertiary',
-					keywords: ['services', 'logic']
-				},
-				{
-					id: 'requests',
-					label: 'Requests',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleRequests,
-					isActive: () => isTabActive('requests'),
-					priority: 'tertiary',
-					keywords: ['requests', 'validation']
-				},
-				{
-					id: 'middleware',
-					label: 'Middleware',
-					icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
-					action: toggleMiddleware,
-					isActive: () => isTabActive('middleware'),
-					priority: 'tertiary',
-					keywords: ['middleware', 'layers']
-				},
-				{
-					id: 'command-classes',
-					label: 'Command Classes',
-					icon: 'M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-					action: toggleCommandClasses,
-					isActive: () => isTabActive('command-classes'),
-					priority: 'tertiary',
-					keywords: ['commands', 'classes']
-				}
-			]
-		},
-		{
-			id: 'footer',
-			title: '',
-			priority: 'tertiary',
-			defaultExpanded: false,
-			items: [
-				{
-					id: 'help',
-					label: 'Help',
-					icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: showHelp,
-					isActive: () => false,
-					priority: 'tertiary',
-					keywords: ['help', 'docs']
-				},
-				{
-					id: 'settings',
-					label: 'UI Settings',
-					icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
-					icon2: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z',
-					action: openSettings,
-					isActive: () => isTabActive('settings'),
-					priority: 'tertiary',
-					keywords: ['settings', 'config']
-				}
-			]
-		}
-	];
-
-	return sections;
-});
-
 // Navigation config computed - will be passed to TerminalSidebar
+// Build navigation config using the config builder
+const navigationConfig = computed(() => {
+	return buildNavigationConfig({
+		isTabActive,
+		openTab,
+		toggleAi,
+		toggleHistory,
+		toggleTemplates,
+		toggleDatabase,
+		toggleMigrations,
+		startDatabaseScan,
+		toggleRoutes,
+		toggleControllers,
+		toggleModelDiagram,
+		startScan,
+		toggleCommands,
+		toggleIssues,
+		toggleTraits,
+		toggleServices,
+		toggleRequests,
+		toggleProviders,
+		toggleMiddleware,
+		toggleJobs,
+		toggleExceptions,
+		toggleCommandClasses,
+		toggleClasses,
+		toggleLogs,
+		showHelp,
+		openSettings,
+		issuesCounter,
+	});
+});
 
 // Theme and font system
 const terminalDrawerRef = ref(null);
@@ -480,7 +277,6 @@ function openSettings(event) {
 		openTabs.value.push(tabConfigs.settings);
 	}
 	switchTab('settings');
-	showSettingsDropdown.value = false;
 }
 
 // Handle resize start (wraps composable function)
@@ -488,74 +284,7 @@ function handleStartResize(event) {
 	startResize(event);
 }
 
-// Insert command from templates/snippets
-function insertCommand(command) {
-	// Preserve line breaks when inserting code
-	commandInput.value = command;
-	nextTick(() => {
-		if (inputRef.value && typeof inputRef.value.focus === 'function') {
-			inputRef.value.focus();
-		}
-		if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
-			inputRef.value.autoResize();
-		}
-	});
-}
-
-// Insert command from AI
-function insertCommandFromAi(command) {
-	if (!command) {
-		return;
-	}
-	// Preserve line breaks when inserting code
-	commandInput.value = command;
-	// Switch to terminal tab
-	ensureTabOpen('terminal');
-	nextTick(() => {
-		if (inputRef.value && typeof inputRef.value.focus === 'function') {
-			inputRef.value.focus();
-		}
-		if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
-			inputRef.value.autoResize();
-		}
-	});
-}
-
-// Execute command from AI
-async function executeCommandFromAi(command) {
-	if (!command) {
-		return;
-	}
-	// Preserve line breaks when inserting code
-	commandInput.value = command;
-	// Switch to terminal tab
-	ensureTabOpen('terminal');
-	nextTick(async () => {
-		// Check if it's AI mode
-		if (inputMode.value === 'ai') {
-			await sendAiMessage(command, aiRef.value);
-			commandInput.value = '';
-			if (inputRef.value && typeof inputRef.value.autoResize === 'function') {
-				inputRef.value.autoResize();
-			}
-			nextTick(() => {
-				if (inputRef.value && typeof inputRef.value.focus === 'function') {
-					inputRef.value.focus();
-				}
-			});
-		} else {
-			await executeCommand();
-		}
-	});
-}
-
-// Execute command from favorite
-function executeCommandFromFavorite(command) {
-	commandInput.value = command;
-	nextTick(() => {
-		executeCommand();
-	});
-}
+// Command insertion/execution functions are now in useTerminalCommands composable
 
 // Handle add to favorites from any source
 function handleAddToFavorites(data) {
@@ -593,84 +322,7 @@ function addCurrentCommandToFavorites() {
 	});
 }
 
-// Copy output to clipboard
-async function copyOutputToClipboard() {
-	if (outputHistory.value.length === 0) {
-		Swal.fire({
-			toast: true,
-			icon: 'info',
-			title: 'No output to copy',
-			position: 'bottom-end',
-			showConfirmButton: false,
-			timer: 2000,
-		});
-		return;
-	}
-	
-	// Build text representation of all output
-	let text = '';
-	outputHistory.value.forEach((item, index) => {
-		if (item.type === 'command') {
-			text += `$ ${item.output}\n`;
-		} else if (item.type === 'json' || item.type === 'object') {
-			const data = item.output?.formatted || item.output;
-			if (typeof data === 'string') {
-				text += data + '\n';
-			} else {
-				text += JSON.stringify(data, null, 2) + '\n';
-			}
-		} else {
-			const output = item.output?.formatted || item.output || item.raw;
-			if (typeof output === 'string') {
-				text += output + '\n';
-			} else {
-				text += String(output) + '\n';
-			}
-		}
-		text += '\n';
-	});
-	
-	try {
-		await navigator.clipboard.writeText(text);
-		Swal.fire({
-			toast: true,
-			icon: 'success',
-			title: 'Output copied to clipboard',
-			position: 'bottom-end',
-			showConfirmButton: false,
-			timer: 2000,
-		});
-	} catch (err) {
-		// Fallback for older browsers
-		const textArea = document.createElement('textarea');
-		textArea.value = text;
-		textArea.style.position = 'fixed';
-		textArea.style.opacity = '0';
-		document.body.appendChild(textArea);
-		textArea.select();
-		try {
-			document.execCommand('copy');
-			Swal.fire({
-				toast: true,
-				icon: 'success',
-				title: 'Output copied to clipboard',
-				position: 'bottom-end',
-				showConfirmButton: false,
-				timer: 2000,
-			});
-		} catch (e) {
-			Swal.fire({
-				toast: true,
-				icon: 'error',
-				title: 'Failed to copy to clipboard',
-				position: 'bottom-end',
-				showConfirmButton: false,
-				timer: 2000,
-			});
-		}
-		document.body.removeChild(textArea);
-	}
-}
+// Helper functions are now in composables
 
 // Execute command wrapper - handles AI mode
 async function handleExecuteCommand() {
@@ -728,31 +380,9 @@ async function handleExecuteCommand() {
 	await executeCommand();
 }
 
-// Handle navigation to reference (cross-reference system)
+// Navigation handlers are now in useTerminalNavigation composable
 function handleNavigateToReference(navData) {
-	if (!navData || !navData.type) return;
-	
-	const typeMap = {
-		'controller': 'controllers',
-		'middleware': 'middleware', // Future feature
-		'model': 'model-diagram',
-		'service': 'services', // Future feature
-		'trait': 'traits', // Future feature
-		'route': 'routes',
-	};
-	
-	const targetTab = typeMap[navData.type];
-	if (!targetTab || !tabConfigs[targetTab]) {
-		console.warn('Unknown navigation type:', navData.type);
-		return;
-	}
-	
-	// Open tab with item identifier
-	openTab(targetTab, {
-		itemId: navData.identifier,
-		highlight: true,
-		method: navData.method,
-	});
+	handleNavigateToReferenceBase(navData, openTab);
 }
 
 async function handleTabContextMenu(event, tabId) {
@@ -776,29 +406,10 @@ async function handleTabContextMenu(event, tabId) {
 // Tab functions are now from composable
 
 // Toggle functions - now use tab system
-function toggleHistory() {
-	if (isTabActive('history')) {
-		closeTab('history');
-	} else {
-		ensureTabOpen('history');
-	}
-}
-
-function toggleTemplates() {
-	if (isTabActive('templates')) {
-		closeTab('templates');
-	} else {
-		ensureTabOpen('templates');
-	}
-}
-
-function toggleDatabase() {
-	if (isTabActive('database')) {
-		closeTab('database');
-	} else {
-		ensureTabOpen('database');
-	}
-}
+// Use createToggleFunction for simple toggles
+const toggleHistory = createToggleFunction('history');
+const toggleTemplates = createToggleFunction('templates');
+const toggleDatabase = createToggleFunction('database');
 
 // toggleFavorites is provided by useTerminalFavorites composable
 
@@ -870,118 +481,21 @@ function toggleShell() {
 	});
 }
 
-function toggleModelDiagram() {
-	if (isTabActive('model-diagram')) {
-		closeTab('model-diagram');
-	} else {
-		ensureTabOpen('model-diagram');
-	}
-}
-
-function toggleControllers() {
-	if (isTabActive('controllers')) {
-		closeTab('controllers');
-	} else {
-		ensureTabOpen('controllers');
-	}
-}
-
-function toggleRoutes() {
-	if (isTabActive('routes')) {
-		closeTab('routes');
-	} else {
-		ensureTabOpen('routes');
-	}
-}
-
-function toggleClasses() {
-	if (isTabActive('classes')) {
-		closeTab('classes');
-	} else {
-		ensureTabOpen('classes');
-	}
-}
-
-function toggleTraits() {
-	if (isTabActive('traits')) {
-		closeTab('traits');
-	} else {
-		ensureTabOpen('traits');
-	}
-}
-
-function toggleServices() {
-	if (isTabActive('services')) {
-		closeTab('services');
-	} else {
-		ensureTabOpen('services');
-	}
-}
-
-function toggleRequests() {
-	if (isTabActive('requests')) {
-		closeTab('requests');
-	} else {
-		ensureTabOpen('requests');
-	}
-}
-
-function toggleProviders() {
-	if (isTabActive('providers')) {
-		closeTab('providers');
-	} else {
-		ensureTabOpen('providers');
-	}
-}
-
-function toggleMiddleware() {
-	if (isTabActive('middleware')) {
-		closeTab('middleware');
-	} else {
-		ensureTabOpen('middleware');
-	}
-}
-
-function toggleJobs() {
-	if (isTabActive('jobs')) {
-		closeTab('jobs');
-	} else {
-		ensureTabOpen('jobs');
-	}
-}
-
-function toggleExceptions() {
-	if (isTabActive('exceptions')) {
-		closeTab('exceptions');
-	} else {
-		ensureTabOpen('exceptions');
-	}
-}
-
-function toggleCommandClasses() {
-	if (isTabActive('command-classes')) {
-		closeTab('command-classes');
-	} else {
-		ensureTabOpen('command-classes');
-	}
-}
-
-// Toggle commands
-function toggleMigrations() {
-	if (isTabActive('migrations')) {
-		closeTab('migrations');
-	} else {
-		ensureTabOpen('migrations');
-	}
-}
-
-function toggleCommands() {
-	if (isTabActive('commands')) {
-		closeTab('commands');
-	} else {
-		ensureTabOpen('commands');
-	}
-}
+// Use createToggleFunction for simple toggles
+const toggleModelDiagram = createToggleFunction('model-diagram');
+const toggleControllers = createToggleFunction('controllers');
+const toggleRoutes = createToggleFunction('routes');
+const toggleClasses = createToggleFunction('classes');
+const toggleTraits = createToggleFunction('traits');
+const toggleServices = createToggleFunction('services');
+const toggleRequests = createToggleFunction('requests');
+const toggleProviders = createToggleFunction('providers');
+const toggleMiddleware = createToggleFunction('middleware');
+const toggleJobs = createToggleFunction('jobs');
+const toggleExceptions = createToggleFunction('exceptions');
+const toggleCommandClasses = createToggleFunction('command-classes');
+const toggleMigrations = createToggleFunction('migrations');
+const toggleCommands = createToggleFunction('commands');
 
 // Toggle Horizon
 function toggleHorizon() {
@@ -994,22 +508,10 @@ function toggleHorizon() {
 }
 
 // Toggle Logs
-function toggleLogs() {
-	if (isTabActive('logs')) {
-		closeTab('logs');
-	} else {
-		ensureTabOpen('logs');
-	}
-}
+const toggleLogs = createToggleFunction('logs');
 
 // Toggle Issues
-function toggleIssues() {
-	if (isTabActive('issues')) {
-		closeTab('issues');
-	} else {
-		ensureTabOpen('issues');
-	}
-}
+const toggleIssues = createToggleFunction('issues');
 
 // Toggle Scan Results
 function toggleScanResults() {
@@ -1020,193 +522,32 @@ function toggleScanResults() {
 	}
 }
 
-function toggleScanHistory() {
-	if (isTabActive('scan-history')) {
-		closeTab('scan-history');
-	} else {
-		ensureTabOpen('scan-history');
-	}
-	showToolsDropdown.value = false;
-}
+// toggleScanHistory removed - not used
 
-function handleViewScan(scanId) {
-	activeScanId.value = scanId;
-	closeTab('scan-history');
-	ensureTabOpen('scan-results');
-	switchTab('scan-results');
-}
-
-function handleViewScanIssues(scanId) {
-	// Open issues tab filtered by scan ID
-	// For now, just open the scan results which shows issues
-	handleViewScan(scanId);
-}
-
-function handleScanIssuesCleared() {
-	// Refresh the scan history component if it's open
-	if (scanHistoryRef.value && scanHistoryRef.value.loadHistory) {
-		scanHistoryRef.value.loadHistory();
-	}
-}
+// Scan view handlers are now in useTerminalScans and useTerminalDatabaseScans composables
 
 // Open scan configuration
 function startScan() {
 	ensureTabOpen('scan-config');
-	showToolsDropdown.value = false;
-}
-
-// Database scan functions
-function toggleDatabaseScanHistory() {
-	if (isTabActive('database-scan-history')) {
-		closeTab('database-scan-history');
-	} else {
-		ensureTabOpen('database-scan-history');
-	}
-	showToolsDropdown.value = false;
-}
-
-function handleViewDatabaseScan(scanId) {
-	activeDatabaseScanId.value = scanId;
-	closeTab('database-scan-history');
-	ensureTabOpen('database-scan-results');
-	switchTab('database-scan-results');
-}
-
-function handleViewDatabaseScanIssues(scanId) {
-	handleViewDatabaseScan(scanId);
-}
-
-function handleDatabaseIssuesCleared() {
-	// Refresh the scan history component if it's open
-	if (databaseScanHistoryRef.value && databaseScanHistoryRef.value.loadHistory) {
-		databaseScanHistoryRef.value.loadHistory();
-	}
 }
 
 function startDatabaseScan() {
 	ensureTabOpen('database-scan-config');
-	showToolsDropdown.value = false;
 }
 
-// Handle create issue from logs
-function handleCreateIssueFromLogs(prefillData) {
-	issuePrefillData.value = prefillData;
-	ensureTabOpen('issues');
-	// Clear prefill data after a short delay to allow modal to open
-	nextTick(() => {
-		setTimeout(() => {
-			issuePrefillData.value = null;
-		}, 100);
-	});
-}
+// Issue handlers are now in useTerminalIssues composable
 
-// Handle create issue from terminal
-function handleCreateIssueFromTerminal(prefillData) {
-	issuePrefillData.value = prefillData;
-	ensureTabOpen('issues');
-	// Clear prefill data after a short delay to allow modal to open
-	nextTick(() => {
-		setTimeout(() => {
-			issuePrefillData.value = null;
-		}, 100);
-	});
-}
-
-// Handle create issue from scan results
-function handleCreateIssueFromScan(prefillData) {
-	issuePrefillData.value = prefillData;
-	
-	// For database scans, keep user on scan results page
-	// For other scans, switch to issues tab
-	if (prefillData?.source_type === 'database_scan') {
-		// Ensure issues tab is open (but don't switch to it) so it can receive prefillData
-		// The modal will open as an overlay without switching tabs
-	ensureTabOpen('issues');
-		// Don't switch tabs - stay on current tab
-	} else {
-		// For codebase scans, switch to issues tab
-		ensureTabOpen('issues');
-		switchTab('issues');
-	}
-	
-	// Clear prefill data after a short delay to allow modal to open
-	nextTick(() => {
-		setTimeout(() => {
-			issuePrefillData.value = null;
-		}, 100);
-	});
-}
-
-// Handle navigate to source
+// Navigation and helper functions are now in composables
 function handleNavigateToSource(navigationData) {
-	const { type, data } = navigationData;
-	
-	if (type === 'log') {
-		// Navigate to Logs tab
-		ensureTabOpen('logs');
-		// Set navigation data for TerminalLogs component
-		logsNavigateTo.value = { type, data };
-		// Clear after navigation is handled
-		nextTick(() => {
-			setTimeout(() => {
-				logsNavigateTo.value = null;
-			}, 1000);
-		});
-	} else if (type === 'terminal') {
-		// Navigate to Terminal tab
-		ensureTabOpen('terminal');
-		// This would require storing command log IDs and matching them
-	} else if (type === 'ai') {
-		// Navigate to AI tab
-		ensureTabOpen('ai');
-		// This would require storing conversation IDs and matching them
-	}
+	handleNavigateToSourceBase(navigationData, ensureTabOpen);
 }
 
-// Load Horizon installation status
-async function loadHorizonStatus() {
-	try {
-		const response = await axios.get(api.horizon.check());
-		if (response.data && response.data.success && response.data.result) {
-			horizonInstalled.value = response.data.result.installed || false;
-		}
-	} catch (error) {
-		horizonInstalled.value = false;
-	}
+function showHelp() {
+	showHelpBase(api, commandInput, isExecuting, addOutput, scrollToBottom, focusInput);
 }
 
-// Show help
-async function showHelp() {
-	commandInput.value = '';
-	isExecuting.value = true;
-
-	try {
-		// Use GET request to the help endpoint instead of executing a command
-		const response = await axios.get(api.url('help'), {
-			timeout: 30000, // 30 seconds should be enough for help content
-		});
-
-		if (response.data.success) {
-			const result = response.data.result;
-			addOutput(result.type, result.output, result.raw);
-		} else {
-			addOutput('error', {
-				formatted: response.data.errors?.[0] || 'Unknown error',
-				raw: response.data.errors?.[0] || 'Unknown error',
-			});
-		}
-	} catch (error) {
-		addOutput('error', {
-			formatted: error.response?.data?.errors?.[0] || error.message || 'Failed to load help',
-			raw: error.response?.data?.errors?.[0] || error.message || 'Failed to load help',
-		});
-	} finally {
-		isExecuting.value = false;
-		await nextTick();
-		scrollToBottom();
-		// Refocus input after command execution
-		focusInput();
-	}
+function copyOutputToClipboard() {
+	copyOutputToClipboardBase(outputHistory, Swal);
 }
 
 // Use command from history - handled by composable
@@ -1234,19 +575,7 @@ function handleKeyDownWrapper(event) {
 	}
 }
 
-// Format output component
-function renderOutput(item) {
-	if (item.type === 'json' || item.type === 'object') {
-		const data = item.output?.formatted || item.output;
-		return { component: 'json', data };
-	}
-	
-	if (item.type === 'error') {
-		return { component: 'error', data: item.output?.formatted || item.output || item.raw };
-	}
-
-	return { component: 'text', data: item.output?.formatted || item.output || item.raw };
-}
+// renderOutput function removed - not used
 
 // Close terminal
 function closeTerminal() {
@@ -1266,16 +595,7 @@ watch(isOpen, (newValue) => {
 });
 
 
-// Close dropdowns when clicking outside
-function handleClickOutside(event) {
-	if (!event.target.closest('.terminal-dropdown')) {
-		showSettingsDropdown.value = false;
-		showCommandsDropdown.value = false;
-		showExplorerDropdown.value = false;
-		showToolsDropdown.value = false;
-		showQueriesDropdown.value = false;
-	}
-}
+// handleClickOutside removed - dropdowns replaced by sidebar
 
 onMounted(async () => {
 	// Load preferences from localStorage
@@ -1341,9 +661,6 @@ onMounted(async () => {
 	// Load Horizon status
 	loadHorizonStatus();
 	
-	// Add click outside listener for dropdowns
-	document.addEventListener('click', handleClickOutside);
-	
 	// Add welcome message
 		addOutput('text', 'Laravel Overlord - Type commands and press Enter to execute (supports PHP, Laravel, and more)');
 	
@@ -1368,9 +685,6 @@ onMounted(async () => {
 onUnmounted(() => {
 	// Clean up resize listeners (handled by composable)
 	stopResize();
-	
-	// Clean up click outside listener
-	document.removeEventListener('click', handleClickOutside);
 	
 	// Clean up scan polling (handled by composables)
 	stopScanPolling();
@@ -1442,231 +756,46 @@ onUnmounted(() => {
 
 						<!-- Content Area (panels and output) -->
 						<div class="terminal-content-area">
-							<!-- History View -->
-					<TerminalHistory
-						:visible="isTabActive('history')"
-						@use-command="useCommandFromHistory"
-						@close="closeTab('history')"
-					/>
-
-					<!-- Templates/Snippets Panel -->
-					<TerminalTemplates
-						:visible="isTabActive('templates')"
-						:current-command="commandInput"
-						@insert-command="insertCommand"
-						@add-to-favorites="handleAddToFavorites"
-						@close="closeTab('templates')"
-					/>
-
-					<!-- Model Relationships Diagram -->
-					<TerminalModelDiagram
-						:visible="isTabActive('model-diagram')"
-						@close="closeTab('model-diagram')"
-					/>
-
-					<!-- Controllers View -->
-					<TerminalControllers
-						:visible="isTabActive('controllers')"
-						@close="closeTab('controllers')"
-						@navigate-to="handleNavigateToReference"
-					/>
-
-					<!-- Routes View -->
-					<TerminalRoutes
-						:visible="isTabActive('routes')"
-						@close="closeTab('routes')"
-						@navigate-to="handleNavigateToReference"
-					/>
-
-					<!-- Classes View -->
-					<TerminalClasses
-						:visible="isTabActive('classes')"
-						@close="closeTab('classes')"
-					/>
-
-					<!-- Traits View -->
-					<TerminalTraits
-						:visible="isTabActive('traits')"
-						@close="closeTab('traits')"
-					/>
-
-					<!-- Services View -->
-					<TerminalServices
-						:visible="isTabActive('services')"
-						@close="closeTab('services')"
-					/>
-
-					<!-- Requests View -->
-					<TerminalRequests
-						:visible="isTabActive('requests')"
-						@close="closeTab('requests')"
-					/>
-
-					<!-- Providers View -->
-					<TerminalProviders
-						:visible="isTabActive('providers')"
-						@close="closeTab('providers')"
-					/>
-
-					<!-- Middleware View -->
-					<TerminalMiddleware
-						:visible="isTabActive('middleware')"
-						@close="closeTab('middleware')"
-					/>
-
-					<!-- Jobs View -->
-					<TerminalJobs
-						:visible="isTabActive('jobs')"
-						@close="closeTab('jobs')"
-					/>
-
-					<!-- Exceptions View -->
-					<TerminalExceptions
-						:visible="isTabActive('exceptions')"
-						@close="closeTab('exceptions')"
-					/>
-
-					<!-- Command Classes View -->
-					<TerminalCommandClasses
-						:visible="isTabActive('command-classes')"
-						@close="closeTab('command-classes')"
-					/>
-
-					<!-- Migrations View -->
-					<TerminalMigrations
-						:visible="isTabActive('migrations')"
-						@close="closeTab('migrations')"
-					/>
-
-					<!-- Commands View -->
-					<TerminalCommands
-						:visible="isTabActive('commands')"
-						@close="closeTab('commands')"
-						@add-to-favorites="handleAddToFavorites"
-					/>
-
-					<!-- Favorites View -->
-					<TerminalFavorites
-						ref="favoritesRef"
-						:visible="isTabActive('favorites')"
-						:current-command="commandInput"
-						@insert-command="insertCommand"
-						@execute-command="executeCommandFromFavorite"
-						@close="closeTab('favorites')"
-					/>
-
-					<!-- AI View -->
-					<TerminalAi
-						ref="aiRef"
-						:visible="isTabActive('ai')"
-						:hide-input="true"
-						@insert-command="insertCommandFromAi"
-						@execute-command="executeCommandFromAi"
-						@close="closeTab('ai')"
-					/>
-
-					<!-- Horizon View -->
-					<TerminalHorizon
-						:visible="isTabActive('horizon')"
-						@close="closeTab('horizon')"
-					/>
-
-					<!-- Logs View -->
-				<TerminalLogs
-					:visible="isTabActive('logs')"
-					:navigate-to="logsNavigateTo"
-					@close="closeTab('logs')"
-					@insert-command="insertCommandFromAi"
-					@execute-command="executeCommandFromAi"
-					@create-issue="handleCreateIssueFromLogs"
-				/>
-
-					<!-- Issues View -->
-					<TerminalIssues
-						:visible="isTabActive('issues')"
-						:prefill-data="issuePrefillData"
-						@close="closeTab('issues')"
-						@create-issue="(issue) => {}"
-						@navigate-to-source="handleNavigateToSource"
-						@issue-updated="loadIssuesStats"
-					/>
-
-							<!-- Scan Results View -->
-							<TerminalScanConfig
-								v-if="isTabActive('scan-config')"
-								:visible="true"
-								@close="closeTab('scan-config')"
-								@start-scan="handleStartScan"
-							/>
-							<TerminalScanResults
-								v-if="isTabActive('scan-results')"
-								:visible="true"
-								:scan-id="activeScanId"
-								@close="closeTab('scan-results')"
-								@create-issue="handleCreateIssueFromScan"
-								@issues-cleared="handleScanIssuesCleared"
-							/>
-							<TerminalScanHistory
-								v-if="isTabActive('scan-history')"
-								ref="scanHistoryRef"
-								:visible="true"
-								@close="closeTab('scan-history')"
-								@view-scan="handleViewScan"
-								@view-issues="handleViewScanIssues"
-							/>
-
-							<!-- Database Scan Views -->
-							<TerminalDatabaseScanConfig
-								v-if="isTabActive('database-scan-config')"
-								:visible="true"
-								@close="closeTab('database-scan-config')"
-								@start-scan="handleStartDatabaseScan"
-							/>
-							<TerminalDatabaseScanResults
-								v-if="isTabActive('database-scan-results')"
-								:visible="true"
-								:scan-id="activeDatabaseScanId"
-								@close="closeTab('database-scan-results')"
-								@create-issue="handleCreateIssueFromScan"
-								@issues-cleared="handleDatabaseIssuesCleared"
-							/>
-							<TerminalDatabaseScanHistory
-								v-if="isTabActive('database-scan-history')"
-								ref="databaseScanHistoryRef"
-								:visible="true"
-								@close="closeTab('database-scan-history')"
-								@view-scan="handleViewDatabaseScan"
-								@view-issues="handleViewDatabaseScanIssues"
-							/>
-							
-							<TerminalDatabase
-								v-if="isTabActive('database')"
-								:visible="true"
-								@close="closeTab('database')"
-							/>
-
-							<!-- Settings View -->
-							<TerminalSettings
-								v-if="isTabActive('settings')"
-								:visible="true"
-								:is-modal="false"
-								@close="closeTab('settings')"
-							/>
-
-							<!-- Terminal Output Area -->
-							<TerminalOutput
-								v-if="isTabActive('terminal')"
-								ref="outputContainerRef"
+							<TerminalTabContent
+								:active-tab="activeTab"
+								:is-tab-active="isTabActive"
+								:favorites-ref="favoritesRef"
+								:ai-ref="aiRef"
+								:scan-history-ref="scanHistoryRef"
+								:database-scan-history-ref="databaseScanHistoryRef"
+								:output-container-ref="outputContainerRef"
+								:command-input="commandInput"
 								:output-history="outputHistory"
 								:is-executing="isExecuting"
 								:font-size="fontSize"
-								:show-actions="isTabActive('terminal')"
-								@insert-command="insertCommandFromAi"
-								@execute-command="executeCommandFromAi"
-								@create-issue="handleCreateIssueFromTerminal"
-								@clear-output="clearTerminal"
-								@clear-session="clearSession"
-								@close-terminal="closeTerminal"
+								:active-scan-id="activeScanId"
+								:active-database-scan-id="activeDatabaseScanId"
+								:issue-prefill-data="issuePrefillData"
+								:logs-navigate-to="logsNavigateTo"
+								:use-command-from-history="useCommandFromHistory"
+								:insert-command="insertCommand"
+								:insert-command-from-ai="insertCommandFromAi"
+								:execute-command-from-ai="executeCommandFromAi"
+								:execute-command-from-favorite="executeCommandFromFavorite"
+								:handle-add-to-favorites="handleAddToFavorites"
+								:handle-navigate-to-reference="handleNavigateToReference"
+								:handle-navigate-to-source="handleNavigateToSource"
+								:handle-create-issue-from-logs="handleCreateIssueFromLogs"
+								:handle-create-issue-from-terminal="handleCreateIssueFromTerminal"
+								:handle-create-issue-from-scan="handleCreateIssueFromScan"
+								:handle-start-scan="handleStartScan"
+								:handle-start-database-scan="handleStartDatabaseScan"
+								:handle-view-scan="handleViewScan"
+								:handle-view-scan-issues="handleViewScanIssues"
+								:handle-scan-issues-cleared="handleScanIssuesCleared"
+								:handle-view-database-scan="handleViewDatabaseScan"
+								:handle-view-database-scan-issues="handleViewDatabaseScanIssues"
+								:handle-database-issues-cleared="handleDatabaseIssuesCleared"
+								:close-tab="closeTab"
+								:clear-terminal="clearTerminal"
+								:clear-session="clearSession"
+								:close-terminal="closeTerminal"
+								:load-issues-stats="loadIssuesStats"
 							/>
 						</div>
 
@@ -1703,39 +832,7 @@ onUnmounted(() => {
 	background: var(--terminal-bg, #1e1e1e);
 }
 
-/* Toggle Button */
-.terminal-toggle-btn {
-	position: fixed;
-	bottom: 20px;
-	left: 20px;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 12px 20px;
-	background: var(--terminal-bg-secondary, #252526);
-	color: var(--terminal-text, #d4d4d4);
-	border: 1px solid var(--terminal-border, #3e3e42);
-	border-radius: 8px;
-	cursor: pointer;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	transition: all 0.2s;
-	z-index: 10000;
-	font-weight: 500;
-}
-
-.terminal-toggle-btn:hover {
-	background: var(--terminal-bg-tertiary, #2d2d30);
-	transform: translateY(-2px);
-	box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-	border-color: var(--terminal-primary, #0e639c);
-}
-
-.terminal-toggle-btn svg {
-	width: 24px !important;
-	height: 24px !important;
-	max-width: 24px !important;
-	max-height: 24px !important;
-}
+/* Toggle Button styles are now in TerminalToggleButton.vue component */
 
 /* Terminal Drawer */
 .terminal-drawer {
@@ -1804,19 +901,7 @@ onUnmounted(() => {
 /* Tab Bar */
 /* Tab bar styles are now in TerminalTabBar.vue component */
 
-/* Favorites Tray styles are now in TerminalFavoritesTray.vue component */
-
-/* Favorites Tray Transitions */
-.favorites-tray-enter-active,
-.favorites-tray-leave-active {
-	transition: all 0.3s ease;
-}
-
-.favorites-tray-enter-from,
-.favorites-tray-leave-to {
-	opacity: 0;
-	transform: translateY(-10px);
-}
+/* Favorites Tray styles and transitions are now in TerminalFavoritesTray.vue component */
 
 /* Terminal Content Area - wraps panels and output */
 .terminal-content-area {
@@ -1830,40 +915,7 @@ onUnmounted(() => {
 	margin-top: 0; /* No margin needed, border connects directly */
 }
 
-/* Resize Handle */
-.terminal-resize-handle {
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	height: 8px;
-	cursor: ns-resize;
-	z-index: 10001;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: transparent;
-	transition: background 0.2s;
-}
-
-.terminal-resize-handle:hover,
-.terminal-resize-handle.terminal-resizing {
-	background: var(--terminal-selection, rgba(14, 99, 156, 0.2));
-}
-
-.terminal-resize-handle-indicator {
-	width: 40px;
-	height: 4px;
-	background: var(--terminal-primary, #0e639c);
-	border-radius: 2px;
-	opacity: 0.5;
-	transition: opacity 0.2s;
-}
-
-.terminal-resize-handle:hover .terminal-resize-handle-indicator,
-.terminal-resize-handle.terminal-resizing .terminal-resize-handle-indicator {
-	opacity: 1;
-}
+/* Resize Handle styles are now in TerminalResizeHandle.vue component */
 
 /* Slide Up Animation */
 .slide-up-enter-active,

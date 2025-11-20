@@ -8,11 +8,7 @@
     <title>{{ config('laravel-overlord.ui.title', 'Laravel Overlord') }} - {{ config('laravel-overlord.ui.subtitle', 'Development Console') }}</title>
 
     <!-- Styles -->
-    @if(file_exists(public_path('build/manifest.json')))
-        @vite(['resources/css/app.css'])
-    @else
-        <link href="{{ mix('css/app.css') }}" rel="stylesheet">
-    @endif
+    {{-- Terminal has its own styles, no need to load app.css --}}
 
     <style>
         body {

@@ -81,6 +81,9 @@ Route::middleware('web')->group(function () {
                 Route::post('/models/check', [AiController::class, 'checkModel']);
                 Route::get('/status', [AiController::class, 'getStatus']);
                 Route::get('/api-key-status', [AiController::class, 'getApiKeyStatus']);
+                Route::get('/api-key-setting', [AiController::class, 'getApiKeySetting']);
+                Route::put('/api-key-setting', [AiController::class, 'updateApiKeySetting']);
+                Route::delete('/api-key-setting', [AiController::class, 'deleteApiKeySetting']);
             });
             
             // Shell routes

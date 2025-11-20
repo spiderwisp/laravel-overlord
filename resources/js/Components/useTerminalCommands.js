@@ -1,5 +1,6 @@
 import { ref, nextTick } from 'vue';
 import axios from 'axios';
+import Swal from '../utils/swalConfig';
 import { useOverlordApi } from './useOverlordApi';
 
 export function useTerminalCommands(api, { ensureTabOpen, scrollToBottom, focusInput, inputRef }) {
@@ -327,6 +328,183 @@ export function useTerminalCommands(api, { ensureTabOpen, scrollToBottom, focusI
 		if (focusInput) focusInput();
 	}
 
+	// Insert command from templates/snippets
+	function insertCommand(command, inputRefValue) {
+		commandInput.value = command;
+		nextTick(() => {
+			if (inputRefValue && typeof inputRefValue.focus === 'function') {
+				inputRefValue.focus();
+			}
+			if (inputRefValue && typeof inputRefValue.autoResize === 'function') {
+				inputRefValue.autoResize();
+			}
+		});
+	}
+
+	// Insert command from AI
+	function insertCommandFromAi(command, inputRefValue) {
+		if (!command) {
+			return;
+		}
+		commandInput.value = command;
+		// Switch to terminal tab
+		if (ensureTabOpen) ensureTabOpen('terminal');
+		nextTick(() => {
+			if (inputRefValue && typeof inputRefValue.focus === 'function') {
+				inputRefValue.focus();
+			}
+			if (inputRefValue && typeof inputRefValue.autoResize === 'function') {
+				inputRefValue.autoResize();
+			}
+		});
+	}
+
+	// Execute command from AI
+	async function executeCommandFromAi(command, inputRefValue, inputModeRef, sendAiMessage, aiRef) {
+		if (!command) {
+			return;
+		}
+		commandInput.value = command;
+		// Switch to terminal tab
+		if (ensureTabOpen) ensureTabOpen('terminal');
+		await nextTick();
+		// Check if it's AI mode
+		if (inputModeRef.value === 'ai') {
+			await sendAiMessage(command, aiRef);
+			commandInput.value = '';
+			if (inputRefValue && typeof inputRefValue.autoResize === 'function') {
+				inputRefValue.autoResize();
+			}
+			await nextTick();
+			if (inputRefValue && typeof inputRefValue.focus === 'function') {
+				inputRefValue.focus();
+			}
+		} else {
+			await executeCommand();
+		}
+	}
+
+	// Execute command from favorite
+	function executeCommandFromFavorite(command) {
+		commandInput.value = command;
+		nextTick(() => {
+			executeCommand();
+		});
+	}
+
+	// Copy output to clipboard
+	async function copyOutputToClipboard(outputHistory, Swal) {
+		if (outputHistory.length === 0) {
+			Swal.fire({
+				toast: true,
+				icon: 'info',
+				title: 'No output to copy',
+				position: 'bottom-end',
+				showConfirmButton: false,
+				timer: 2000,
+			});
+			return;
+		}
+		
+		// Build text representation of all output
+		let text = '';
+		outputHistory.forEach((item, index) => {
+			if (item.type === 'command') {
+				text += `$ ${item.output}\n`;
+			} else if (item.type === 'json' || item.type === 'object') {
+				const data = item.output?.formatted || item.output;
+				if (typeof data === 'string') {
+					text += data + '\n';
+				} else {
+					text += JSON.stringify(data, null, 2) + '\n';
+				}
+			} else {
+				const output = item.output?.formatted || item.output || item.raw;
+				if (typeof output === 'string') {
+					text += output + '\n';
+				} else {
+					text += String(output) + '\n';
+				}
+			}
+			text += '\n';
+		});
+		
+		try {
+			await navigator.clipboard.writeText(text);
+			Swal.fire({
+				toast: true,
+				icon: 'success',
+				title: 'Output copied to clipboard',
+				position: 'bottom-end',
+				showConfirmButton: false,
+				timer: 2000,
+			});
+		} catch (err) {
+			// Fallback for older browsers
+			const textArea = document.createElement('textarea');
+			textArea.value = text;
+			textArea.style.position = 'fixed';
+			textArea.style.opacity = '0';
+			document.body.appendChild(textArea);
+			textArea.select();
+			try {
+				document.execCommand('copy');
+				Swal.fire({
+					toast: true,
+					icon: 'success',
+					title: 'Output copied to clipboard',
+					position: 'bottom-end',
+					showConfirmButton: false,
+					timer: 2000,
+				});
+			} catch (e) {
+				Swal.fire({
+					toast: true,
+					icon: 'error',
+					title: 'Failed to copy to clipboard',
+					position: 'bottom-end',
+					showConfirmButton: false,
+					timer: 2000,
+				});
+			}
+			document.body.removeChild(textArea);
+		}
+	}
+
+	// Show help
+	async function showHelp(api, commandInputRef, isExecutingRef, addOutputToHistory, scrollToBottom, focusInput) {
+		commandInputRef.value = '';
+		isExecutingRef.value = true;
+
+		try {
+			// Use GET request to the help endpoint instead of executing a command
+			const response = await axios.get(api.url('help'), {
+				timeout: 30000, // 30 seconds should be enough for help content
+			});
+
+			if (response.data.success) {
+				const result = response.data.result;
+				addOutputToHistory(result.type, result.output, result.raw);
+			} else {
+				addOutputToHistory('error', {
+					formatted: response.data.errors?.[0] || 'Unknown error',
+					raw: response.data.errors?.[0] || 'Unknown error',
+				});
+			}
+		} catch (error) {
+			addOutputToHistory('error', {
+				formatted: error.response?.data?.errors?.[0] || error.message || 'Failed to load help',
+				raw: error.response?.data?.errors?.[0] || error.message || 'Failed to load help',
+			});
+		} finally {
+			isExecutingRef.value = false;
+			await nextTick();
+			if (scrollToBottom) scrollToBottom();
+			// Refocus input after command execution
+			if (focusInput) focusInput();
+		}
+	}
+
 	return {
 		commandInput,
 		inputMode,
@@ -341,6 +519,12 @@ export function useTerminalCommands(api, { ensureTabOpen, scrollToBottom, focusI
 		executeShellCommand,
 		handleKeyDown,
 		useCommandFromHistory,
+		insertCommand,
+		insertCommandFromAi,
+		executeCommandFromAi,
+		executeCommandFromFavorite,
+		copyOutputToClipboard,
+		showHelp,
 	};
 }
 

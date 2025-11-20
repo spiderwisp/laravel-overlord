@@ -222,6 +222,29 @@ export function useTerminalScans(api, { isTabOpen, closeTab, ensureTabOpen, swit
 		}
 	}
 
+	// Handle view scan
+	function handleViewScan(scanId, closeTab, ensureTabOpen, switchTab) {
+		activeScanId.value = scanId;
+		closeTab('scan-history');
+		ensureTabOpen('scan-results');
+		switchTab('scan-results');
+	}
+
+	// Handle view scan issues
+	function handleViewScanIssues(scanId, closeTab, ensureTabOpen, switchTab) {
+		// Open issues tab filtered by scan ID
+		// For now, just open the scan results which shows issues
+		handleViewScan(scanId, closeTab, ensureTabOpen, switchTab);
+	}
+
+	// Handle scan issues cleared
+	function handleScanIssuesCleared(scanHistoryRef) {
+		// Refresh the scan history component if it's open
+		if (scanHistoryRef && scanHistoryRef.value && scanHistoryRef.value.loadHistory) {
+			scanHistoryRef.value.loadHistory();
+		}
+	}
+
 	// Cleanup on unmount
 	onUnmounted(() => {
 		stopScanPolling();
@@ -232,6 +255,9 @@ export function useTerminalScans(api, { isTabOpen, closeTab, ensureTabOpen, swit
 		handleStartScan,
 		startScanPolling,
 		stopScanPolling,
+		handleViewScan,
+		handleViewScanIssues,
+		handleScanIssuesCleared,
 	};
 }
 

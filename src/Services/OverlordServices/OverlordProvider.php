@@ -17,15 +17,44 @@ class OverlordProvider implements LLMProviderInterface
 
 	public function __construct()
 	{
-		$this->apiKey = trim(config('laravel-overlord.ai.api_key', ''));
+		// Get API key: Config value takes precedence (which comes from ENV if set), then database settings
+		$configKey = config('laravel-overlord.ai.api_key', '');
+		$dbKey = null;
+		
+		// Try to get from database settings
+		try {
+			if (class_exists(\Spiderwisp\LaravelOverlord\Models\Setting::class)) {
+				if (\Spiderwisp\LaravelOverlord\Models\Setting::has('ai_api_key')) {
+					$dbKey = \Spiderwisp\LaravelOverlord\Models\Setting::get('ai_api_key');
+				}
+			}
+		} catch (\Exception $e) {
+			// If database doesn't exist or table doesn't exist yet, ignore
+		}
+		
+		// If config has a value and it doesn't match database, it's from ENV (use config)
+		// Otherwise, use database if available, then fall back to config
+		if (!empty($configKey) && $configKey !== $dbKey) {
+			// Config value is from ENV (takes precedence)
+			$this->apiKey = trim($configKey);
+		} elseif (!empty($dbKey)) {
+			// Use database value
+			$this->apiKey = trim($dbKey);
+		} else {
+			// Fall back to config (might be empty)
+			$this->apiKey = trim($configKey);
+		}
+		
 		$this->apiUrl = rtrim(config('laravel-overlord.ai.api_url', ''), '/');
 		$this->encryptionKey = trim(config('laravel-overlord.ai.encryption_key', '')) ?: $this->apiKey;
 
 		// Log API key status (without exposing the actual key)
 		if (empty($this->apiKey)) {
+			$hasDbKey = !empty($dbKey);
+			$hasConfigKey = !empty($configKey);
 			Log::warning('OverlordProvider: API key is empty or not set', [
-				'config_value' => config('laravel-overlord.ai.api_key'),
-				'env_set' => !empty(env('LARAVEL_OVERLORD_API_KEY')),
+				'has_config_key' => $hasConfigKey,
+				'has_db_key' => $hasDbKey,
 			]);
 		} else {
 			Log::debug('OverlordProvider: API key loaded', [

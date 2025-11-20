@@ -411,7 +411,7 @@ To enable the AI assistant features, add these to your `.env` file:
 # AI Assistant Configuration
 LARAVEL_OVERLORD_AI_ENABLED=true
 
-# API key is required for AI features (get from your service provider)
+# API key is required for AI features (get from laravel-overlord.com)
 # The API URL is configured internally - no user configuration needed
 LARAVEL_OVERLORD_API_KEY=your_api_key_here
 
@@ -567,7 +567,7 @@ The AI assistant is optional but provides intelligent code analysis and assistan
 
 ### Quick AI Setup
 
-1. Get an API key from your service provider
+1. Get an API key from laravel-overlord.com
 2. Add to `.env`:
 
 ```env

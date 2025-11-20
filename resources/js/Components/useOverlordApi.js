@@ -49,6 +49,9 @@ export function useOverlordApi() {
             checkModel: () => `${cleanBaseUrl}/ai/models/check`,
             status: () => `${cleanBaseUrl}/ai/status`,
             apiKeyStatus: () => `${cleanBaseUrl}/ai/api-key-status`,
+            getApiKeySetting: () => `${cleanBaseUrl}/ai/api-key-setting`,
+            updateApiKeySetting: () => `${cleanBaseUrl}/ai/api-key-setting`,
+            deleteApiKeySetting: () => `${cleanBaseUrl}/ai/api-key-setting`,
         },
         // Shell endpoints
         shell: {

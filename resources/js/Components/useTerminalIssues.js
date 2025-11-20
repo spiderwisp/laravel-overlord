@@ -70,6 +70,55 @@ export function useTerminalIssues(api) {
 		};
 	});
 
+	// Handle create issue from logs
+	function handleCreateIssueFromLogs(prefillData, issuePrefillDataRef, ensureTabOpen, nextTick) {
+		issuePrefillDataRef.value = prefillData;
+		ensureTabOpen('issues');
+		// Clear prefill data after a short delay to allow modal to open
+		nextTick(() => {
+			setTimeout(() => {
+				issuePrefillDataRef.value = null;
+			}, 100);
+		});
+	}
+
+	// Handle create issue from terminal
+	function handleCreateIssueFromTerminal(prefillData, issuePrefillDataRef, ensureTabOpen, nextTick) {
+		issuePrefillDataRef.value = prefillData;
+		ensureTabOpen('issues');
+		// Clear prefill data after a short delay to allow modal to open
+		nextTick(() => {
+			setTimeout(() => {
+				issuePrefillDataRef.value = null;
+			}, 100);
+		});
+	}
+
+	// Handle create issue from scan results
+	function handleCreateIssueFromScan(prefillData, issuePrefillDataRef, ensureTabOpen, switchTab, nextTick) {
+		issuePrefillDataRef.value = prefillData;
+		
+		// For database scans, keep user on scan results page
+		// For other scans, switch to issues tab
+		if (prefillData?.source_type === 'database_scan') {
+			// Ensure issues tab is open (but don't switch to it) so it can receive prefillData
+			// The modal will open as an overlay without switching tabs
+			ensureTabOpen('issues');
+			// Don't switch tabs - stay on current tab
+		} else {
+			// For codebase scans, switch to issues tab
+			ensureTabOpen('issues');
+			switchTab('issues');
+		}
+		
+		// Clear prefill data after a short delay to allow modal to open
+		nextTick(() => {
+			setTimeout(() => {
+				issuePrefillDataRef.value = null;
+			}, 100);
+		});
+	}
+
 	// Cleanup on unmount
 	onUnmounted(() => {
 		stopIssuesStatsPolling();
@@ -81,6 +130,9 @@ export function useTerminalIssues(api) {
 		loadIssuesStats,
 		startIssuesStatsPolling,
 		stopIssuesStatsPolling,
+		handleCreateIssueFromLogs,
+		handleCreateIssueFromTerminal,
+		handleCreateIssueFromScan,
 	};
 }
 

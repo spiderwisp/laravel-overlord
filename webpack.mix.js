@@ -1,4 +1,5 @@
 const mix = require('laravel-mix');
+const webpack = require('webpack');
 
 /*
  |--------------------------------------------------------------------------
@@ -14,6 +15,20 @@ const mix = require('laravel-mix');
 mix.js('resources/js/terminal.js', 'public/js')
 	.vue()
 	.setPublicPath('public')
+	.webpackConfig({
+		plugins: [
+			new webpack.DefinePlugin({
+				__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+				__VUE_OPTIONS_API__: JSON.stringify(true),
+				__VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+			}),
+		],
+		resolve: {
+			alias: {
+				vue: 'vue/dist/vue.esm-bundler.js',
+			},
+		},
+	})
 	.after(() => {
 		// Auto-publish assets after build (development only)
 		if (process.env.NODE_ENV !== 'production') {

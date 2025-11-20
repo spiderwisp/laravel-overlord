@@ -33,8 +33,13 @@ return [
 	| Middleware to apply to all terminal routes. Default is 'auth', but you
 	| can add additional middleware like 'role:ADMIN' or custom middleware.
 	|
+	| For development, you can set this to an empty array [] to disable authentication.
+	| WARNING: Never use empty middleware in production!
+	|
+	| You can also override this via .env: LARAVEL_OVERLORD_MIDDLEWARE=auth,verified
+	|
 	*/
-	'middleware' => ['auth'],
+	'middleware' => env('LARAVEL_OVERLORD_MIDDLEWARE') ? explode(',', env('LARAVEL_OVERLORD_MIDDLEWARE')) : (env('APP_ENV') === 'local' ? [] : ['auth']),
 
 	/*
 	|--------------------------------------------------------------------------
@@ -100,6 +105,8 @@ return [
 		// API configuration
 		// API URL is internal and should not be configured by users
 		'api_url' => 'https://laravel-overlord.com/api',
+		// API key: ENV takes precedence, then database settings
+		// The actual resolution happens in OverlordProvider to allow database fallback
 		'api_key' => env('LARAVEL_OVERLORD_API_KEY'),
 		'encryption_key' => env('LARAVEL_OVERLORD_ENCRYPTION_KEY'),
 

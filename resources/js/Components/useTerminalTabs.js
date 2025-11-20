@@ -114,6 +114,21 @@ export function useTerminalTabs() {
 		}
 	}
 
+	/**
+	 * Creates a toggle function for a tab
+	 * @param {string} tabId - The tab ID to toggle
+	 * @returns {Function} Toggle function
+	 */
+	function createToggleFunction(tabId) {
+		return function() {
+			if (isTabActive(tabId)) {
+				closeTab(tabId);
+			} else {
+				ensureTabOpen(tabId);
+			}
+		};
+	}
+
 	return {
 		activeTab,
 		openTabs,
@@ -125,6 +140,7 @@ export function useTerminalTabs() {
 		closeOtherTabs,
 		switchTab,
 		ensureTabOpen,
+		createToggleFunction,
 	};
 }
 

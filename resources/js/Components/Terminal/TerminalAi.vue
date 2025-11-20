@@ -46,7 +46,7 @@ async function loadApiKeyStatus() {
 				messages.value.push({
 					id: Date.now() + Math.random(),
 					role: 'system',
-					content: `⚠️ API key is not configured. Please get an API key from the SaaS dashboard.\n\n[Get API Key](${response.data.get_api_key_url})`,
+					content: `⚠️ API key is not configured. Please get an API key from laravel-overlord.com.\n\n[Get API Key](https://laravel-overlord.com)`,
 					timestamp: new Date(),
 					isSystem: true,
 				});
@@ -77,13 +77,13 @@ async function loadAiStatus() {
 	}
 }
 
-// Load available models from SaaS (for display only - model is SaaS-controlled)
+// Load available models from laravel-overlord.com (for display only - model is controlled by laravel-overlord.com)
 async function loadModels() {
 	try {
 		const response = await axios.get(api.ai.models());
 		if (response.data.success && response.data.available) {
 			availableModels.value = response.data.models || [];
-			// Display current model (read-only, from SaaS)
+			// Display current model (read-only, from laravel-overlord.com)
 			if (response.data.default_model) {
 				selectedModel.value = response.data.default_model;
 			}
@@ -104,7 +104,7 @@ async function sendMessage() {
 		messages.value.push({
 			id: Date.now() + Math.random(),
 			role: 'assistant',
-			content: `⚠️ API key is not configured. Please get an API key from the SaaS dashboard.\n\n[Get API Key](${apiKeyStatus.value.get_api_key_url || '#'})`,
+			content: `⚠️ API key is not configured. Please get an API key from laravel-overlord.com.\n\n[Get API Key](https://laravel-overlord.com)`,
 			timestamp: new Date(),
 			isError: true,
 		});
@@ -134,7 +134,7 @@ async function sendMessage() {
 	try {
 		const response = await axios.post(api.ai.chat(), {
 			message: userMessage,
-			// Model is SaaS-controlled - do not send it
+			// Model is controlled by laravel-overlord.com - do not send it
 			conversation_history: conversationHistory.value.slice(-10), // Last 10 messages
 		});
 
@@ -146,16 +146,11 @@ async function sendMessage() {
 			
 			// If quota exceeded, enhance the message with actionable links
 			if (quotaExceeded && apiKeyStatus.value) {
-				const apiKeyUrl = apiKeyStatus.value.get_api_key_url || '#';
-				// Extract the base URL for the dashboard (remove /api-keys from the end)
-				const baseUrl = apiKeyUrl.replace(/\/api-keys.*$/, '') || apiKeyUrl;
-				const billingUrl = `${baseUrl}/billing`;
-				
 				if (!apiKeyStatus.value.is_configured) {
 					// User doesn't have API key configured
 					aiMessage = aiMessage.replace(
-						'**Note:** If you don\'t have an API key configured, you\'ll need to get one from your SaaS dashboard first.',
-						`**Note:** You don't have an API key configured. [Get your API key here](${apiKeyUrl}) to start using the AI service.`
+						'**Note:** If you don\'t have an API key configured, you\'ll need to get one from laravel-overlord.com first.',
+						`**Note:** You don't have an API key configured. [Get your API key from laravel-overlord.com](https://laravel-overlord.com) to start using the AI service.`
 					);
 				} else {
 					// User has API key but quota exceeded - they need to subscribe
@@ -187,7 +182,7 @@ async function sendMessage() {
 			let errorMessage = response.data.error || 'Unknown error';
 			
 			if (errorCode === 'INVALID_API_KEY') {
-				errorMessage = `Invalid API key. Please check your API key configuration.\n\n[Get API Key](${apiKeyStatus.value?.get_api_key_url || '#'})`;
+				errorMessage = `Invalid API key. Please check your API key configuration.\n\n[Get API Key from laravel-overlord.com](https://laravel-overlord.com)`;
 			} else if (errorCode === 'QUOTA_EXCEEDED') {
 				errorMessage = 'Monthly quota exceeded. Please upgrade your plan.';
 			} else if (errorCode === 'DECRYPTION_ERROR' || errorCode === 'INVALID_SIGNATURE') {
@@ -209,7 +204,7 @@ async function sendMessage() {
 		let errorMessage = error.response?.data?.error || error.message || 'Failed to communicate with AI';
 		
 		if (errorCode === 'INVALID_API_KEY') {
-			errorMessage = `Invalid API key. Please check your API key configuration.\n\n[Get API Key](${apiKeyStatus.value?.get_api_key_url || '#'})`;
+			errorMessage = `Invalid API key. Please check your API key configuration.\n\n[Get API Key from laravel-overlord.com](https://laravel-overlord.com)`;
 		} else if (errorCode === 'QUOTA_EXCEEDED') {
 			errorMessage = 'Monthly quota exceeded. Please upgrade your plan.';
 		}
@@ -632,11 +627,11 @@ function dismissQuotaMessage(messageId) {
 					</div>
 				</div>
 				
-				<!-- Current Model (Read-only, from SaaS) -->
+				<!-- Current Model (Read-only, from laravel-overlord.com) -->
 				<div
 					v-if="isAiAvailable && selectedModel"
 					class="terminal-ai-model-display"
-					title="Model is controlled by SaaS based on your plan"
+					title="Model is controlled by laravel-overlord.com based on your plan"
 				>
 					Model: {{ selectedModel }}
 				</div>

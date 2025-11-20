@@ -209,6 +209,27 @@ export function useTerminalDatabaseScans(api, { isTabOpen, closeTab, ensureTabOp
 		}
 	}
 
+	// Handle view database scan
+	function handleViewDatabaseScan(scanId, closeTab, ensureTabOpen, switchTab) {
+		activeDatabaseScanId.value = scanId;
+		closeTab('database-scan-history');
+		ensureTabOpen('database-scan-results');
+		switchTab('database-scan-results');
+	}
+
+	// Handle view database scan issues
+	function handleViewDatabaseScanIssues(scanId, closeTab, ensureTabOpen, switchTab) {
+		handleViewDatabaseScan(scanId, closeTab, ensureTabOpen, switchTab);
+	}
+
+	// Handle database issues cleared
+	function handleDatabaseIssuesCleared(databaseScanHistoryRef) {
+		// Refresh the scan history component if it's open
+		if (databaseScanHistoryRef && databaseScanHistoryRef.value && databaseScanHistoryRef.value.loadHistory) {
+			databaseScanHistoryRef.value.loadHistory();
+		}
+	}
+
 	// Cleanup on unmount
 	onUnmounted(() => {
 		stopDatabaseScanPolling();
@@ -219,6 +240,9 @@ export function useTerminalDatabaseScans(api, { isTabOpen, closeTab, ensureTabOp
 		handleStartDatabaseScan,
 		startDatabaseScanPolling,
 		stopDatabaseScanPolling,
+		handleViewDatabaseScan,
+		handleViewDatabaseScanIssues,
+		handleDatabaseIssuesCleared,
 	};
 }
 
