@@ -147,7 +147,8 @@ export function buildNavigationConfig({
 					action: toggleDatabase,
 					isActive: () => isTabActive('database'),
 					priority: 'primary',
-					keywords: ['database', 'sql', 'query', 'table']
+					keywords: ['database', 'sql', 'query', 'table'],
+					actionable: true
 				},
 				{
 					id: 'migrations',
@@ -156,7 +157,8 @@ export function buildNavigationConfig({
 					action: toggleMigrations,
 					isActive: () => isTabActive('migrations'),
 					priority: 'primary',
-					keywords: ['migrations', 'schema', 'alter']
+					keywords: ['migrations', 'schema', 'alter'],
+					actionable: true
 				}
 			]
 		},
@@ -173,7 +175,8 @@ export function buildNavigationConfig({
 					action: startScan,
 					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
 					priority: 'secondary',
-					keywords: ['scan', 'codebase', 'analyze', 'security']
+					keywords: ['scan', 'codebase', 'analyze', 'security'],
+					actionable: true
 				},
 				{
 					id: 'database-scan-config',
@@ -182,7 +185,8 @@ export function buildNavigationConfig({
 					action: startDatabaseScan,
 					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
 					priority: 'secondary',
-					keywords: ['scan', 'database', 'schema', 'analyze']
+					keywords: ['scan', 'database', 'schema', 'analyze'],
+					actionable: true
 				}
 			]
 		},
@@ -217,7 +221,8 @@ export function buildNavigationConfig({
 					action: toggleCommands,
 					isActive: () => isTabActive('commands'),
 					priority: 'secondary',
-					keywords: ['artisan', 'cli']
+					keywords: ['artisan', 'cli'],
+					actionable: true
 				},
 				{
 					id: 'templates',
@@ -261,7 +266,8 @@ export function buildNavigationConfig({
 					action: toggleHorizon,
 					isActive: () => isTabActive('horizon'),
 					priority: 'secondary',
-					keywords: ['horizon', 'queue', 'monitoring', 'dashboard']
+					keywords: ['horizon', 'queue', 'monitoring', 'dashboard'],
+					actionable: true
 				},
 				{
 					id: 'exceptions',

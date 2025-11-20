@@ -257,7 +257,8 @@ onMounted(() => {
 										'disabled': item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled),
 										'nav-item-primary': item.priority === 'primary',
 										'nav-item-secondary': item.priority === 'secondary',
-										'nav-item-tertiary': item.priority === 'tertiary'
+										'nav-item-tertiary': item.priority === 'tertiary',
+										'nav-item-actionable': item.actionable
 									}"
 									:disabled="item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)"
 									:title="collapsed ? item.label : ''"
@@ -267,6 +268,16 @@ onMounted(() => {
 										<path v-if="item.icon2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon2" />
 									</svg>
 									<span v-if="!collapsed" class="terminal-nav-item-label">{{ item.label }}</span>
+									<span
+										v-if="!collapsed && item.actionable"
+										class="terminal-nav-actionable-indicator"
+										title="Actionable"
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+										</svg>
+									</span>
 									<span
 										v-if="!collapsed && item.badge"
 										class="terminal-nav-item-badge"
@@ -689,6 +700,33 @@ onMounted(() => {
 	margin-left: auto;
 	background: var(--terminal-primary, #0e639c);
 	color: white;
+}
+
+/* Actionable Indicator */
+.terminal-nav-actionable-indicator {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+	margin-left: 4px;
+	color: var(--terminal-primary, #0e639c);
+	flex-shrink: 0;
+	opacity: 0.8;
+}
+
+.terminal-nav-actionable-indicator svg {
+	width: 14px !important;
+	height: 14px !important;
+}
+
+.nav-item-actionable {
+	position: relative;
+}
+
+.nav-item-actionable:hover .terminal-nav-actionable-indicator {
+	opacity: 1;
+	color: var(--terminal-primary-hover, #1177bb);
 }
 
 .terminal-nav-item-badge.badge-error {
