@@ -231,8 +231,23 @@ class RealAiService
 					return $result;
 				}
 
+				// Don't fallback for certain error codes that should be shown to the user
+				$errorCode = $result['code'] ?? null;
+				$shouldNotFallback = in_array($errorCode, [
+					'INVALID_API_KEY',
+					'QUOTA_EXCEEDED',
+					'RATE_LIMIT_EXCEEDED',
+				]);
+
+				if ($shouldNotFallback) {
+					Log::warning('AI service failed with non-fallback error', [
+						'error' => $result['error'] ?? 'Unknown error',
+						'error_code' => $errorCode,
+					]);
+					return $result;
+				}
+
 				if ($this->fallbackService) {
-					$errorCode = $result['code'] ?? null;
 					Log::warning('AI service failed, falling back to pattern matching', [
 						'error' => $result['error'] ?? 'Unknown error',
 						'error_code' => $errorCode,

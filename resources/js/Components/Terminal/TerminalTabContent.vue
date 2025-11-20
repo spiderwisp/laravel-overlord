@@ -1,4 +1,5 @@
 <script setup>
+import { ref, watch, nextTick } from 'vue';
 import TerminalHistory from './TerminalHistory.vue';
 import TerminalTemplates from './TerminalTemplates.vue';
 import TerminalModelDiagram from './TerminalModelDiagram.vue';
@@ -41,7 +42,6 @@ const props = defineProps({
 	},
 	// Refs
 	favoritesRef: Object,
-	aiRef: Object,
 	scanHistoryRef: Object,
 	databaseScanHistoryRef: Object,
 	outputContainerRef: Object,
@@ -79,6 +79,26 @@ const props = defineProps({
 	clearSession: Function,
 	closeTerminal: Function,
 	loadIssuesStats: Function,
+});
+
+// Create local template refs for components that need to be exposed to parent
+const localAiRef = ref(null);
+
+// Watch for when AI tab becomes active to ensure ref is available
+watch(() => props.isTabActive('ai'), (isActive) => {
+	if (isActive) {
+		// Wait for component to mount
+		nextTick(() => {
+			// Component should be available now
+		});
+	}
+});
+
+// Expose the AI ref to parent component
+defineExpose({
+	get aiRef() {
+		return localAiRef.value;
+	},
 });
 </script>
 
@@ -198,7 +218,7 @@ const props = defineProps({
 
 	<!-- AI View -->
 	<TerminalAi
-		ref="aiRef"
+		ref="localAiRef"
 		:visible="isTabActive('ai')"
 		:hide-input="true"
 		@insert-command="insertCommandFromAi"

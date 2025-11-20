@@ -88,6 +88,7 @@ const favoritesRef = ref(null);
 const aiRef = ref(null);
 const scanHistoryRef = ref(null);
 const databaseScanHistoryRef = ref(null);
+const tabContentRef = ref(null);
 
 // Sidebar navigation state
 const sidebarCollapsed = ref(false);
@@ -141,7 +142,7 @@ function insertCommandFromAi(command) {
 }
 
 async function executeCommandFromAi(command) {
-	await executeCommandFromAiBase(command, inputRef.value, inputMode, sendAiMessage, aiRef.value);
+		await executeCommandFromAiBase(command, inputRef.value, inputMode, sendAiMessage, aiRef);
 }
 
 function executeCommandFromFavorite(command) {
@@ -151,6 +152,22 @@ function executeCommandFromFavorite(command) {
 // Initialize AI composable
 const ai = useTerminalAi(api, { ensureTabOpen });
 const { aiConversationHistory, selectedAiModel, isSendingAi, loadAiStatus, sendAiMessage } = ai;
+
+// Watch for tabContentRef to be available and sync aiRef
+watch(tabContentRef, (newValue) => {
+	if (newValue && newValue.aiRef) {
+		aiRef.value = newValue.aiRef;
+	}
+}, { immediate: true });
+
+// Also watch for when AI tab becomes active to ensure ref is synced
+watch(() => isTabActive('ai'), (isActive) => {
+	if (isActive && tabContentRef.value && tabContentRef.value.aiRef) {
+		nextTick(() => {
+			aiRef.value = tabContentRef.value.aiRef;
+		});
+	}
+});
 
 // Initialize scans composables
 const scans = useTerminalScans(api, { isTabOpen, closeTab, ensureTabOpen, switchTab });
@@ -359,8 +376,9 @@ async function handleExecuteCommand() {
 	}
 	
 	if (inputMode.value === 'ai') {
-		// Send to AI
-		await sendAiMessage(command, aiRef.value);
+		// Use the composable's sendAiMessage which handles everything properly
+		// This ensures messages are added to the AI component with proper styling
+		await sendAiMessage(command, aiRef);
 		
 		// Clear input
 		commandInput.value = '';
@@ -369,11 +387,9 @@ async function handleExecuteCommand() {
 		}
 		
 		// Focus input after sending
-		nextTick(() => {
-			if (inputRef.value && typeof inputRef.value.focus === 'function') {
-				inputRef.value.focus();
-			}
-		});
+		await nextTick();
+		if (focusInput) focusInput();
+		
 		return;
 	}
 	
@@ -433,34 +449,26 @@ function executeFavoriteCommand(favorite) {
 
 // Handle input focus
 function handleInputFocus() {
-	// Switch to terminal tab when input is focused
-	if (activeTab.value !== 'terminal') {
+	// Only switch to terminal tab if not in AI mode (AI mode should stay on AI tab)
+	if (inputMode.value !== 'ai' && activeTab.value !== 'terminal') {
 		activeTab.value = 'terminal';
+	} else if (inputMode.value === 'ai' && activeTab.value !== 'ai') {
+		// If in AI mode, switch to AI tab
+		activeTab.value = 'ai';
 	}
 }
 
 function toggleAi() {
-	// Toggle input mode
-	if (inputMode.value === 'ai') {
-		inputMode.value = 'tinker';
+	// Open or switch to AI tab (don't toggle input mode)
+	if (isTabActive('ai')) {
+		// If AI tab is already active, close it and switch to terminal
+		closeTab('ai');
+		activeTab.value = 'terminal';
 	} else {
-		inputMode.value = 'ai';
-	}
-	
-	// Switch to terminal tab (where input is)
-	activeTab.value = 'terminal';
-	
-	// Load AI status if switching to AI
-	if (inputMode.value === 'ai') {
+		// Open AI tab
+		ensureTabOpen('ai');
 		loadAiStatus();
 	}
-	
-	// Focus the input
-	nextTick(() => {
-		if (inputRef.value && typeof inputRef.value.focus === 'function') {
-			inputRef.value.focus();
-		}
-	});
 }
 
 function toggleShell() {
@@ -758,10 +766,10 @@ onUnmounted(() => {
 						<!-- Content Area (panels and output) -->
 						<div class="terminal-content-area">
 							<TerminalTabContent
+								ref="tabContentRef"
 								:active-tab="activeTab"
 								:is-tab-active="isTabActive"
 								:favorites-ref="favoritesRef"
-								:ai-ref="aiRef"
 								:scan-history-ref="scanHistoryRef"
 								:database-scan-history-ref="databaseScanHistoryRef"
 								:output-container-ref="outputContainerRef"

@@ -116,7 +116,7 @@ defineExpose({
 		<!-- Mode Selector (Segmented Control) -->
 		<div class="terminal-mode-selector">
 			<button 
-				class="terminal-mode-btn" 
+				class="terminal-mode-btn mode-tinker" 
 				:class="{ 'active': inputMode === 'tinker' }"
 				@click="emit('update:inputMode', 'tinker'); handleInputFocus()"
 				title="Tinker (PHP)"
@@ -124,7 +124,7 @@ defineExpose({
 				<span class="terminal-mode-label">PHP</span>
 			</button>
 			<button 
-				class="terminal-mode-btn" 
+				class="terminal-mode-btn mode-shell" 
 				:class="{ 'active': inputMode === 'shell' }"
 				@click="emit('update:inputMode', 'shell'); handleInputFocus()"
 				title="Shell (CMD)"
@@ -132,7 +132,7 @@ defineExpose({
 				<span class="terminal-mode-label">CMD</span>
 			</button>
 			<button 
-				class="terminal-mode-btn" 
+				class="terminal-mode-btn mode-ai" 
 				:class="{ 'active': inputMode === 'ai' }"
 				@click="emit('update:inputMode', 'ai'); handleInputFocus()"
 				title="AI Assistant"
@@ -370,6 +370,7 @@ defineExpose({
 .terminal-mode-btn.active {
 	color: #fff;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+	font-weight: 600;
 }
 
 .terminal-mode-btn.active.mode-tinker {

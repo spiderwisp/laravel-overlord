@@ -139,25 +139,40 @@ async function sendMessage() {
 		});
 
 		if (response.data.success) {
-			let aiMessage = response.data.message;
+			// Try both response.data.message and response.data.result.message
+			let aiMessage = response.data.result?.message || response.data.message || '';
+			
+			if (!aiMessage || aiMessage.trim() === '') {
+				aiMessage = 'No response received from AI. Please try again.';
+			}
 			
 			// Check if quota was exceeded and system is using fallback
 			const quotaExceeded = response.data.quota_exceeded || response.data.using_fallback;
 			
 			// If quota exceeded, enhance the message with actionable links
 			if (quotaExceeded && apiKeyStatus.value) {
-				if (!apiKeyStatus.value.is_configured) {
-					// User doesn't have API key configured
-					aiMessage = aiMessage.replace(
-						'**Note:** If you don\'t have an API key configured, you\'ll need to get one from laravel-overlord.com first.',
-						`**Note:** You don't have an API key configured. [Get your API key from laravel-overlord.com](https://laravel-overlord.com) to start using the AI service.`
-					);
-				} else {
-					// User has API key but quota exceeded - they need to subscribe
-					aiMessage = aiMessage.replace(
-						'- Subscribe to a higher tier plan to increase your monthly quota',
-						`- [Subscribe to a higher tier plan](${billingUrl}) to increase your monthly quota`
-					);
+				try {
+					if (!apiKeyStatus.value.is_configured) {
+						// User doesn't have API key configured
+						aiMessage = aiMessage.replace(
+							'**Note:** If you don\'t have an API key configured, you\'ll need to get one from laravel-overlord.com first.',
+							`**Note:** You don't have an API key configured. [Get your API key from laravel-overlord.com](https://laravel-overlord.com) to start using the AI service.`
+						);
+					} else {
+						// User has API key but quota exceeded - they need to subscribe
+						// Get billing URL from settings if available, otherwise use default
+						const billingUrl = apiKeyStatus.value.settings?.billing_url 
+							|| apiKeyStatus.value.settings?.subscription_url 
+							|| 'https://laravel-overlord.com';
+						
+						aiMessage = aiMessage.replace(
+							'- Subscribe to a higher tier plan to increase your monthly quota',
+							`- [Subscribe to a higher tier plan](${billingUrl}) to increase your monthly quota`
+						);
+					}
+				} catch (error) {
+					console.error('Error enhancing quota exceeded message:', error);
+					// Continue with original message if enhancement fails
 				}
 			}
 			
@@ -895,16 +910,15 @@ function dismissQuotaMessage(messageId) {
 
 .terminal-ai-message {
 	display: flex;
-	flex-direction: column;
 	gap: 8px;
 }
 
 .terminal-ai-message-user {
-	align-items: flex-end;
+	justify-content: flex-end;
 }
 
 .terminal-ai-message-assistant {
-	align-items: flex-start;
+	justify-content: flex-start;
 }
 
 .terminal-ai-message-content {
@@ -914,8 +928,9 @@ function dismissQuotaMessage(messageId) {
 }
 
 .terminal-ai-message-user .terminal-ai-message-content {
-	background: var(--terminal-primary);
+	background: var(--terminal-primary, #0e639c);
 	color: white;
+	margin-left: auto;
 }
 
 .terminal-ai-message-assistant .terminal-ai-message-content {
