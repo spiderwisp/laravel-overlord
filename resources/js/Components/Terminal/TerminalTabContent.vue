@@ -29,6 +29,7 @@ import TerminalDatabaseScanResults from './TerminalDatabaseScanResults.vue';
 import TerminalDatabaseScanHistory from './TerminalDatabaseScanHistory.vue';
 import TerminalDatabase from './TerminalDatabase.vue';
 import TerminalSettings from './TerminalSettings.vue';
+import TerminalBugReport from './TerminalBugReport.vue';
 import TerminalOutput from './TerminalOutput.vue';
 
 const props = defineProps({
@@ -316,6 +317,13 @@ defineExpose({
 		:visible="true"
 		:is-modal="false"
 		@close="closeTab('settings')"
+	/>
+
+	<!-- Bug Report View -->
+	<TerminalBugReport
+		v-if="isTabActive('bug-report')"
+		:visible="true"
+		@close="closeTab('bug-report')"
 	/>
 
 	<!-- Terminal Output Area -->

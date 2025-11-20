@@ -34,6 +34,7 @@ import TerminalDatabase from './Terminal/TerminalDatabase.vue';
 import TerminalThemeToggle from './Terminal/TerminalThemeToggle.vue';
 import TerminalSettings from './Terminal/TerminalSettings.vue';
 import TerminalRoutes from './Terminal/TerminalRoutes.vue';
+import TerminalBugReport from './Terminal/TerminalBugReport.vue';
 import { useTerminalTheme, initThemeRoot } from './useTerminalTheme.js';
 import { useTerminalFont, initFontRoot } from './useTerminalFont.js';
 // New composables
@@ -262,6 +263,7 @@ const navigationConfig = computed(() => {
 		toggleLogs,
 		showHelp,
 		openSettings,
+		toggleBugReport,
 		issuesCounter,
 	});
 });
@@ -521,6 +523,9 @@ const toggleLogs = createToggleFunction('logs');
 
 // Toggle Issues
 const toggleIssues = createToggleFunction('issues');
+
+// Toggle Bug Report
+const toggleBugReport = createToggleFunction('bug-report');
 
 // Toggle Scan Results
 function toggleScanResults() {

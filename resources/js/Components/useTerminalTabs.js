@@ -32,6 +32,7 @@ export const tabConfigs = {
 	'database-scan-results': { id: 'database-scan-results', label: 'Database Scan Results', closable: true },
 	'database-scan-history': { id: 'database-scan-history', label: 'Database Scan History', closable: true },
 	'settings': { id: 'settings', label: 'UI Settings', closable: true },
+	'bug-report': { id: 'bug-report', label: 'Report Bug', closable: true },
 };
 
 export function useTerminalTabs() {

@@ -238,6 +238,10 @@ export function useOverlordApi() {
         // Command Classes endpoints
         commandClasses: {
             list: () => `${cleanBaseUrl}/command-classes`,
+        },
+        // Bug report endpoints
+        bugReport: {
+            submit: () => `${cleanBaseUrl}/bug-report/submit`,
         }
     };
 }

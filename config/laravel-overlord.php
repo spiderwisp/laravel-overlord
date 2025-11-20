@@ -165,4 +165,25 @@ return [
 		// Default: 3600 (1 hour), Recommended range: 1800-7200 (30 minutes to 2 hours)
 		'context_cache_ttl' => env('LARAVEL_OVERLORD_AI_CONTEXT_CACHE_TTL', 3600),
 	],
+
+	/*
+	|--------------------------------------------------------------------------
+	| Bug Report Configuration
+	|--------------------------------------------------------------------------
+	|
+	| Configure bug reporting features for submitting bug reports to
+	| laravel-overlord.com. All payloads are encrypted before transmission.
+	|
+	*/
+	'bug_report' => [
+		// Enable or disable bug reporting
+		'enabled' => env('LARAVEL_OVERLORD_BUG_REPORT_ENABLED', true),
+
+		// API endpoint for bug report submission
+		'api_url' => env('LARAVEL_OVERLORD_BUG_REPORT_API_URL', 'https://laravel-overlord.com/api/bug-reports'),
+
+		// Encryption key: Uses same key as AI features
+		// Falls back to LARAVEL_OVERLORD_API_KEY if not set
+		'encryption_key' => env('LARAVEL_OVERLORD_ENCRYPTION_KEY'),
+	],
 ];

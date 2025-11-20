@@ -9,6 +9,7 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\ScanController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\DatabaseScanController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\DatabaseController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\MigrationController;
+use Spiderwisp\LaravelOverlord\Http\Controllers\BugReportController;
 
 // Wrap all routes in web middleware to ensure session support
 // Use static values to avoid config() calls - config is merged in service provider
@@ -168,6 +169,11 @@ Route::middleware('web')->group(function () {
                 Route::get('/{identifier}', [TerminalController::class, 'getRouteDetails']);
                 Route::post('/generate-url', [TerminalController::class, 'generateRouteUrl']);
                 Route::post('/test', [TerminalController::class, 'testRoute']);
+            });
+            
+            // Bug report routes
+            Route::prefix('bug-report')->group(function () {
+                Route::post('/submit', [BugReportController::class, 'submit']);
             });
         });
 });
