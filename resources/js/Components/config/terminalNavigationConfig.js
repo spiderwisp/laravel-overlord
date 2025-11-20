@@ -37,8 +37,8 @@ export function buildNavigationConfig({
 }) {
 	const sections = [
 		{
-			id: 'general',
-			title: 'GENERAL',
+			id: 'core',
+			title: 'CORE',
 			priority: 'primary',
 			defaultExpanded: true,
 			items: [
@@ -72,43 +72,8 @@ export function buildNavigationConfig({
 			]
 		},
 		{
-			id: 'database',
-			title: 'DATABASE',
-			priority: 'primary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'database',
-					label: 'Explorer',
-					icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
-					action: toggleDatabase,
-					isActive: () => isTabActive('database'),
-					priority: 'primary',
-					keywords: ['database', 'sql', 'query', 'table']
-				},
-				{
-					id: 'migrations',
-					label: 'Migrations',
-					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
-					action: toggleMigrations,
-					isActive: () => isTabActive('migrations'),
-					priority: 'primary',
-					keywords: ['migrations', 'schema', 'alter']
-				},
-				{
-					id: 'database-scan-config',
-					label: 'DB Scans',
-					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-					action: startDatabaseScan,
-					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
-					priority: 'primary',
-					keywords: ['scan', 'database', 'schema', 'analyze']
-				}
-			]
-		},
-		{
-			id: 'codebase',
-			title: 'CODEBASE',
+			id: 'code',
+			title: 'CODE',
 			priority: 'secondary',
 			defaultExpanded: true,
 			items: [
@@ -147,95 +112,7 @@ export function buildNavigationConfig({
 					isActive: () => isTabActive('scan-config') || isTabActive('scan-results'),
 					priority: 'secondary',
 					keywords: ['scan', 'codebase', 'analyze', 'security']
-				}
-			]
-		},
-		{
-			id: 'tools',
-			title: 'TOOLS',
-			priority: 'secondary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'commands',
-					label: 'Artisan Commands',
-					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
-					action: toggleCommands,
-					isActive: () => isTabActive('commands'),
-					priority: 'secondary',
-					keywords: ['artisan', 'cli']
 				},
-				{
-					id: 'issues',
-					label: 'Issues',
-					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-					action: toggleIssues,
-					isActive: () => isTabActive('issues'),
-					priority: 'secondary',
-					keywords: ['issues', 'bugs', 'problems'],
-					badge: issuesCounter
-				},
-				{
-					id: 'templates',
-					label: 'Templates',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleTemplates,
-					isActive: () => isTabActive('templates'),
-					priority: 'secondary',
-					keywords: ['templates', 'snippets']
-				}
-			]
-		},
-		{
-			id: 'system',
-			title: 'SYSTEM',
-			priority: 'secondary',
-			defaultExpanded: true,
-			items: [
-				{
-					id: 'logs',
-					label: 'Logs',
-					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-					action: toggleLogs,
-					isActive: () => isTabActive('logs'),
-					priority: 'secondary',
-					keywords: ['logs', 'errors', 'debug']
-				},
-				{
-					id: 'jobs',
-					label: 'Jobs',
-					icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
-					action: toggleJobs,
-					isActive: () => isTabActive('jobs'),
-					priority: 'secondary',
-					keywords: ['jobs', 'queues', 'workers']
-				},
-				{
-					id: 'horizon',
-					label: 'Horizon',
-					icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-					action: toggleHorizon,
-					isActive: () => isTabActive('horizon'),
-					priority: 'secondary',
-					keywords: ['horizon', 'queue', 'monitoring', 'dashboard']
-				},
-				{
-					id: 'exceptions',
-					label: 'Exceptions',
-					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-					action: toggleExceptions,
-					isActive: () => isTabActive('exceptions'),
-					priority: 'secondary',
-					keywords: ['exceptions', 'errors']
-				}
-			]
-		},
-		{
-			id: 'reference',
-			title: 'REFERENCE',
-			priority: 'tertiary',
-			defaultExpanded: false,
-			items: [
 				{
 					id: 'classes',
 					label: 'Classes',
@@ -298,6 +175,105 @@ export function buildNavigationConfig({
 					isActive: () => isTabActive('command-classes'),
 					priority: 'tertiary',
 					keywords: ['commands', 'classes']
+				}
+			]
+		},
+		{
+			id: 'system',
+			title: 'SYSTEM',
+			priority: 'secondary',
+			defaultExpanded: true,
+			items: [
+				{
+					id: 'database',
+					label: 'Explorer',
+					icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
+					action: toggleDatabase,
+					isActive: () => isTabActive('database'),
+					priority: 'primary',
+					keywords: ['database', 'sql', 'query', 'table']
+				},
+				{
+					id: 'migrations',
+					label: 'Migrations',
+					icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+					action: toggleMigrations,
+					isActive: () => isTabActive('migrations'),
+					priority: 'primary',
+					keywords: ['migrations', 'schema', 'alter']
+				},
+				{
+					id: 'database-scan-config',
+					label: 'DB Scans',
+					icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+					action: startDatabaseScan,
+					isActive: () => isTabActive('database-scan-config') || isTabActive('database-scan-results'),
+					priority: 'primary',
+					keywords: ['scan', 'database', 'schema', 'analyze']
+				},
+				{
+					id: 'commands',
+					label: 'Artisan Commands',
+					icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+					action: toggleCommands,
+					isActive: () => isTabActive('commands'),
+					priority: 'secondary',
+					keywords: ['artisan', 'cli']
+				},
+				{
+					id: 'issues',
+					label: 'Issues',
+					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+					action: toggleIssues,
+					isActive: () => isTabActive('issues'),
+					priority: 'secondary',
+					keywords: ['issues', 'bugs', 'problems'],
+					badge: issuesCounter
+				},
+				{
+					id: 'templates',
+					label: 'Templates',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleTemplates,
+					isActive: () => isTabActive('templates'),
+					priority: 'secondary',
+					keywords: ['templates', 'snippets']
+				},
+				{
+					id: 'logs',
+					label: 'Logs',
+					icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+					action: toggleLogs,
+					isActive: () => isTabActive('logs'),
+					priority: 'secondary',
+					keywords: ['logs', 'errors', 'debug']
+				},
+				{
+					id: 'jobs',
+					label: 'Jobs',
+					icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+					action: toggleJobs,
+					isActive: () => isTabActive('jobs'),
+					priority: 'secondary',
+					keywords: ['jobs', 'queues', 'workers']
+				},
+				{
+					id: 'horizon',
+					label: 'Horizon',
+					icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+					action: toggleHorizon,
+					isActive: () => isTabActive('horizon'),
+					priority: 'secondary',
+					keywords: ['horizon', 'queue', 'monitoring', 'dashboard']
+				},
+				{
+					id: 'exceptions',
+					label: 'Exceptions',
+					icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+					action: toggleExceptions,
+					isActive: () => isTabActive('exceptions'),
+					priority: 'secondary',
+					keywords: ['exceptions', 'errors']
 				}
 			]
 		},

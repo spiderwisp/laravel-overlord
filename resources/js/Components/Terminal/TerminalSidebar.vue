@@ -165,12 +165,11 @@ onMounted(() => {
 		<div class="terminal-sidebar-header">
 			<div v-if="!collapsed" class="terminal-sidebar-branding">
 				<div class="terminal-sidebar-title-wrapper">
-					<span class="terminal-beta-badge-sidebar">BETA</span>
+					<span class="terminal-alpha-badge-sidebar">ALPHA</span>
 					<span class="terminal-sidebar-title-laravel">Laravel</span>
 					<span class="terminal-sidebar-title-overlord">Overlord</span>
 				</div>
 			</div>
-			<div v-if="!collapsed" class="terminal-sidebar-nav-label">Navigation</div>
 			<button
 				@click="toggleSidebar"
 				class="terminal-sidebar-toggle"
@@ -213,77 +212,82 @@ onMounted(() => {
 			
 			<!-- Navigation Sections -->
 			<template v-if="filteredNavigationConfig && filteredNavigationConfig.length > 0">
-				<div
-					v-for="section in filteredNavigationConfig"
-					:key="section.id"
-					class="terminal-nav-section"
-					:class="{
-						'nav-section-primary': section.priority === 'primary',
-						'nav-section-secondary': section.priority === 'secondary',
-						'nav-section-tertiary': section.priority === 'tertiary'
-					}"
-				>
-					<!-- Section Header (collapsible if has title) -->
+				<template v-for="(section, index) in filteredNavigationConfig" :key="section.id">
 					<div
-						v-if="section.title"
-						@click="toggleNavSection(section.id)"
-						class="terminal-nav-section-header"
-						:class="{ 'collapsed': !(navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false) }"
+						class="terminal-nav-section"
+						:class="{
+							'nav-section-primary': section.priority === 'primary',
+							'nav-section-secondary': section.priority === 'secondary',
+							'nav-section-tertiary': section.priority === 'tertiary'
+						}"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							class="terminal-nav-section-chevron"
-							:class="{ 'expanded': navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false }"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-						</svg>
-						<span v-if="!collapsed" class="terminal-nav-section-title">{{ section.title }}</span>
-					</div>
-					
-					<!-- Section Items -->
-					<transition name="nav-section">
+						<!-- Section Header (collapsible if has title) -->
 						<div
-							v-show="!section.title || (navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false)"
-							class="terminal-nav-section-items"
+							v-if="section.title"
+							@click="toggleNavSection(section.id)"
+							class="terminal-nav-section-header"
+							:class="{ 'collapsed': !(navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false) }"
 						>
-							<button
-								v-for="item in section.items"
-								:key="item.id"
-								@click="item.action && item.action()"
-								class="terminal-nav-item"
-								:class="{
-									'active': item.isActive && item.isActive(),
-									'disabled': item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled),
-									'nav-item-primary': item.priority === 'primary',
-									'nav-item-secondary': item.priority === 'secondary',
-									'nav-item-tertiary': item.priority === 'tertiary'
-								}"
-								:disabled="item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)"
-								:title="collapsed ? item.label : ''"
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								class="terminal-nav-section-chevron"
+								:class="{ 'expanded': navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false }"
 							>
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
-									<path v-if="item.icon2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon2" />
-								</svg>
-								<span v-if="!collapsed" class="terminal-nav-item-label">{{ item.label }}</span>
-								<span
-									v-if="!collapsed && item.badge"
-									class="terminal-nav-item-badge"
-									:class="{
-										'badge-error': item.badge && item.badge.color === 'red',
-										'badge-warning': item.badge && (item.badge.color === 'orange' || item.badge.color === 'yellow'),
-										'badge-info': item.badge && item.badge.color === 'blue'
-									}"
-								>
-									{{ item.badge && item.badge.count ? item.badge.count : '' }}
-								</span>
-							</button>
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							</svg>
+							<span v-if="!collapsed" class="terminal-nav-section-title">{{ section.title }}</span>
 						</div>
-					</transition>
-				</div>
+						
+						<!-- Section Items -->
+						<transition name="nav-section">
+							<div
+								v-show="!section.title || (navSectionsExpanded[section.id] !== undefined ? navSectionsExpanded[section.id] : section.defaultExpanded !== false)"
+								class="terminal-nav-section-items"
+							>
+								<button
+									v-for="item in section.items"
+									:key="item.id"
+									@click="item.action && item.action()"
+									class="terminal-nav-item"
+									:class="{
+										'active': item.isActive && item.isActive(),
+										'disabled': item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled),
+										'nav-item-primary': item.priority === 'primary',
+										'nav-item-secondary': item.priority === 'secondary',
+										'nav-item-tertiary': item.priority === 'tertiary'
+									}"
+									:disabled="item.disabled && (typeof item.disabled === 'function' ? item.disabled() : item.disabled)"
+									:title="collapsed ? item.label : ''"
+								>
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+										<path v-if="item.icon2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon2" />
+									</svg>
+									<span v-if="!collapsed" class="terminal-nav-item-label">{{ item.label }}</span>
+									<span
+										v-if="!collapsed && item.badge"
+										class="terminal-nav-item-badge"
+										:class="{
+											'badge-error': item.badge && item.badge.color === 'red',
+											'badge-warning': item.badge && (item.badge.color === 'orange' || item.badge.color === 'yellow'),
+											'badge-info': item.badge && item.badge.color === 'blue'
+										}"
+									>
+										{{ item.badge && item.badge.count ? item.badge.count : '' }}
+									</span>
+								</button>
+							</div>
+						</transition>
+					</div>
+					<!-- Subtle divider between sections (not after last section or footer) -->
+					<div
+						v-if="index < filteredNavigationConfig.length - 1 && section.id !== 'footer' && filteredNavigationConfig[index + 1] && filteredNavigationConfig[index + 1].id !== 'footer'"
+						class="terminal-nav-section-divider"
+					></div>
+				</template>
 			</template>
 			
 			<!-- No Results -->
@@ -314,16 +318,16 @@ onMounted(() => {
 .terminal-sidebar-header {
 	display: flex;
 	flex-direction: column;
-	padding: 12px 12px;
+	padding: 8px 12px;
 	padding-right: 40px; /* Space for toggle button */
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
-	gap: 8px;
+	gap: 6px;
 	position: relative;
 }
 
 .terminal-sidebar-branding {
 	width: 100%;
-	margin-bottom: 4px;
+	margin-bottom: 0;
 }
 
 .terminal-sidebar-title-wrapper {
@@ -365,7 +369,7 @@ onMounted(() => {
 	color: #d45a1f; /* Muted/darker orange for dark backgrounds */
 }
 
-.terminal-beta-badge-sidebar {
+.terminal-alpha-badge-sidebar {
 	display: inline-block;
 	padding: 2px 6px;
 	background: var(--terminal-primary, #0e639c);
@@ -391,7 +395,7 @@ onMounted(() => {
 
 .terminal-sidebar-toggle {
 	position: absolute;
-	top: 12px;
+	top: 8px;
 	right: 12px;
 	background: transparent;
 	border: none;
@@ -420,7 +424,7 @@ onMounted(() => {
 	flex: 1;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding: 8px 0;
+	padding: 6px 0;
 	scrollbar-width: thin;
 	scrollbar-color: var(--terminal-border, #3e3e42) var(--terminal-bg-secondary, #252526);
 }
@@ -443,24 +447,24 @@ onMounted(() => {
 }
 
 .terminal-nav-section {
-	margin-bottom: 16px;
+	margin-bottom: 10px;
 }
 
 .terminal-nav-section-title {
-	font-size: var(--terminal-font-size-xs, 11px);
-	color: var(--terminal-text-secondary, #858585);
+	font-size: var(--terminal-font-size-xs, 10px);
+	color: var(--terminal-text-secondary, #6a6a6a);
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	padding: 8px 12px 4px;
-	font-weight: 600;
+	letter-spacing: 0.4px;
+	padding: 0;
+	font-weight: 500;
 }
 
 .terminal-nav-item {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	width: 100%;
-	padding: 8px 12px;
+	padding: 6px 10px;
 	background: transparent;
 	border: none;
 	color: var(--terminal-text, #d4d4d4);
@@ -521,8 +525,8 @@ onMounted(() => {
 
 /* Navigation Search */
 .terminal-nav-search {
-	padding: 8px 12px;
-	margin-bottom: 8px;
+	padding: 6px 10px;
+	margin-bottom: 4px;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
 }
 
@@ -534,9 +538,9 @@ onMounted(() => {
 
 .terminal-nav-search-icon {
 	position: absolute;
-	left: 8px;
-	width: 16px !important;
-	height: 16px !important;
+	left: 6px;
+	width: 14px !important;
+	height: 14px !important;
 	color: var(--terminal-text-secondary, #858585);
 	pointer-events: none;
 	z-index: 1;
@@ -544,7 +548,7 @@ onMounted(() => {
 
 .terminal-nav-search-input {
 	width: 100%;
-	padding: 6px 32px 6px 32px;
+	padding: 5px 28px 5px 28px;
 	background: var(--terminal-bg-tertiary, #2d2d30);
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
@@ -566,12 +570,12 @@ onMounted(() => {
 
 .terminal-nav-search-clear {
 	position: absolute;
-	right: 6px;
+	right: 4px;
 	background: transparent;
 	border: none;
 	color: var(--terminal-text-secondary, #858585);
 	cursor: pointer;
-	padding: 4px;
+	padding: 3px;
 	border-radius: 4px;
 	display: flex;
 	align-items: center;
@@ -593,13 +597,13 @@ onMounted(() => {
 .terminal-nav-section-header {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 12px;
+	gap: 6px;
+	padding: 6px 10px;
 	cursor: pointer;
 	user-select: none;
 	transition: background 0.2s;
 	border-radius: 4px;
-	margin-bottom: 4px;
+	margin-bottom: 2px;
 }
 
 .terminal-nav-section-header:hover {
@@ -638,34 +642,33 @@ onMounted(() => {
 
 /* Priority-based Navigation Styles */
 .nav-section-primary {
-	margin-bottom: 20px;
-}
-
-.nav-section-secondary {
-	margin-bottom: 16px;
-}
-
-.nav-section-tertiary {
 	margin-bottom: 12px;
 }
 
+.nav-section-secondary {
+	margin-bottom: 10px;
+}
+
+.nav-section-tertiary {
+	margin-bottom: 8px;
+}
+
 .nav-item-primary {
-	font-weight: 600;
-	padding: 10px 12px;
+	font-weight: 400;
 }
 
 .nav-item-primary svg {
-	width: 18px !important;
-	height: 18px !important;
+	width: 16px !important;
+	height: 16px !important;
 }
 
 .nav-item-secondary {
-	font-weight: 500;
+	font-weight: 400;
 }
 
 .nav-item-tertiary {
 	font-weight: 400;
-	opacity: 0.85;
+	opacity: 1;
 }
 
 .nav-item-tertiary:hover {
@@ -698,6 +701,14 @@ onMounted(() => {
 
 .terminal-nav-item-badge.badge-info {
 	background: var(--terminal-primary, #0e639c);
+}
+
+/* Section Divider */
+.terminal-nav-section-divider {
+	height: 1px;
+	background: var(--terminal-border, #3e3e42);
+	margin: 6px 10px;
+	opacity: 0.5;
 }
 
 /* No Results */
