@@ -43,6 +43,23 @@ return [
 
 	/*
 	|--------------------------------------------------------------------------
+	| Authentication Guard
+	|--------------------------------------------------------------------------
+	|
+	| The authentication guard to use for checking user authentication.
+	| Set to null to use the default guard (usually 'web').
+	|
+	| For multi-guard setups (e.g., admin panel with separate auth), specify
+	| the guard name here. Example: 'auth_guard' => 'admin'
+	|
+	| This allows the package to work with different Laravel authentication
+	| systems without requiring code changes.
+	|
+	*/
+	'auth_guard' => env('LARAVEL_OVERLORD_AUTH_GUARD', null),
+
+	/*
+	|--------------------------------------------------------------------------
 	| Route Prefix
 	|--------------------------------------------------------------------------
 	|

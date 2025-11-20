@@ -81,6 +81,31 @@ class TerminalController extends Controller
 	}
 
 	/**
+	 * Check authentication status using configured guard
+	 * 
+	 * @return array Returns array with 'authenticated', 'user_id', and 'is_local' keys
+	 */
+	protected function checkAuthentication(): array
+	{
+		$guard = config('laravel-overlord.auth_guard');
+		$isLocal = app()->environment('local');
+		
+		if ($guard) {
+			$authenticated = Auth::guard($guard)->check();
+			$userId = $authenticated ? Auth::guard($guard)->id() : null;
+		} else {
+			$authenticated = Auth::check();
+			$userId = $authenticated ? Auth::id() : null;
+		}
+		
+		return [
+			'authenticated' => $authenticated,
+			'user_id' => $userId,
+			'is_local' => $isLocal,
+		];
+	}
+
+	/**
 	 * Execute a terminal command
 	 */
 	public function execute(Request $request)
@@ -632,12 +657,65 @@ class TerminalController extends Controller
 				], 200);
 			}
 
-			$userId = Auth::id();
-			$cacheUserId = $userId ?? 'guest';
+			// Check authentication status
+			$auth = $this->checkAuthentication();
+			
+			// If not authenticated and not in local environment, return 401
+			if (!$auth['authenticated'] && !$auth['is_local']) {
+				// Log critical security warning for production
+				\Log::critical('Laravel Overlord history accessed without authentication in production', [
+					'ip_address' => $request->ip(),
+					'user_agent' => $request->userAgent(),
+					'url' => $request->fullUrl(),
+				]);
+				
+				return response()->json([
+					'success' => false,
+					'status_code' => 'UNAUTHORIZED',
+					'errors' => ['Authentication required to access command history'],
+					'result' => (object) [],
+				], 401);
+			}
+			
+			// If not authenticated but in local environment, log warning and return empty results
+			if (!$auth['authenticated'] && $auth['is_local']) {
+				\Log::warning('Laravel Overlord history accessed without authentication in local environment', [
+					'ip_address' => $request->ip(),
+					'message' => 'WARNING: Authentication is disabled in local environment. This is a security risk in production!',
+				]);
+				
+				return response()->json([
+					'success' => true,
+					'status_code' => 'SUCCESS',
+					'errors' => [],
+					'result' => (object) [
+						'logs' => [],
+						'pagination' => [
+							'current_page' => 1,
+							'last_page' => 1,
+							'per_page' => 20,
+							'total' => 0,
+						],
+						'warning' => 'Authentication is disabled in local environment. This is a security risk in production!',
+					],
+				], 200);
+			}
+			
+			// Check if middleware is empty in production (security warning)
+			$middleware = config('laravel-overlord.middleware', []);
+			if (empty($middleware) && !$auth['is_local']) {
+				\Log::warning('Laravel Overlord is running without authentication middleware in production', [
+					'ip_address' => $request->ip(),
+					'message' => 'CRITICAL: No authentication middleware configured. Laravel Overlord is very powerful and should be protected!',
+				]);
+			}
+
+			$userId = $auth['user_id'];
 			$perPage = $request->input('per_page', 20);
 			$page = $request->input('page', 1);
 			$successFilter = $request->input('success');
 
+			// Query only authenticated users (no null handling needed)
 			$query = OverlordCommandLog::where('user_id', $userId)
 				->orderBy('created_at', 'desc');
 

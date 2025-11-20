@@ -175,7 +175,7 @@ export function useTerminalCommands(api, { ensureTabOpen, scrollToBottom, focusI
 		// Clear input
 		commandInput.value = '';
 		// Reset textarea height
-		if (inputRef?.value) {
+		if (inputRef?.value && inputRef.value.style) {
 			inputRef.value.style.height = 'auto';
 		}
 		isExecuting.value = true;

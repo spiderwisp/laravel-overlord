@@ -19,6 +19,7 @@ const historyLoading = ref(false);
 const historyPage = ref(1);
 const historyPagination = ref(null);
 const historyFilterSuccess = ref(null);
+const historyError = ref(null);
 
 // Format bytes for display
 function formatBytes(bytes) {
@@ -32,6 +33,7 @@ function formatBytes(bytes) {
 // Load command history
 async function loadHistory(page = 1) {
 	historyLoading.value = true;
+	historyError.value = null;
 	historyPage.value = page;
 	
 	try {
@@ -49,13 +51,33 @@ async function loadHistory(page = 1) {
 		if (response.data.success) {
 			commandLogs.value = response.data.result?.logs || [];
 			historyPagination.value = response.data.result?.pagination || null;
+			// Clear any previous errors
+			historyError.value = null;
 		} else {
 			console.error('History API returned success=false:', response.data);
 			commandLogs.value = [];
+			// Show error message if available
+			if (response.data.errors && response.data.errors.length > 0) {
+				historyError.value = response.data.errors[0];
+				console.error('History errors:', response.data.errors);
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load history:', error);
 		commandLogs.value = [];
+		
+		// Handle 401 Unauthorized specifically
+		if (error.response?.status === 401) {
+			historyError.value = 'Authentication required to access command history';
+			console.error('Authentication required to access command history');
+		} else if (error.response?.data?.errors && error.response.data.errors.length > 0) {
+			historyError.value = error.response.data.errors[0];
+			console.error('History API error:', error.response.data);
+		} else if (error.response?.data?.error) {
+			historyError.value = error.response.data.error;
+		} else {
+			historyError.value = 'Failed to load command history. Please try again.';
+		}
 	} finally {
 		historyLoading.value = false;
 	}
@@ -110,6 +132,14 @@ watch(() => props.visible, (visible) => {
 			<div v-if="historyLoading" class="terminal-history-loading">
 				<span class="spinner"></span>
 				Loading history...
+			</div>
+			
+			<div v-else-if="historyError" class="terminal-history-error">
+				<p class="terminal-history-error-title">Error Loading History</p>
+				<p class="terminal-history-error-message">{{ historyError }}</p>
+				<button @click="loadHistory(historyPage)" class="terminal-history-retry-btn">
+					Retry
+				</button>
 			</div>
 			
 			<div v-else-if="commandLogs.length === 0" class="terminal-history-empty">
@@ -242,6 +272,39 @@ watch(() => props.visible, (visible) => {
 	font-size: 11px;
 	color: var(--terminal-text-muted);
 	margin-top: 8px;
+}
+
+.terminal-history-error {
+	text-align: center;
+	color: var(--terminal-error, #f48771);
+	padding: 40px;
+}
+
+.terminal-history-error-title {
+	font-size: 14px;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.terminal-history-error-message {
+	font-size: 12px;
+	color: var(--terminal-text-secondary, #a0a0a0);
+	margin-bottom: 16px;
+}
+
+.terminal-history-retry-btn {
+	padding: 8px 16px;
+	background: var(--terminal-primary, #0e639c);
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: all 0.2s;
+}
+
+.terminal-history-retry-btn:hover {
+	background: var(--terminal-primary-hover, #1177bb);
 }
 
 .terminal-history-list {
