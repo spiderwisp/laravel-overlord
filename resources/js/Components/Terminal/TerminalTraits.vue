@@ -600,7 +600,7 @@ onMounted(() => {
 
 .terminal-classes-item-type-badge.type-trait {
 	background: var(--terminal-warning);
-	color: var(--terminal-text);
+	color: #1f2937;
 }
 
 .terminal-classes-item-counts {
@@ -959,7 +959,7 @@ onMounted(() => {
 
 .terminal-classes-visibility-badge.visibility-protected {
 	background: var(--terminal-warning);
-	color: var(--terminal-text);
+	color: #1f2937;
 }
 
 .terminal-classes-visibility-badge.visibility-private {

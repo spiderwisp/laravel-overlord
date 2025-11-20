@@ -1513,15 +1513,16 @@ onUnmounted(() => {
 .terminal-btn {
 	padding: 6px 12px;
 	font-size: var(--terminal-font-size-sm, 12px);
-	border: 1px solid var(--terminal-border);
+	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
-	background: var(--terminal-bg);
-	color: var(--terminal-text);
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
 	cursor: pointer;
 	transition: all 0.2s;
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn:hover:not(:disabled) {

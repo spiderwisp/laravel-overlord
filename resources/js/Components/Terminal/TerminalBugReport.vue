@@ -410,10 +410,12 @@ textarea.form-control {
 	font-weight: 500;
 	cursor: pointer;
 	transition: all 0.2s ease;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
 }
 
 .btn:disabled {

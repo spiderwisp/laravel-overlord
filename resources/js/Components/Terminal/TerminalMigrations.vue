@@ -900,7 +900,7 @@ onMounted(() => {
 	bottom: 0;
 	display: flex;
 	flex-direction: column;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	color: var(--terminal-text, #333333);
 	z-index: 10002;
 	pointer-events: auto;
@@ -958,7 +958,7 @@ onMounted(() => {
 	padding: 6px 12px;
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	border-radius: 4px;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	color: var(--terminal-text, #333333);
 	font-size: 12px;
 }
@@ -976,7 +976,7 @@ onMounted(() => {
 }
 
 .terminal-migrations-content::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -1042,7 +1042,7 @@ onMounted(() => {
 	padding: 6px 12px;
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	border-radius: 4px;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	color: var(--terminal-text, #333333);
 	font-size: 12px;
 	cursor: pointer;
@@ -1196,7 +1196,7 @@ onMounted(() => {
 .migration-item-details {
 	padding: 1rem;
 	border-top: 1px solid var(--terminal-border, #e5e5e5);
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 }
 
 .migration-details-loading {
@@ -1319,6 +1319,9 @@ onMounted(() => {
 	align-items: center;
 	gap: 4px;
 	min-height: 32px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn-primary {

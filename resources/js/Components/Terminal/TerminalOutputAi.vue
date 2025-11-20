@@ -777,7 +777,7 @@ function escapeHtml(text) {
 	border-radius: 4px;
 	color: var(--terminal-text, #333333);
 	font-size: 13px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	resize: vertical;
 	min-height: 40px;
 	transition: border-color 0.2s ease;

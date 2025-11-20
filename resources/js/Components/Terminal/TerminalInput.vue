@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted } from 'vue';
 
 const props = defineProps({
 	commandInput: {
@@ -41,8 +41,17 @@ function autoResizeTextarea() {
 		// Reset height to auto to get the correct scrollHeight
 		inputRef.value.style.height = 'auto';
 		// Set height based on scrollHeight, with min and max constraints
-		const newHeight = Math.min(Math.max(inputRef.value.scrollHeight, 40), 200);
+		// Default to 2 lines (approximately 2 * line-height + padding)
+		const lineHeight = parseFloat(getComputedStyle(inputRef.value).lineHeight) || 22.4; // 14px * 1.6
+		const padding = 12; // 6px top + 6px bottom
+		const defaultHeight = (lineHeight * 2) + padding;
+		const newHeight = Math.min(Math.max(inputRef.value.scrollHeight, defaultHeight), 200);
 		inputRef.value.style.height = `${newHeight}px`;
+		
+		// Update mode selector and buttons to match input height
+		nextTick(() => {
+			syncHeights();
+		});
 	}
 }
 
@@ -100,6 +109,42 @@ watch(() => props.commandInput, () => {
 	nextTick(() => {
 		if (inputRef.value && inputRef.value.style) {
 			autoResizeTextarea();
+		}
+	});
+});
+
+// Set initial height to 2 lines and sync all elements
+function syncHeights() {
+	if (inputRef.value) {
+		const inputArea = inputRef.value.closest('.terminal-input-area');
+		if (!inputArea) return;
+		
+		const inputHeight = inputRef.value.offsetHeight || inputRef.value.style.height;
+		const modeSelector = inputArea.querySelector('.terminal-mode-selector');
+		const buttons = inputArea.querySelectorAll('.terminal-btn:not(.terminal-mode-btn)');
+		
+		if (modeSelector && inputHeight) {
+			modeSelector.style.height = typeof inputHeight === 'string' ? inputHeight : `${inputHeight}px`;
+		}
+		if (buttons) {
+			buttons.forEach(btn => {
+				if (inputHeight) {
+					btn.style.height = typeof inputHeight === 'string' ? inputHeight : `${inputHeight}px`;
+				}
+			});
+		}
+	}
+}
+
+// Set initial height to 2 lines
+onMounted(() => {
+	nextTick(() => {
+		if (inputRef.value) {
+			const lineHeight = parseFloat(getComputedStyle(inputRef.value).lineHeight) || 22.4;
+			const padding = 12;
+			const defaultHeight = (lineHeight * 2) + padding;
+			inputRef.value.style.height = `${defaultHeight}px`;
+			syncHeights();
 		}
 	});
 });
@@ -180,9 +225,9 @@ defineExpose({
 /* Terminal Input Area */
 .terminal-input-area {
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	gap: 8px;
-	padding: 12px 16px;
+	padding: 10px 16px;
 	background: var(--terminal-bg-secondary, #252526);
 	border-top: 1px solid var(--terminal-border, #3e3e42);
 	position: relative;
@@ -200,11 +245,13 @@ defineExpose({
 
 .terminal-input-area .terminal-btn {
 	flex-shrink: 0;
-	min-height: 40px;
-	align-self: stretch;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
+	/* Match input height dynamically - default to 2 lines */
+	height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
+	min-height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
 }
 
 .terminal-input-area .terminal-ai-toggle {
@@ -229,17 +276,20 @@ defineExpose({
 	color: var(--terminal-text, #d4d4d4);
 	border: 1px solid var(--terminal-border-hover, #464647);
 	border-radius: 4px;
-	padding: 8px 12px;
+	padding: 6px 10px;
 	font-family: var(--terminal-font-family, inherit);
 	font-size: var(--terminal-font-size-base, 14px);
 	line-height: var(--terminal-line-height, 1.6);
 	outline: none;
 	resize: none;
 	overflow-y: auto;
-	min-height: 40px;
+	/* Default to 2 lines: (14px * 1.6 * 2) + 12px padding = ~56px */
+	min-height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
+	height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
 	max-height: 200px;
 	white-space: pre-wrap;
 	word-wrap: break-word;
+	box-sizing: border-box;
 }
 
 .terminal-input:focus {
@@ -288,6 +338,11 @@ defineExpose({
 	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
+/* Override for input area buttons to ensure uniform height */
+.terminal-input-area .terminal-btn {
+	min-height: 36px !important;
+}
+
 .terminal-btn-primary {
 	background: var(--terminal-primary, #0e639c);
 	color: white;
@@ -313,7 +368,8 @@ defineExpose({
 
 .terminal-btn-icon {
 	padding: 4px 6px;
-	min-width: 24px;
+	min-width: auto;
+	width: auto;
 }
 
 .terminal-btn svg {
@@ -337,20 +393,26 @@ defineExpose({
 
 .terminal-mode-selector {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
+	align-items: stretch;
 	background: var(--terminal-bg-tertiary, #3e3e42);
 	border-radius: 4px;
 	padding: 2px;
 	border: 1px solid var(--terminal-border-hover, #464647);
-	height: 32px;
+	flex-shrink: 0;
+	gap: 2px;
+	box-sizing: border-box;
+	/* Match input height dynamically - default to 2 lines */
+	height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
+	min-height: calc(var(--terminal-font-size-base, 14px) * var(--terminal-line-height, 1.6) * 2 + 12px);
 }
 
 .terminal-mode-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 100%;
-	padding: 0 10px;
+	flex: 1;
+	padding: 6px 12px;
 	background: transparent;
 	border: none;
 	color: var(--terminal-text-muted, #a0a0a0);
@@ -360,9 +422,10 @@ defineExpose({
 	cursor: pointer;
 	border-radius: 2px;
 	transition: all 0.15s ease;
+	min-height: 0;
 }
 
-.terminal-mode-btn:hover {
+.terminal-mode-btn:hover:not(.active) {
 	color: var(--terminal-text, #d4d4d4);
 	background: rgba(255, 255, 255, 0.05);
 }
@@ -371,6 +434,7 @@ defineExpose({
 	color: #fff;
 	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 	font-weight: 600;
+	margin: 0;
 }
 
 .terminal-mode-btn.active.mode-tinker {
@@ -385,6 +449,7 @@ defineExpose({
 .terminal-mode-btn.active.mode-ai {
 	background: #8e44ad; /* AI Purple */
 }
+
 
 /* Input styling based on mode */
 .terminal-input.mode-tinker {

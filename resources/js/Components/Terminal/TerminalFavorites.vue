@@ -1382,7 +1382,7 @@ onMounted(() => {
 	border-radius: 4px;
 	color: var(--terminal-text);
 	font-size: 13px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-favorites-form-field input:focus,

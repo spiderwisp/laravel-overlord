@@ -2470,7 +2470,7 @@ onUnmounted(() => {
 	border-radius: 4px;
 	color: var(--terminal-text, #d4d4d4);
 	font-size: 13px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	outline: none;
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 	box-sizing: border-box;

@@ -285,23 +285,55 @@ return [
     // User model for logging
     'user_model' => \App\Models\User::class,
 
-    // Middleware for routes (protect with authentication)
-    // This middleware is applied to all protected terminal routes
-    // Default is 'auth' - users must be authenticated to access the terminal
-    // You can add additional middleware like 'role:ADMIN' or custom middleware
-    'middleware' => ['auth'],
+    // Middleware for routes (can be overridden via .env)
+    // Default: empty array in local environment, ['auth'] in production
+    'middleware' => env('LARAVEL_OVERLORD_MIDDLEWARE') 
+        ? explode(',', env('LARAVEL_OVERLORD_MIDDLEWARE')) 
+        : (env('APP_ENV') === 'local' ? [] : ['auth']),
+
+    // Authentication guard (null uses default guard)
+    'auth_guard' => env('LARAVEL_OVERLORD_AUTH_GUARD', null),
 
     // Route prefix
     'route_prefix' => 'admin/overlord',
+
+    // Default route configuration
+    'default_route_enabled' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_ENABLED', true),
+    'default_route_path' => env('LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH', 'overlord'),
 
     // Help view
     'help_view' => 'laravel-overlord::help',
 
     // UI customization
     'ui' => [
-        'title' => 'Developer Terminal',
-        'subtitle' => 'Laravel Overlord',
+        'title' => 'Laravel Overlord',
+        'subtitle' => 'Development Console',
         'brand_color' => '#007acc',
+    ],
+
+    // AI configuration
+    'ai' => [
+        'enabled' => env('LARAVEL_OVERLORD_AI_ENABLED', true),
+        'api_url' => 'https://laravel-overlord.com/api',
+        'api_key' => env('LARAVEL_OVERLORD_API_KEY'),
+        'encryption_key' => env('LARAVEL_OVERLORD_ENCRYPTION_KEY'),
+        'context_window' => env('LARAVEL_OVERLORD_AI_CONTEXT_WINDOW', 10),
+        'system_prompt' => env('LARAVEL_OVERLORD_AI_SYSTEM_PROMPT', null),
+        'fuzzy_matching_threshold' => env('LARAVEL_OVERLORD_AI_FUZZY_MATCHING_THRESHOLD', 0.6),
+        'codebase_context_enabled' => env('LARAVEL_OVERLORD_AI_CODEBASE_CONTEXT_ENABLED', true),
+        'database_context_enabled' => env('LARAVEL_OVERLORD_AI_DATABASE_CONTEXT_ENABLED', true),
+        'log_context_enabled' => env('LARAVEL_OVERLORD_AI_LOG_CONTEXT_ENABLED', true),
+        'max_codebase_files' => env('LARAVEL_OVERLORD_AI_MAX_CODEBASE_FILES', 5),
+        'max_database_tables' => env('LARAVEL_OVERLORD_AI_MAX_DATABASE_TABLES', 3),
+        'max_log_entries' => env('LARAVEL_OVERLORD_AI_MAX_LOG_ENTRIES', 10),
+        'context_cache_ttl' => env('LARAVEL_OVERLORD_AI_CONTEXT_CACHE_TTL', 3600),
+    ],
+
+    // Bug report configuration
+    'bug_report' => [
+        'enabled' => env('LARAVEL_OVERLORD_BUG_REPORT_ENABLED', true),
+        'api_url' => env('LARAVEL_OVERLORD_BUG_REPORT_API_URL', 'https://laravel-overlord.com/api/bug-reports'),
+        'encryption_key' => env('LARAVEL_OVERLORD_ENCRYPTION_KEY'),
     ],
 ];
 ```
@@ -312,14 +344,20 @@ The `middleware` configuration controls access to all terminal routes. This midd
 
 **How it works:**
 - The middleware array from your config is applied to all routes via `Route::middleware(config('laravel-overlord.middleware'))`
-- Default is `['auth']` which requires users to be authenticated
+- Default behavior: empty array `[]` in local environment, `['auth']` in production
+- You can override via `.env` using `LARAVEL_OVERLORD_MIDDLEWARE` (comma-separated)
 - You can add multiple middleware for additional security
 
 **Examples:**
 
-Basic authentication (default):
+Basic authentication (default in production):
 ```php
 'middleware' => ['auth'],
+```
+
+Via environment variable:
+```env
+LARAVEL_OVERLORD_MIDDLEWARE=auth,verified
 ```
 
 Role-based access:
@@ -332,7 +370,33 @@ Custom middleware:
 'middleware' => ['auth', 'verified', 'custom-middleware'],
 ```
 
-**Security Note:** All routes including the help route (`/{prefix}/help`) are protected by the configured middleware.
+**Security Note:** All routes including the help route (`/{prefix}/help`) are protected by the configured middleware. Never use empty middleware in production!
+
+#### Authentication Guard Configuration
+
+The `auth_guard` configuration allows you to specify which authentication guard to use for checking user authentication.
+
+**How it works:**
+- Set to `null` (default) to use the default guard (usually 'web')
+- Set to a guard name (e.g., 'admin') to use a specific guard
+- Useful for multi-guard setups where you have separate authentication for admin panels
+
+**Examples:**
+
+Use default guard (default):
+```php
+'auth_guard' => null,
+```
+
+Use a specific guard:
+```php
+'auth_guard' => 'admin',
+```
+
+Via environment variable:
+```env
+LARAVEL_OVERLORD_AUTH_GUARD=admin
+```
 
 #### Default Route Configuration
 
@@ -427,12 +491,40 @@ LARAVEL_OVERLORD_AI_MAX_CODEBASE_FILES=5
 LARAVEL_OVERLORD_AI_MAX_DATABASE_TABLES=3
 LARAVEL_OVERLORD_AI_MAX_LOG_ENTRIES=10
 LARAVEL_OVERLORD_AI_CONTEXT_CACHE_TTL=3600
+
+# Optional: Custom system prompt
+# LARAVEL_OVERLORD_AI_SYSTEM_PROMPT=Your custom system prompt here
+
+# Optional: Fuzzy matching threshold (0.0 to 1.0, default: 0.6)
+# LARAVEL_OVERLORD_AI_FUZZY_MATCHING_THRESHOLD=0.6
 ```
 
 **Important:** 
 - AI features are optional - the package works without them
 - Free plans have limitations (rate limits, quota restrictions)
 - Only the API key needs to be configured by users
+
+#### Optional: Authentication & Middleware Configuration
+
+```env
+# Override middleware (comma-separated)
+# Default: empty in local, ['auth'] in production
+LARAVEL_OVERLORD_MIDDLEWARE=auth,verified
+
+# Use a specific authentication guard
+# Default: null (uses default guard)
+LARAVEL_OVERLORD_AUTH_GUARD=admin
+```
+
+#### Optional: Bug Report Configuration
+
+```env
+# Enable/disable bug reporting (default: true)
+LARAVEL_OVERLORD_BUG_REPORT_ENABLED=true
+
+# Custom bug report API URL (default: https://laravel-overlord.com/api/bug-reports)
+# LARAVEL_OVERLORD_BUG_REPORT_API_URL=https://laravel-overlord.com/api/bug-reports
+```
 
 **After adding environment variables**, clear the config cache:
 

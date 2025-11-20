@@ -294,8 +294,8 @@ function startScan() {
 	bottom: 0;
 	display: flex;
 	flex-direction: column;
-	background: var(--terminal-bg, #ffffff);
-	color: var(--terminal-text, #333333);
+	background: var(--terminal-bg, #1e1e1e);
+	color: var(--terminal-text, #d4d4d4);
 	z-index: 10002;
 	pointer-events: auto;
 }
@@ -357,7 +357,7 @@ function startScan() {
 }
 
 .terminal-scan-config-content::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -481,7 +481,7 @@ function startScan() {
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	border-radius: 4px;
 	padding: 0.5rem;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	scrollbar-width: thin;
 	scrollbar-color: var(--terminal-border, #e5e5e5) var(--terminal-bg, #ffffff);
 }
@@ -491,7 +491,7 @@ function startScan() {
 }
 
 .file-selection-content::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -571,6 +571,9 @@ function startScan() {
 	justify-content: center;
 	gap: 4px;
 	min-height: 32px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn-primary {

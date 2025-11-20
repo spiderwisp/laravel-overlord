@@ -1238,7 +1238,7 @@ function dismissQuotaMessage(messageId) {
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
 	padding: 8px 12px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	font-size: 13px;
 	resize: none;
 	min-height: 40px;

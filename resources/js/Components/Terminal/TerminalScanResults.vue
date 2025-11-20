@@ -951,7 +951,7 @@ onUnmounted(() => {
 }
 
 .terminal-scan-results::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -1342,7 +1342,7 @@ onUnmounted(() => {
 }
 
 .issue-item {
-	background-color: var(--terminal-bg, #ffffff);
+	background-color: var(--terminal-bg, #1e1e1e);
 	border-left: 3px solid;
 	border-radius: 4px;
 	padding: 0.75rem;

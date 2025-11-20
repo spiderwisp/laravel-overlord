@@ -940,7 +940,7 @@ watch(() => props.visible, (newVal) => {
 	border-radius: 4px;
 	color: var(--terminal-text);
 	font-size: 12px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .sidebar-search-input:focus {
@@ -1498,7 +1498,7 @@ watch(() => props.visible, (newVal) => {
 	border-radius: 4px;
 	color: var(--terminal-text);
 	font-size: 13px;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	width: 100%;
 }
 
@@ -1530,11 +1530,14 @@ watch(() => props.visible, (newVal) => {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn-primary {
-	background: var(--terminal-primary);
-	color: var(--terminal-text);
+	background: var(--terminal-primary, #0e639c);
+	color: white;
 }
 
 .terminal-btn-primary:hover:not(:disabled) {

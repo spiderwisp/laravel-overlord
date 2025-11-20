@@ -1334,7 +1334,7 @@ onMounted(() => {
 	background: transparent;
 	padding: 0;
 	border: none;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 	font-size: inherit;
 	line-height: inherit;
 	color: inherit;

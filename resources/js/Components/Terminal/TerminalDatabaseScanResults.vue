@@ -1023,7 +1023,7 @@ onUnmounted(() => {
 	bottom: 0;
 	display: flex;
 	flex-direction: column;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	color: var(--terminal-text, #333333);
 	z-index: 10002;
 	pointer-events: auto;
@@ -1037,7 +1037,7 @@ onUnmounted(() => {
 }
 
 .terminal-database-scan-results::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -1407,7 +1407,7 @@ onUnmounted(() => {
 
 .issue-item {
 	padding: 1rem;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-left: 4px solid var(--terminal-warning, #ffc107);
 	border-radius: 4px;
 }
@@ -1635,16 +1635,17 @@ onUnmounted(() => {
 
 .terminal-btn {
 	padding: 0.5rem 1rem;
-	border: 1px solid var(--terminal-border, #e5e5e5);
+	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
-	background: var(--terminal-bg-secondary, #f5f5f5);
-	color: var(--terminal-text, #333333);
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
 	cursor: pointer;
 	font-size: 0.875rem;
 	transition: all 0.2s;
 	display: inline-flex;
 	align-items: center;
 	gap: 0.5rem;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn:hover:not(:disabled) {

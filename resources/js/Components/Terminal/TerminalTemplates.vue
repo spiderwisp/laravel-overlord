@@ -1115,7 +1115,7 @@ onMounted(() => {
 	color: var(--terminal-text);
 	font-size: 13px;
 	outline: none;
-	font-family: inherit;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-builder-select:focus,
@@ -1183,6 +1183,9 @@ onMounted(() => {
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn-primary {

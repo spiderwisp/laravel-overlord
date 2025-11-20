@@ -223,7 +223,7 @@ defineExpose({
 	bottom: 0;
 	display: flex;
 	flex-direction: column;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	color: var(--terminal-text, #333333);
 	z-index: 10002;
 	pointer-events: auto;
@@ -257,7 +257,7 @@ defineExpose({
 }
 
 .terminal-scan-history-content::-webkit-scrollbar-track {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 5px;
 }
 
@@ -277,7 +277,7 @@ defineExpose({
 
 .terminal-select {
 	padding: 0.5rem 0.75rem;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	border-radius: 4px;
 	color: var(--terminal-text, #333333);
@@ -478,6 +478,9 @@ defineExpose({
 	justify-content: center;
 	gap: 4px;
 	min-height: 32px;
+	background: var(--terminal-bg-secondary, #252526);
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', monospace);
 }
 
 .terminal-btn-primary {

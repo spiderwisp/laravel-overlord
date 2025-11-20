@@ -279,7 +279,7 @@ onMounted(() => {
 										</svg>
 									</span>
 									<span
-										v-if="!collapsed && item.badge"
+										v-if="!collapsed && item.badge && item.badge.count && item.badge.count > 0"
 										class="terminal-nav-item-badge"
 										:class="{
 											'badge-error': item.badge && item.badge.color === 'red',
@@ -287,7 +287,7 @@ onMounted(() => {
 											'badge-info': item.badge && item.badge.color === 'blue'
 										}"
 									>
-										{{ item.badge && item.badge.count ? item.badge.count : '' }}
+										{{ item.badge.count }}
 									</span>
 								</button>
 							</div>

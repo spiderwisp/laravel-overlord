@@ -602,7 +602,7 @@ watch(migrationType, () => {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 }
 
 .migration-builder-header {
@@ -658,7 +658,7 @@ watch(migrationType, () => {
 }
 
 .builder-section-code {
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 }
 
 .builder-section-header {
@@ -844,7 +844,7 @@ textarea.terminal-input {
 
 .builder-column-item {
 	padding: 1.25rem;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	border-radius: 6px;
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -877,7 +877,7 @@ textarea.terminal-input {
 	border: 1px solid var(--terminal-border, #e5e5e5);
 	border-radius: 6px;
 	overflow: hidden;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 }
 
 .builder-code-preview {
@@ -890,7 +890,7 @@ textarea.terminal-input {
 	color: var(--terminal-text, #333333);
 	max-height: 500px;
 	overflow-y: auto;
-	background: var(--terminal-bg, #ffffff);
+	background: var(--terminal-bg, #1e1e1e);
 	white-space: pre;
 }
 
