@@ -60,14 +60,16 @@
 					</div>
 				</div>
 
-				<button
-					@click="startAgent"
-					class="terminal-btn terminal-btn-primary"
-					:disabled="starting"
-				>
-					<span v-if="starting" class="spinner-small"></span>
-					{{ starting ? 'Starting...' : 'Start Agent' }}
-				</button>
+				<div class="config-actions">
+					<button
+						@click="startAgent"
+						class="terminal-btn terminal-btn-primary"
+						:disabled="starting"
+					>
+						<span v-if="starting" class="spinner-small"></span>
+						{{ starting ? 'Starting...' : 'Start Agent' }}
+					</button>
+				</div>
 			</div>
 		</div>
 
@@ -82,13 +84,16 @@
 				<div class="agent-status-bar">
 				<div class="status-info">
 					<span class="status-badge" :class="statusClass">{{ statusText }}</span>
-					<span class="status-details">
-						Iteration: {{ currentIteration }} / {{ maxIterations }}
-						| Issues Found: {{ totalIssuesFound }}
-						| Issues Fixed: {{ totalIssuesFixed }}
-						<span v-if="status === 'pending'" class="status-warning">(Waiting to start...)</span>
-						<span v-if="status === 'running'" class="status-active">(Running...)</span>
+				<span class="status-details">
+					Iteration: {{ currentIteration }} / {{ maxIterations }}
+					| Issues Found: {{ totalIssuesFound }}
+					| <span class="status-success-count">{{ totalIssuesFixed }} fixed</span>
+					<span v-if="totalIssuesFound > totalIssuesFixed" class="status-failed-count">
+						| <span class="fail-indicator">✗</span> {{ totalIssuesFound - totalIssuesFixed }} failed
 					</span>
+					<span v-if="status === 'pending'" class="status-warning">(Waiting to start...)</span>
+					<span v-if="status === 'running'" class="status-active">(Running...)</span>
+				</span>
 				</div>
 				<div class="status-actions">
 					<button
@@ -520,9 +525,10 @@ onUnmounted(() => {
 }
 
 .config-section h4 {
-	margin: 0 0 16px 0;
+	margin: 0 0 20px 0;
 	font-size: var(--terminal-font-size-base, 14px);
 	font-weight: 600;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 .config-field {
@@ -533,13 +539,15 @@ onUnmounted(() => {
 	display: block;
 	margin-bottom: 4px;
 	font-size: var(--terminal-font-size-sm, 12px);
-	font-weight: 500;
+	font-weight: 600;
+	color: var(--terminal-text, #d4d4d4);
 }
 
 .config-field-help {
 	font-size: var(--terminal-font-size-xs, 11px);
 	color: var(--terminal-text-secondary, #858585);
 	margin-bottom: 8px;
+	margin-top: 4px;
 }
 
 .config-checkbox-label {
@@ -547,6 +555,148 @@ onUnmounted(() => {
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
+	margin-bottom: 8px;
+}
+
+/* Input Styles */
+.terminal-input {
+	width: 100%;
+	padding: 8px 12px;
+	background: var(--terminal-bg-tertiary, #3e3e42);
+	border: 1px solid var(--terminal-border, #3e3e42);
+	border-radius: 4px;
+	color: var(--terminal-text, #d4d4d4);
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', 'Courier New', monospace);
+	font-size: var(--terminal-font-size-sm, 12px);
+	line-height: 1.5;
+	outline: none;
+	transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+	box-sizing: border-box;
+}
+
+.terminal-input:focus {
+	border-color: var(--terminal-primary, #0e639c);
+	background: var(--terminal-bg-secondary, #252526);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--terminal-primary, #0e639c) 20%, transparent);
+}
+
+.terminal-input:hover:not(:disabled) {
+	border-color: var(--terminal-border-hover, #464647);
+}
+
+.terminal-input:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: var(--terminal-bg, #1e1e1e);
+}
+
+.terminal-input::placeholder {
+	color: var(--terminal-text-secondary, #858585);
+	opacity: 0.7;
+}
+
+/* Checkbox Styles */
+.terminal-checkbox {
+	width: 18px;
+	height: 18px;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	background: var(--terminal-bg-tertiary, #3e3e42);
+	border: 1px solid var(--terminal-border, #3e3e42);
+	border-radius: 3px;
+	flex-shrink: 0;
+	position: relative;
+	transition: background-color 0.2s ease, border-color 0.2s ease;
+	margin: 0;
+}
+
+.terminal-checkbox:checked {
+	background: var(--terminal-primary, #0e639c);
+	border-color: var(--terminal-primary, #0e639c);
+}
+
+.terminal-checkbox:checked::after {
+	content: '✓';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: white;
+	font-size: 14px;
+	font-weight: bold;
+	line-height: 1;
+}
+
+.terminal-checkbox:focus {
+	outline: 2px solid color-mix(in srgb, var(--terminal-primary, #0e639c) 30%, transparent);
+	outline-offset: 2px;
+}
+
+.terminal-checkbox:hover:not(:disabled) {
+	border-color: var(--terminal-border-hover, #464647);
+}
+
+.terminal-checkbox:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Button Styles */
+.terminal-btn {
+	padding: 8px 16px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: var(--terminal-font-size-sm, 12px);
+	font-weight: 500;
+	transition: all 0.2s ease;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 36px;
+	font-family: var(--terminal-font-family, 'Consolas', 'Monaco', 'Courier New', monospace);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.terminal-btn-primary {
+	background: var(--terminal-primary, #0e639c);
+	color: white;
+	border: 1px solid var(--terminal-primary, #0e639c);
+	font-weight: 600;
+}
+
+.terminal-btn-primary:hover:not(:disabled) {
+	background: var(--terminal-primary-hover, #1177bb);
+	border-color: var(--terminal-primary-hover, #1177bb);
+	box-shadow: 0 2px 4px color-mix(in srgb, var(--terminal-primary, #0e639c) 30%, transparent);
+}
+
+.terminal-btn-primary:active:not(:disabled) {
+	transform: translateY(1px);
+	box-shadow: 0 1px 2px color-mix(in srgb, var(--terminal-primary, #0e639c) 30%, transparent);
+}
+
+.terminal-btn-primary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: var(--terminal-bg-tertiary, #3e3e42);
+	border-color: var(--terminal-border, #3e3e42);
+	color: var(--terminal-text-secondary, #858585);
+}
+
+.config-actions {
+	margin-top: 24px;
+	padding-top: 20px;
+	border-top: 1px solid var(--terminal-border, #3e3e42);
+}
+
+.config-actions .terminal-btn {
+	width: 100%;
+	justify-content: center;
 }
 
 .agent-status-bar {
@@ -603,6 +753,22 @@ onUnmounted(() => {
 	font-size: var(--terminal-font-size-xs, 11px);
 	color: var(--terminal-text-secondary, #858585);
 	margin-left: 12px;
+}
+
+.status-success-count {
+	color: #10b981;
+	font-weight: 600;
+}
+
+.status-failed-count {
+	color: #ef4444;
+	font-weight: 700;
+}
+
+.fail-indicator {
+	display: inline-block;
+	margin-right: 2px;
+	font-weight: bold;
 }
 
 .status-warning {

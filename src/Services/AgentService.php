@@ -105,15 +105,17 @@ class AgentService
 				'issues_count' => $totalIssues,
 			]);
 
-				// If no issues found, we're done!
-				if ($totalIssues === 0) {
-					$this->addLog($session, 'success', 'All Larastan issues resolved!');
-					$session->update(['status' => 'completed']);
-					break;
-				}
+			// If no issues found, we're done!
+			if ($totalIssues === 0) {
+				$this->addLog($session, 'success', '✓✓✓ All Larastan issues resolved! ✓✓✓');
+				$session->update(['status' => 'completed']);
+				break;
+			}
 
 				// Analyze and fix issues
 				$fixesApplied = 0;
+				$fixesFailed = 0;
+				$failedIssues = [];
 				$issueNum = 0;
 				foreach ($issues as $issue) {
 					$issueNum++;
@@ -131,19 +133,47 @@ class AgentService
 					$fixResult = $this->processIssue($session, $issue);
 					if ($fixResult['success']) {
 						$fixesApplied++;
-						$this->addLog($session, 'success', "Successfully processed issue {$issueNum}");
+						$this->addLog($session, 'success', "✓ Successfully fixed issue {$issueNum}/{$totalIssues}: {$issue['file']} (line {$issue['line']})");
 					} else {
-						$this->addLog($session, 'warning', "Failed to process issue {$issueNum}: " . ($fixResult['error'] ?? 'Unknown error'));
+						$fixesFailed++;
+						$errorMsg = $fixResult['error'] ?? 'Unknown error';
+						$failedIssues[] = [
+							'issue_num' => $issueNum,
+							'file' => $issue['file'] ?? 'unknown',
+							'line' => $issue['line'] ?? null,
+							'message' => $issue['message'] ?? '',
+							'error' => $errorMsg,
+						];
+						$this->addLog($session, 'error', "✗ FAILED to fix issue {$issueNum}/{$totalIssues}: {$issue['file']} (line {$issue['line']}) - {$errorMsg}", [
+							'issue' => $issue,
+							'error' => $errorMsg,
+						]);
 					}
 				}
 
 				$session->increment('total_issues_fixed', $fixesApplied);
-				$this->addLog($session, 'info', "Applied {$fixesApplied} fixes in this iteration");
+				
+				// Log summary
+				if ($fixesFailed > 0) {
+					$this->addLog($session, 'error', "Iteration {$session->current_iteration} Summary: {$fixesApplied} fixed, {$fixesFailed} FAILED", [
+						'fixed' => $fixesApplied,
+						'failed' => $fixesFailed,
+						'total' => $totalIssues,
+						'failed_issues' => $failedIssues,
+					]);
+				} else {
+					$this->addLog($session, 'success', "Iteration {$session->current_iteration} Summary: {$fixesApplied} fixes applied successfully");
+				}
 
 				// If no fixes were applied, we might be stuck
-				if ($fixesApplied === 0) {
-					$this->addLog($session, 'warning', 'No fixes were applied. Agent may be unable to fix remaining issues.');
+				if ($fixesApplied === 0 && $fixesFailed > 0) {
+					$this->addLog($session, 'error', "⚠️ No fixes were applied in this iteration. {$fixesFailed} issue(s) failed. Agent may be unable to fix remaining issues.", [
+						'failed_count' => $fixesFailed,
+						'failed_issues' => $failedIssues,
+					]);
 					// Continue anyway - might be able to fix in next iteration
+				} elseif ($fixesApplied === 0) {
+					$this->addLog($session, 'warning', 'No fixes were applied in this iteration.');
 				}
 
 				// Small delay between iterations
@@ -151,7 +181,12 @@ class AgentService
 			}
 
 			if ($session->current_iteration >= $session->max_iterations) {
-				$this->addLog($session, 'warning', 'Reached maximum iterations limit');
+				$remainingIssues = $session->total_issues_found - $session->total_issues_fixed;
+				$this->addLog($session, 'warning', "⚠️ Reached maximum iterations limit ({$session->max_iterations}). {$session->total_issues_fixed} issues fixed, {$remainingIssues} remaining.", [
+					'total_found' => $session->total_issues_found,
+					'total_fixed' => $session->total_issues_fixed,
+					'remaining' => $remainingIssues,
+				]);
 				$session->update(['status' => 'completed']);
 			}
 		} catch (\Exception $e) {
@@ -258,8 +293,11 @@ class AgentService
 			// Read the file
 			$readResult = $this->fileEditService->readFile($filePath);
 			if (!$readResult['success']) {
-				$this->addLog($session, 'warning', "Cannot read file {$filePath}: " . $readResult['error']);
-				return ['success' => false, 'error' => $readResult['error']];
+					$this->addLog($session, 'error', "✗ Cannot read file {$filePath}: " . $readResult['error'], [
+						'file_path' => $filePath,
+						'error' => $readResult['error'],
+					]);
+					return ['success' => false, 'error' => $readResult['error']];
 			}
 
 			$fileContent = $readResult['content'];
@@ -333,7 +371,10 @@ class AgentService
 				);
 
 				if (!$aiResult['success']) {
-					$this->addLog($session, 'warning', "AI service failed on attempt {$retryCount}: " . ($aiResult['error'] ?? 'Unknown error'));
+					$this->addLog($session, 'error', "✗ AI service failed on attempt {$retryCount}: " . ($aiResult['error'] ?? 'Unknown error'), [
+					'attempt' => $retryCount,
+					'error' => $aiResult['error'] ?? 'Unknown error',
+				]);
 					if ($retryCount >= $maxRetries) {
 						return [
 							'success' => false,
@@ -352,7 +393,9 @@ class AgentService
 				$extractedCode = $this->extractFixedCode($aiResponse, $fileContent);
 
 				if (!$extractedCode) {
-					$this->addLog($session, 'warning', "Could not extract code from AI response on attempt {$retryCount}");
+					$this->addLog($session, 'error', "✗ Could not extract code from AI response on attempt {$retryCount}", [
+						'attempt' => $retryCount,
+					]);
 					if ($retryCount >= $maxRetries) {
 						return [
 							'success' => false,
@@ -407,9 +450,10 @@ class AgentService
 				// Validation failed - log and retry
 				$lastValidationErrors = $validationResult['errors'] ?? [];
 				$errorSummary = implode('; ', array_slice($lastValidationErrors, 0, 3));
-				$this->addLog($session, 'warning', "Code validation failed on attempt {$retryCount} ({$validationResult['stage']}): {$errorSummary}", [
-					'errors' => $lastValidationErrors,
+				$this->addLog($session, 'error', "✗ Code validation FAILED on attempt {$retryCount} (stage: {$validationResult['stage']}): {$errorSummary}", [
+					'attempt' => $retryCount,
 					'stage' => $validationResult['stage'],
+					'errors' => $lastValidationErrors,
 				]);
 
 				if ($retryCount >= $maxRetries) {

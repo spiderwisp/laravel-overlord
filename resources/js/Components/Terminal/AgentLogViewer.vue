@@ -14,17 +14,26 @@
 					:key="`log-${log.id}`"
 					class="log-entry"
 					:class="`log-${log.type}`"
-					:open="log.type !== 'info' && log.type !== 'fix_generated'"
+					:open="log.type === 'error' || (log.type !== 'info' && log.type !== 'fix_generated')"
 				>
 					<summary class="log-summary">
+						<span class="log-icon" :class="`icon-${log.type}`">{{ getLogIcon(log.type) }}</span>
 						<span class="log-timestamp">{{ formatRelativeTime(log.created_at) }}</span>
 						<span class="log-type-badge" :class="`type-${log.type}`">{{ log.type }}</span>
-						<span class="log-message-summary">{{ log.message }}</span>
+						<span class="log-message-summary" :class="{'log-message-error': log.type === 'error'}">{{ log.message }}</span>
 					</summary>
 					<div class="log-details-content">
-						<div class="log-message">{{ log.message }}</div>
+						<div class="log-message" v-html="formatLogMessage(log.message)"></div>
 						<div v-if="log.data && Object.keys(log.data).length > 0" class="log-data">
-							<pre>{{ JSON.stringify(log.data, null, 2) }}</pre>
+							<div v-if="log.data.failed_issues" class="failed-issues-list">
+								<strong>Failed Issues:</strong>
+								<ul>
+									<li v-for="(failedIssue, idx) in log.data.failed_issues" :key="idx">
+										<strong>{{ failedIssue.file }}</strong> (line {{ failedIssue.line }}): {{ failedIssue.error }}
+									</li>
+								</ul>
+							</div>
+							<pre v-if="Object.keys(log.data).length > 0">{{ JSON.stringify(log.data, null, 2) }}</pre>
 						</div>
 					</div>
 				</details>
@@ -75,6 +84,28 @@ function formatRelativeTime(timestamp) {
 	} else {
 		return date.toLocaleTimeString();
 	}
+}
+
+function getLogIcon(type) {
+	const icons = {
+		error: '✗',
+		warning: '⚠',
+		success: '✓',
+		info: 'ℹ',
+		fix_applied: '✓',
+		fix_generated: '→',
+		scan_complete: '✓',
+		scan_start: '→',
+	};
+	return icons[type] || '•';
+}
+
+function formatLogMessage(message) {
+	// Highlight FAILED, ERROR, etc.
+	return message
+		.replace(/\b(FAILED|FAIL|ERROR|✗)\b/gi, '<span class="log-highlight-error">$1</span>')
+		.replace(/\b(SUCCESS|SUCCESSFULLY|✓)\b/gi, '<span class="log-highlight-success">$1</span>')
+		.replace(/\b(WARNING|⚠)\b/gi, '<span class="log-highlight-warning">$1</span>');
 }
 
 async function fetchLogs(offset, limit, append = false) {
@@ -196,8 +227,10 @@ watch(() => props.sessionId, () => {
 }
 
 .log-error {
-	background: rgba(239, 68, 68, 0.1);
-	border-left: 3px solid #ef4444;
+	background: rgba(239, 68, 68, 0.15);
+	border-left: 4px solid #ef4444;
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	font-weight: 500;
 }
 
 .log-warning {
