@@ -59,6 +59,7 @@ import TerminalFavoritesTray from './Terminal/TerminalFavoritesTray.vue';
 import TerminalResizeHandle from './Terminal/TerminalResizeHandle.vue';
 import TerminalToggleButton from './Terminal/TerminalToggleButton.vue';
 import TerminalTabContent from './Terminal/TerminalTabContent.vue';
+import TerminalAgent from './Terminal/TerminalAgent.vue';
 
 // Get API base URL
 const api = useOverlordApi();
@@ -95,6 +96,11 @@ const tabContentRef = ref(null);
 
 // Sidebar navigation state
 const sidebarCollapsed = ref(false);
+
+// Agent pane state
+const agentPaneVisible = ref(false);
+const agentPaneWidth = ref(400); // Default width in pixels
+const isResizingAgentPane = ref(false);
 
 // Initialize Horizon composable
 const horizon = useTerminalHorizon(api);
@@ -269,6 +275,7 @@ const navigationConfig = computed(() => {
 		toggleBugReport,
 		issuesCounter,
 		togglePhpstan,
+		toggleAgent,
 	});
 });
 
@@ -579,6 +586,33 @@ function togglePhpstan() {
 	ensureTabOpen('phpstan');
 }
 
+// Toggle agent pane
+function toggleAgent() {
+	agentPaneVisible.value = !agentPaneVisible.value;
+}
+
+// Agent pane resize handlers
+function startAgentPaneResize(event) {
+	isResizingAgentPane.value = true;
+	const startX = event.clientX;
+	const startWidth = agentPaneWidth.value;
+
+	function handleMouseMove(e) {
+		const diff = startX - e.clientX; // Reverse because we're resizing from right
+		const newWidth = Math.max(300, Math.min(800, startWidth + diff));
+		agentPaneWidth.value = newWidth;
+	}
+
+	function handleMouseUp() {
+		isResizingAgentPane.value = false;
+		document.removeEventListener('mousemove', handleMouseMove);
+		document.removeEventListener('mouseup', handleMouseUp);
+	}
+
+	document.addEventListener('mousemove', handleMouseMove);
+	document.addEventListener('mouseup', handleMouseUp);
+}
+
 // Issue handlers are now in useTerminalIssues composable
 
 // Navigation and helper functions are now in composables
@@ -772,7 +806,7 @@ onUnmounted(() => {
 					/>
 					
 					<!-- Main Content Area -->
-					<div class="terminal-main-content">
+					<div class="terminal-main-content" :style="agentPaneVisible ? { marginRight: agentPaneWidth + 'px' } : {}">
 						<!-- Favorites Tray (Top-Aligned Full-Width Drawer) -->
 						<TerminalFavoritesTray
 							:show="showFavoritesTray"
@@ -859,6 +893,22 @@ onUnmounted(() => {
 						/>
 					</div>
 				</div>
+
+				<!-- Agent Pane (Right Side) -->
+				<transition name="slide-left">
+					<div v-if="agentPaneVisible" class="terminal-agent-pane" :style="{ width: agentPaneWidth + 'px' }">
+						<!-- Resize Handle -->
+						<div
+							class="agent-pane-resize-handle"
+							@mousedown="startAgentPaneResize"
+							:class="{ resizing: isResizingAgentPane }"
+						></div>
+						<TerminalAgent
+							:visible="agentPaneVisible"
+							@close="agentPaneVisible = false"
+						/>
+					</div>
+				</transition>
 			</div>
 		</transition>
 
@@ -993,6 +1043,7 @@ onUnmounted(() => {
 	min-width: 0;
 	overflow: visible; /* Allow favorites tray to be visible */
 	position: relative; /* For absolute positioning of overlay */
+	transition: margin-right 0.3s ease;
 }
 
 
@@ -1287,6 +1338,48 @@ onUnmounted(() => {
 .terminal-shell-toggle, 
 .terminal-ai-toggle {
 	display: none !important;
+}
+
+/* Agent Pane Styles */
+.terminal-agent-pane {
+	position: fixed;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: var(--terminal-bg, #1e1e1e);
+	border-left: 1px solid var(--terminal-border, #3e3e42);
+	z-index: 10001;
+	display: flex;
+	flex-direction: column;
+	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.agent-pane-resize-handle {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+	cursor: ew-resize;
+	background: transparent;
+	z-index: 10;
+	transition: background 0.2s;
+}
+
+.agent-pane-resize-handle:hover,
+.agent-pane-resize-handle.resizing {
+	background: var(--terminal-primary, #0e639c);
+}
+
+/* Slide Left Animation */
+.slide-left-enter-active,
+.slide-left-leave-active {
+	transition: transform 0.3s ease-out;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+	transform: translateX(100%);
 }
 
 </style>

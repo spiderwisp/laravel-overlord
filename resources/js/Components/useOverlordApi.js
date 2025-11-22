@@ -273,6 +273,22 @@ export function useOverlordApi() {
             resolveIssue: (issueId) => `${cleanBaseUrl}/phpstan/issues/${issueId}/resolve`,
             unresolveIssue: (issueId) => `${cleanBaseUrl}/phpstan/issues/${issueId}/unresolve`,
             clearIssues: () => `${cleanBaseUrl}/phpstan/issues`,
+        },
+        // Agent endpoints
+        agent: {
+            active: () => `${cleanBaseUrl}/agent/active`,
+            start: () => `${cleanBaseUrl}/agent/start`,
+            status: (sessionId) => `${cleanBaseUrl}/agent/status/${sessionId}`,
+            stop: (sessionId) => `${cleanBaseUrl}/agent/stop/${sessionId}`,
+            pause: (sessionId) => `${cleanBaseUrl}/agent/pause/${sessionId}`,
+            resume: (sessionId) => `${cleanBaseUrl}/agent/resume/${sessionId}`,
+            logs: (sessionId, params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/agent/logs/${sessionId}${queryString ? '?' + queryString : ''}`;
+            },
+            pendingChanges: (sessionId) => `${cleanBaseUrl}/agent/changes/${sessionId}/pending`,
+            approveChange: (changeId) => `${cleanBaseUrl}/agent/changes/${changeId}/approve`,
+            rejectChange: (changeId) => `${cleanBaseUrl}/agent/changes/${changeId}/reject`,
         }
     };
 }

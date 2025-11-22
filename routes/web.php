@@ -8,10 +8,10 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\TerminalController;
 // Note: The conditional check is handled in the service provider to ensure proper registration
 // Routes loaded via loadRoutesFrom are automatically wrapped in 'web' middleware by Laravel
 $path = config('laravel-overlord.default_route_path', 'overlord');
-$middleware = config('laravel-overlord.middleware', ['auth']);
+$configMiddleware = config('laravel-overlord.middleware', []);
 
 // Merge 'web' middleware if not already present (web is required for sessions/CSRF)
-$middleware = array_unique(array_merge(['web'], $middleware));
+$middleware = array_unique(array_merge(['web'], is_array($configMiddleware) ? $configMiddleware : []));
 
 Route::middleware($middleware)->get($path, [
 	TerminalController::class,

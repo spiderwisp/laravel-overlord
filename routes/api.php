@@ -11,6 +11,10 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\DatabaseController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\MigrationController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\BugReportController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\PhpstanController;
+use Spiderwisp\LaravelOverlord\Http\Controllers\AgentController;
+
+// No middleware resolution needed - Laravel handles this automatically
+// If middleware can't be resolved, Laravel will throw a proper error
 
 // Wrap all routes in web middleware to ensure session support
 // Use static values to avoid config() calls - config is merged in service provider
@@ -20,9 +24,11 @@ Route::middleware('web')->group(function () {
     $routePrefix = 'admin/overlord';
     
     // Protected routes - require authentication
-    // SECURITY: Apply auth middleware from config to all routes including help route
+    // Apply middleware from config - Laravel will handle resolution
+    $middleware = config('laravel-overlord.middleware', []);
+    
     Route::prefix($routePrefix)
-        ->middleware(config('laravel-overlord.middleware', ['auth']))
+        ->middleware(is_array($middleware) ? $middleware : [])
         ->group(function () {
             Route::get('/help', [TerminalController::class, 'getHelp']);
             Route::post('/execute', [TerminalController::class, 'execute']);
@@ -196,6 +202,20 @@ Route::middleware('web')->group(function () {
                 Route::get('/diagram', [TerminalController::class, 'getMermaidDiagram']);
                 Route::post('/generate', [TerminalController::class, 'generateMermaidDiagram']);
                 Route::get('/focused', [TerminalController::class, 'getFocusedMermaidDiagram']);
+            });
+            
+            // Agent routes
+            Route::prefix('agent')->group(function () {
+                Route::get('/active', [AgentController::class, 'getActiveSession']);
+                Route::post('/start', [AgentController::class, 'start']);
+                Route::get('/status/{sessionId}', [AgentController::class, 'status']);
+                Route::post('/stop/{sessionId}', [AgentController::class, 'stop']);
+                Route::post('/pause/{sessionId}', [AgentController::class, 'pause']);
+                Route::post('/resume/{sessionId}', [AgentController::class, 'resume']);
+                Route::get('/logs/{sessionId}', [AgentController::class, 'getLogs']);
+                Route::get('/changes/{sessionId}/pending', [AgentController::class, 'getPendingChanges']);
+                Route::post('/changes/{changeId}/approve', [AgentController::class, 'approveChange']);
+                Route::post('/changes/{changeId}/reject', [AgentController::class, 'rejectChange']);
             });
         });
 });

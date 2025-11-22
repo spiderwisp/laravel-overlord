@@ -198,7 +198,9 @@ class PhpstanService
 			}
 
 			// Parse JSON output
-			$jsonOutput = trim($output);
+			// PHPStan may output text warnings/errors before the JSON
+			// Extract JSON from output (look for the last valid JSON object)
+			$jsonOutput = $this->extractJsonFromOutput($output);
 			
 			// PHPStan should always return JSON, even when no errors are found
 			// If output is completely empty, something went wrong
@@ -523,6 +525,50 @@ class PhpstanService
 				}
 			}
 		}
+		
+		// Also check for top-level "errors" array (internal PHPStan errors)
+		// These are separate from file-specific errors
+		if (isset($jsonData['errors']) && is_array($jsonData['errors'])) {
+			foreach ($jsonData['errors'] as $internalError) {
+				// Internal errors are usually strings, but can be objects
+				if (is_string($internalError)) {
+					// Try to extract file and line from error message if possible
+					$file = null;
+					$line = null;
+					if (preg_match('/while analysing file ([^\s]+)/', $internalError, $matches)) {
+						$file = $this->getRelativePath($matches[1]);
+					}
+					
+					$errors[] = [
+						'file' => $file ?? 'unknown',
+						'line' => $line,
+						'message' => $internalError,
+						'rule' => null,
+						'tip' => null,
+						'severity' => 'error',
+					];
+					
+					if ($file && $file !== 'unknown') {
+						// Add to files array if not already there
+						$fileExists = false;
+						foreach ($files as &$fileData) {
+							if ($fileData['file'] === $file) {
+								$fileData['issues'][] = end($errors);
+								$fileExists = true;
+								break;
+							}
+						}
+						if (!$fileExists) {
+							$files[] = [
+								'file' => $file,
+								'issues' => [end($errors)],
+								'has_errors' => true,
+							];
+						}
+					}
+				}
+			}
+		}
 
 		// Calculate summary
 		$totalErrors = count($errors);
@@ -629,6 +675,63 @@ class PhpstanService
 
 		// Default to medium for most PHPStan errors
 		return 'medium';
+	}
+
+	/**
+	 * Extract JSON from PHPStan output
+	 * PHPStan may output text warnings before the JSON, so we need to find the JSON part
+	 */
+	protected function extractJsonFromOutput(string $output): string
+	{
+		$output = trim($output);
+		
+		// Try to find JSON object in the output
+		// Look for the last occurrence of { that starts a JSON object
+		$jsonStart = strrpos($output, '{"totals"');
+		if ($jsonStart !== false) {
+			// Found JSON starting with totals - extract from there
+			$jsonCandidate = substr($output, $jsonStart);
+			// Try to find the end of the JSON (last })
+			$braceCount = 0;
+			$jsonEnd = -1;
+			for ($i = 0; $i < strlen($jsonCandidate); $i++) {
+				if ($jsonCandidate[$i] === '{') {
+					$braceCount++;
+				} elseif ($jsonCandidate[$i] === '}') {
+					$braceCount--;
+					if ($braceCount === 0) {
+						$jsonEnd = $i + 1;
+						break;
+					}
+				}
+			}
+			
+			if ($jsonEnd > 0) {
+				$json = substr($jsonCandidate, 0, $jsonEnd);
+				// Validate it's valid JSON
+				if (json_decode($json, true) !== null) {
+					return $json;
+				}
+			}
+		}
+		
+		// Fallback: try to find any JSON object/array
+		// Look for { or [ and try to extract valid JSON
+		$jsonStart = strrpos($output, '{');
+		if ($jsonStart === false) {
+			$jsonStart = strrpos($output, '[');
+		}
+		
+		if ($jsonStart !== false) {
+			$jsonCandidate = substr($output, $jsonStart);
+			// Try to decode - if it works, return it
+			if (json_decode($jsonCandidate, true) !== null) {
+				return $jsonCandidate;
+			}
+		}
+		
+		// Last resort: return the whole output and let JSON decode handle it
+		return $output;
 	}
 
 	/**
