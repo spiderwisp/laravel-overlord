@@ -14,84 +14,6 @@ use Spiderwisp\LaravelOverlord\Jobs\AgentJob;
 class AgentController extends Controller
 {
 	/**
-	 * Get current active session for user
-	 */
-	public function getActiveSession(Request $request)
-	{
-		try {
-			$userId = auth()->id();
-			
-			// Check for sessions that have been pending too long (more than 5 minutes)
-			// These are likely stuck and should be marked as failed
-			$stuckSessions = AgentSession::where('user_id', $userId)
-				->where('status', 'pending')
-				->where('created_at', '<', now()->subMinutes(5))
-				->get();
-			
-			foreach ($stuckSessions as $stuckSession) {
-				$stuckSession->update([
-					'status' => 'failed',
-					'error_message' => 'Session was stuck in pending status. Please start a new session.',
-				]);
-				
-				AgentLog::create([
-					'agent_session_id' => $stuckSession->id,
-					'type' => 'error',
-					'message' => 'Session was stuck in pending status and has been marked as failed.',
-				]);
-			}
-			
-			// First try to get an active session
-			$session = AgentSession::where('user_id', $userId)
-				->whereIn('status', ['pending', 'running', 'paused'])
-				->orderBy('created_at', 'desc')
-				->first();
-
-			// If no active session, get the most recent session (even if completed)
-			// This allows the UI to show completed sessions
-			if (!$session) {
-				$session = AgentSession::where('user_id', $userId)
-					->orderBy('created_at', 'desc')
-					->first();
-			}
-
-			if (!$session) {
-				return response()->json([
-					'success' => true,
-					'result' => null,
-				]);
-			}
-
-			return response()->json([
-				'success' => true,
-				'result' => [
-					'session_id' => $session->id,
-					'status' => $session->status,
-					'larastan_level' => $session->larastan_level,
-					'auto_apply' => $session->auto_apply,
-					'total_scans' => $session->total_scans,
-					'total_issues_found' => $session->total_issues_found,
-					'total_issues_fixed' => $session->total_issues_fixed,
-					'current_iteration' => $session->current_iteration,
-					'max_iterations' => $session->max_iterations,
-					'error_message' => $session->error_message,
-					'created_at' => $session->created_at->toIso8601String(),
-					'updated_at' => $session->updated_at->toIso8601String(),
-				],
-			]);
-		} catch (\Exception $e) {
-			Log::error('Failed to get active session', [
-				'error' => $e->getMessage(),
-			]);
-
-			return response()->json([
-				'success' => false,
-				'error' => 'Failed to get active session: ' . $e->getMessage(),
-			], 500);
-		}
-	}
-
-	/**
 	 * Start a new agent session
 	 */
 	public function start(Request $request, AgentService $agentService)
@@ -108,21 +30,16 @@ class AgentController extends Controller
 			$autoApply = $request->input('auto_apply', true);
 			$maxIterations = $request->input('max_iterations', 50);
 
-			// Check if user has an ACTIVE session (running, paused, or pending)
-			// Allow starting new sessions if previous ones are completed/stopped/failed
+			// Check if user has an active session
 			$activeSession = AgentSession::where('user_id', $userId)
-				->whereIn('status', ['pending', 'running', 'paused'])
+				->whereIn('status', ['running', 'paused'])
 				->first();
 
 			if ($activeSession) {
 				return response()->json([
 					'success' => false,
-					'error' => 'You already have an active agent session. Please stop it first or resume it.',
+					'error' => 'You already have an active agent session. Please stop it first.',
 					'session_id' => $activeSession->id,
-					'existing_session' => [
-						'id' => $activeSession->id,
-						'status' => $activeSession->status,
-					],
 				], 400);
 			}
 
@@ -408,89 +325,23 @@ PHP;
 				], 404);
 			}
 
-			// Allow resuming from pending status (for stuck sessions)
-			if ($session->status === 'pending') {
-				$session->update(['status' => 'running']);
-				
-				AgentLog::create([
-					'agent_session_id' => $session->id,
-					'type' => 'info',
-					'message' => 'Agent restarted from pending status',
-				]);
-			} elseif (!$session->canResume()) {
+			if (!$session->canResume()) {
 				return response()->json([
 					'success' => false,
 					'error' => 'Session cannot be resumed in current status: ' . $session->status,
 				], 400);
-			} else {
-				$session->update(['status' => 'running']);
-
-				AgentLog::create([
-					'agent_session_id' => $session->id,
-					'type' => 'info',
-					'message' => 'Agent resumed by user',
-				]);
 			}
 
-			// Dispatch job to run agent
-			try {
-				// Try to run in background process first
-				if (function_exists('exec') && !in_array('exec', explode(',', ini_get('disable_functions')))) {
-					$frameworkDir = storage_path('framework');
-					if (!is_dir($frameworkDir)) {
-						mkdir($frameworkDir, 0755, true);
-					}
+			$session->update(['status' => 'running']);
 
-					$script = $frameworkDir . '/agent_' . $session->id . '.php';
-					$logFile = storage_path('logs/agent_' . $session->id . '.log');
+			AgentLog::create([
+				'agent_session_id' => $session->id,
+				'type' => 'info',
+				'message' => 'Agent resumed by user',
+			]);
 
-					$scriptContent = <<<PHP
-<?php
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-ini_set('error_log', '{$logFile}');
-
-require __DIR__ . '/../../vendor/autoload.php';
-\$app = require_once __DIR__ . '/../../bootstrap/app.php';
-\$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-try {
-    \$sessionId = {$session->id};
-    \$job = new Spiderwisp\LaravelOverlord\Jobs\AgentJob(\$sessionId);
-    \$job->handle(\$app->make(Spiderwisp\LaravelOverlord\Services\AgentService::class));
-} catch (\\Exception \$e) {
-    if (file_exists('{$logFile}')) {
-        file_put_contents('{$logFile}', "Error: " . \$e->getMessage() . "\\n", FILE_APPEND);
-    }
-    throw \$e;
-}
-
-@unlink(__FILE__);
-PHP;
-					file_put_contents($script, $scriptContent);
-
-					$phpPath = PHP_BINARY;
-					$command = sprintf(
-						'%s %s >> %s 2>&1 &',
-						escapeshellarg($phpPath),
-						escapeshellarg($script),
-						escapeshellarg($logFile)
-					);
-					exec($command);
-				} else {
-					// Fallback: dispatch as queue job
-					AgentJob::dispatch($session->id);
-				}
-			} catch (\Exception $e) {
-				Log::error('Failed to restart agent job', [
-					'session_id' => $session->id,
-					'error' => $e->getMessage(),
-				]);
-				
-				// Still try queue as fallback
-				AgentJob::dispatch($session->id);
-			}
+			// If job is not running, dispatch it again
+			AgentJob::dispatch($session->id);
 
 			return response()->json([
 				'success' => true,
@@ -588,8 +439,7 @@ PHP;
 			$offset = (int) $request->input('offset', 0);
 
 			$logs = AgentLog::where('agent_session_id', $session->id)
-				->orderBy('created_at', 'asc') // Oldest first for consistent ordering
-				->orderBy('id', 'asc') // Secondary sort by ID for stability
+				->orderBy('created_at', 'desc')
 				->offset($offset)
 				->limit($limit)
 				->get()
@@ -650,33 +500,8 @@ PHP;
 				], 400);
 			}
 
-			// Validate syntax before applying (double-check, should have been validated when created)
-			$fileEditService = app(\Spiderwisp\LaravelOverlord\Services\FileEditService::class);
-			$syntaxCheck = $fileEditService->validatePhpSyntaxFromContent($change->new_content);
-			
-			if (!$syntaxCheck['valid']) {
-				$errorMsg = 'Invalid PHP syntax: ' . $syntaxCheck['error'];
-				if (isset($syntaxCheck['line']) && $syntaxCheck['line'] !== null) {
-					$errorMsg .= "\nError on line " . $syntaxCheck['line'];
-				}
-				if (isset($syntaxCheck['context']) && $syntaxCheck['context']) {
-					$errorMsg .= "\n\nContext:\n" . $syntaxCheck['context'];
-				}
-				
-				Log::error('AgentController: Attempted to approve change with invalid syntax', [
-					'change_id' => $changeId,
-					'file_path' => $change->file_path,
-					'syntax_error' => $syntaxCheck['error'],
-					'error_line' => $syntaxCheck['line'] ?? null,
-				]);
-				
-				return response()->json([
-					'success' => false,
-					'error' => 'Failed to apply change: ' . $errorMsg,
-				], 400);
-			}
-
 			// Apply the change
+			$fileEditService = app(\Spiderwisp\LaravelOverlord\Services\FileEditService::class);
 			$writeResult = $fileEditService->writeFile($change->file_path, $change->new_content, true);
 
 			if (!$writeResult['success']) {

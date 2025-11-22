@@ -88,22 +88,22 @@ class AgentService
 					break;
 				}
 
-				$issues = $scanResult['issues'] ?? [];
-				$totalIssues = count($issues);
+			$issues = $scanResult['issues'] ?? [];
+			$totalIssues = count($issues);
 
-				$session->increment('total_scans');
-				$session->increment('total_issues_found', $totalIssues);
+			$session->increment('total_scans');
+			$session->increment('total_issues_found', $totalIssues);
 
-				Log::info('AgentService: Scan results', [
-					'session_id' => $session->id,
-					'iteration' => $session->current_iteration,
-					'issues_found' => $totalIssues,
-				]);
+			Log::info('AgentService: Scan results', [
+				'session_id' => $session->id,
+				'iteration' => $session->current_iteration,
+				'issues_found' => $totalIssues,
+			]);
 
-				$this->addLog($session, 'scan_complete', "Larastan scan completed. Found {$totalIssues} issues", [
-					'iteration' => $session->current_iteration,
-					'issues_count' => $totalIssues,
-				]);
+			$this->addLog($session, 'scan_complete', "Larastan scan completed. Found {$totalIssues} issues", [
+				'iteration' => $session->current_iteration,
+				'issues_count' => $totalIssues,
+			]);
 
 				// If no issues found, we're done!
 				if ($totalIssues === 0) {
@@ -326,31 +326,10 @@ class AgentService
 			);
 
 			if (!$aiResult['success']) {
-				$errorMsg = $aiResult['error'] ?? 'AI service failed';
-				$errorCode = $aiResult['code'] ?? null;
-				
-				// Check for quota errors
-				if (in_array($errorCode, ['QUOTA_EXCEEDED', 'RATE_LIMIT_EXCEEDED'])) {
-					$this->addLog($session, 'error', 'AI quota exceeded. Please wait and try again later.', [
-						'error_code' => $errorCode,
-						'file_path' => $filePath,
-					]);
-					
-					// Pause the session instead of failing completely
-					$session->update(['status' => 'paused']);
-					
-					return [
-						'success' => false,
-						'new_content' => null,
-						'error' => 'AI quota exceeded. Session paused. Please resume when quota is available.',
-						'quota_exceeded' => true,
-					];
-				}
-				
 				return [
 					'success' => false,
 					'new_content' => null,
-					'error' => $errorMsg,
+					'error' => $aiResult['error'] ?? 'AI service failed',
 				];
 			}
 
@@ -364,34 +343,6 @@ class AgentService
 					'success' => false,
 					'new_content' => null,
 					'error' => 'Could not extract fixed code from AI response',
-				];
-			}
-
-			// Validate PHP syntax before returning
-			$syntaxCheck = $this->fileEditService->validatePhpSyntaxFromContent($newContent);
-			if (!$syntaxCheck['valid']) {
-				$errorMsg = 'AI generated invalid PHP syntax: ' . $syntaxCheck['error'];
-				if (isset($syntaxCheck['line']) && $syntaxCheck['line'] !== null) {
-					$errorMsg .= "\nError on line " . $syntaxCheck['line'];
-				}
-				if (isset($syntaxCheck['context']) && $syntaxCheck['context']) {
-					$errorMsg .= "\n\nContext:\n" . $syntaxCheck['context'];
-				}
-				
-				Log::warning('AgentService: AI generated invalid PHP syntax', [
-					'file_path' => $filePath,
-					'syntax_error' => $syntaxCheck['error'],
-					'error_line' => $syntaxCheck['line'] ?? null,
-					'generated_code_preview' => substr($newContent, 0, 1000),
-					'generated_code_around_error' => isset($syntaxCheck['line']) && $syntaxCheck['line'] !== null 
-						? $this->getCodeAroundLine($newContent, $syntaxCheck['line'], 5)
-						: null,
-				]);
-				
-				return [
-					'success' => false,
-					'new_content' => null,
-					'error' => $errorMsg,
 				];
 			}
 
@@ -523,10 +474,7 @@ class AgentService
 
 		$prompt .= "Please provide the COMPLETE fixed file content in a code block. ";
 		$prompt .= "Only fix the specific issue mentioned. Do not make other changes. ";
-		$prompt .= "Ensure the code is valid PHP and follows Laravel best practices.\n\n";
-		$prompt .= "IMPORTANT: Return ONLY the complete PHP file content in a ```php code block. ";
-		$prompt .= "The code must be syntactically valid PHP. Do not include explanations, comments, or any text outside the code block. ";
-		$prompt .= "The code block should start with ```php and end with ```.";
+		$prompt .= "Ensure the code is valid PHP and follows Laravel best practices.";
 
 		return $prompt;
 	}
@@ -540,114 +488,19 @@ class AgentService
 	 */
 	protected function extractFixedCode(string $aiResponse, string $originalContent): ?string
 	{
-		// Try to extract code from markdown code blocks (most common format)
-		// Match ```php or ``` followed by code and closing ```
+		// Try to extract code from markdown code blocks
 		if (preg_match('/```(?:php)?\s*\n(.*?)\n```/s', $aiResponse, $matches)) {
-			$code = trim($matches[1]);
-			$code = $this->cleanExtractedCode($code);
-			// Validate it looks like PHP code
-			if (strlen($code) > 50 && (str_contains($code, '<?php') || str_contains($code, 'namespace') || str_contains($code, 'class'))) {
-				return $code;
-			}
-		}
-
-		// Try alternative code block formats (with or without language tag)
-		if (preg_match('/```\s*(?:php)?\s*\n(.*?)```/s', $aiResponse, $matches)) {
-			$code = trim($matches[1]);
-			$code = $this->cleanExtractedCode($code);
-			if (strlen($code) > 50 && (str_contains($code, '<?php') || str_contains($code, 'namespace') || str_contains($code, 'class'))) {
-				return $code;
-			}
+			return trim($matches[1]);
 		}
 
 		// If no code block found, try to use the response as-is (might be just code)
 		$trimmed = trim($aiResponse);
-		// Remove any leading/trailing markdown formatting
-		$trimmed = preg_replace('/^```(?:php)?\s*\n?/m', '', $trimmed);
-		$trimmed = preg_replace('/\n?```\s*$/m', '', $trimmed);
-		$trimmed = trim($trimmed);
-		$trimmed = $this->cleanExtractedCode($trimmed);
-		
-		if (strlen($trimmed) > 100 && (str_contains($trimmed, '<?php') || str_contains($trimmed, 'namespace') || str_contains($trimmed, 'class'))) {
+		if (strlen($trimmed) > 100 && str_contains($trimmed, '<?php')) {
 			return $trimmed;
 		}
 
 		// Fallback: return original content (no fix applied)
-		Log::warning('AgentService: Could not extract valid PHP code from AI response', [
-			'response_length' => strlen($aiResponse),
-			'response_preview' => substr($aiResponse, 0, 500),
-		]);
 		return null;
-	}
-
-	/**
-	 * Clean extracted code to remove common AI mistakes
-	 *
-	 * @param string $code
-	 * @return string
-	 */
-	protected function cleanExtractedCode(string $code): string
-	{
-		// Remove any leading/trailing whitespace
-		$code = trim($code);
-		
-		// Remove any markdown code block markers that might have been missed
-		$code = preg_replace('/^```(?:php)?\s*\n?/m', '', $code);
-		$code = preg_replace('/\n?```\s*$/m', '', $code);
-		
-		// Remove any explanatory text before <?php (common AI mistake)
-		if (str_contains($code, '<?php')) {
-			$phpStart = strpos($code, '<?php');
-			if ($phpStart > 0) {
-				$beforePhp = substr($code, 0, $phpStart);
-				$beforePhpTrimmed = trim($beforePhp);
-				if (!empty($beforePhpTrimmed) && !preg_match('/^(\/\/|\/\*|\*|\#)/m', $beforePhpTrimmed)) {
-					$code = substr($code, $phpStart);
-				}
-			}
-		}
-		
-		// Remove any trailing explanatory text after the last closing brace or PHP closing tag
-		$lastBrace = strrpos($code, '}');
-		$lastPhpClose = strrpos($code, '?>');
-		$lastCode = false;
-		if ($lastBrace !== false && $lastPhpClose !== false) {
-			$lastCode = max($lastBrace, $lastPhpClose);
-		} elseif ($lastBrace !== false) {
-			$lastCode = $lastBrace;
-		} elseif ($lastPhpClose !== false) {
-			$lastCode = $lastPhpClose;
-		}
-		
-		if ($lastCode !== false && $lastCode < strlen($code) - 10) {
-			$afterCode = substr($code, $lastCode + 1);
-			$afterCodeTrimmed = trim($afterCode);
-			if (!empty($afterCodeTrimmed) && 
-				!str_contains($afterCodeTrimmed, "\}") && 
-				!str_contains($afterCodeTrimmed, ';') &&
-				!preg_match('/^(\/\/|\/\*|\*|\#)/m', $afterCodeTrimmed)) {
-				$code = substr($code, 0, $lastCode + 1);
-			}
-		}
-		
-		return trim($code);
-	}
-
-	/**
-	 * Get code around a specific line number
-	 *
-	 * @param string $content
-	 * @param int $lineNumber
-	 * @param int $contextLines
-	 * @return string
-	 */
-	protected function getCodeAroundLine(string $content, int $lineNumber, int $contextLines = 5): string
-	{
-		$lines = explode("\n", $content);
-		$start = max(0, $lineNumber - $contextLines - 1);
-		$end = min(count($lines), $lineNumber + $contextLines);
-		$context = array_slice($lines, $start, $end - $start);
-		return implode("\n", $context);
 	}
 
 	/**
@@ -676,11 +529,12 @@ class AgentService
 				'data' => $data,
 				'timestamp' => now()->toIso8601String(),
 			], now()->addMinutes(5));
-	} catch (\Exception $e) {
-		Log::error('AgentService: Failed to add log', [
-			'session_id' => $session->id,
-			'error' => $e->getMessage(),
-		]);
+		} catch (\Exception $e) {
+			Log::error('AgentService: Failed to add log', [
+				'session_id' => $session->id,
+				'error' => $e->getMessage(),
+			]);
+		}
 	}
 }
-}
+

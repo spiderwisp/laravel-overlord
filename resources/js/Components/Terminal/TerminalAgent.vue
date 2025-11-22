@@ -9,8 +9,8 @@
 			</button>
 		</div>
 
-		<!-- Configuration Panel (only when no session exists and not starting) -->
-		<div v-if="!sessionId && !starting" class="terminal-agent-config">
+		<!-- Configuration Panel (when not running) -->
+		<div v-if="!sessionId" class="terminal-agent-config">
 			<div class="config-section">
 				<h4>Start Agent Session</h4>
 				
@@ -68,150 +68,92 @@
 					<span v-if="starting" class="spinner-small"></span>
 					{{ starting ? 'Starting...' : 'Start Agent' }}
 				</button>
-				
 			</div>
 		</div>
 
-		<!-- Active Session View (show for any session, including completed ones) -->
-		<Transition name="fade">
-			<div v-if="sessionId || starting" class="terminal-agent-session">
+			<!-- Active Session View -->
+			<div v-else class="terminal-agent-session">
 				<!-- Error Message -->
-				<Transition name="slide-down">
-					<div v-if="errorMessage" class="agent-error">
-						<strong>Error:</strong> {{ errorMessage }}
-					</div>
-				</Transition>
-
-				<!-- Compact Status Bar -->
-				<div class="agent-status-bar">
-					<div class="status-info">
-						<span class="status-badge" :class="statusClass">{{ statusText }}</span>
-						<details class="status-details-collapsible">
-							<summary class="status-summary">
-								<span class="status-summary-text">
-									{{ currentIteration }}/{{ maxIterations }} iter
-									· {{ totalIssuesFound }} found
-									· {{ totalIssuesFixed }} fixed
-									<span v-if="status === 'running'" class="status-indicator status-active">●</span>
-									<span v-else-if="status === 'paused'" class="status-indicator status-warning">●</span>
-									<span v-else-if="status === 'completed'" class="status-indicator status-success">●</span>
-								</span>
-								<svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-								</svg>
-							</summary>
-							<div class="status-details-expanded">
-								<div class="status-detail-item">
-									<span class="status-detail-label">Iteration:</span>
-									<span>{{ currentIteration }} / {{ maxIterations }}</span>
-								</div>
-								<div class="status-detail-item">
-									<span class="status-detail-label">Issues Found:</span>
-									<span>{{ totalIssuesFound }}</span>
-								</div>
-								<div class="status-detail-item">
-									<span class="status-detail-label">Issues Fixed:</span>
-									<span>{{ totalIssuesFixed }}</span>
-								</div>
-								<div v-if="status === 'pending' && currentIteration === 0" class="status-detail-item status-warning">
-									Waiting to start...
-								</div>
-								<div v-if="status === 'pending' && currentIteration > 0" class="status-detail-item status-warning">
-									Paused or stuck - try Retry Start
-								</div>
-								<div v-if="status === 'paused'" class="status-detail-item status-warning">
-									Paused - click Resume to continue
-								</div>
-								<div v-if="status === 'completed'" class="status-detail-item status-success">
-									All issues resolved!
-								</div>
-							</div>
-						</details>
-					</div>
-					<div class="status-actions">
-						<button
-							v-if="status === 'pending' && currentIteration === 0"
-							@click="retryStart"
-							class="terminal-btn terminal-btn-primary terminal-btn-xs"
-							:disabled="retrying"
-							title="Retry starting the agent"
-						>
-							<span v-if="retrying" class="spinner-small"></span>
-							{{ retrying ? 'Retrying...' : 'Retry' }}
-						</button>
-						<button
-							v-if="status === 'running'"
-							@click="pauseAgent"
-							class="terminal-btn terminal-btn-secondary terminal-btn-xs"
-							:disabled="pausing"
-						>
-							Pause
-						</button>
-						<button
-							v-if="status === 'paused'"
-							@click="resumeAgent"
-							class="terminal-btn terminal-btn-primary terminal-btn-xs"
-							:disabled="resuming"
-						>
-							Resume
-						</button>
-						<button
-							v-if="canStop"
-							@click="stopAgent"
-							class="terminal-btn terminal-btn-danger terminal-btn-xs"
-							:disabled="stopping"
-						>
-							Stop
-						</button>
-						<button
-							v-if="status === 'completed' || status === 'stopped' || status === 'failed'"
-							@click="sessionId = null; status = 'pending'; errorMessage = null; logs = []; pendingChanges = []; stopPolling();"
-							class="terminal-btn terminal-btn-secondary terminal-btn-xs"
-							title="Start a new session"
-						>
-							New
-						</button>
-					</div>
+				<div v-if="errorMessage" class="agent-error">
+					<strong>Error:</strong> {{ errorMessage }}
 				</div>
 
-				<!-- Compact Progress Bar -->
-				<Transition name="slide-down">
-					<div v-if="status === 'running' || status === 'completed'" class="agent-progress">
-						<div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
-					</div>
-				</Transition>
-
-				<!-- Logs Viewer -->
-				<AgentLogViewer
-					:session-id="sessionId"
-					:logs="logs"
-					@load-more="() => { loadingMore = true; loadMoreLogs(); }"
-				/>
-
-				<!-- Pending Changes (Review Mode) -->
-				<Transition name="slide-up">
-					<div v-if="!autoApply && pendingChanges.length > 0" class="pending-changes-section">
-						<details class="pending-changes-header" open>
-							<summary class="pending-changes-summary">
-								<span>Pending Changes ({{ pendingChanges.length }})</span>
-								<svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-								</svg>
-							</summary>
-							<div class="pending-changes-list">
-								<FileChangePreview
-									v-for="change in pendingChanges"
-									:key="change.id"
-									:change="change"
-									@approve="approveChange"
-									@reject="rejectChange"
-								/>
-							</div>
-						</details>
-					</div>
-				</Transition>
+				<!-- Status Bar -->
+				<div class="agent-status-bar">
+				<div class="status-info">
+					<span class="status-badge" :class="statusClass">{{ statusText }}</span>
+					<span class="status-details">
+						Iteration: {{ currentIteration }} / {{ maxIterations }}
+						| Issues Found: {{ totalIssuesFound }}
+						| Issues Fixed: {{ totalIssuesFixed }}
+						<span v-if="status === 'pending'" class="status-warning">(Waiting to start...)</span>
+						<span v-if="status === 'running'" class="status-active">(Running...)</span>
+					</span>
+				</div>
+				<div class="status-actions">
+					<button
+						v-if="status === 'running'"
+						@click="pauseAgent"
+						class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+						:disabled="pausing"
+					>
+						Pause
+					</button>
+					<button
+						v-if="status === 'paused'"
+						@click="resumeAgent"
+						class="terminal-btn terminal-btn-primary terminal-btn-sm"
+						:disabled="resuming"
+					>
+						Resume
+					</button>
+					<button
+						v-if="canStop"
+						@click="stopAgent"
+						class="terminal-btn terminal-btn-danger terminal-btn-sm"
+						:disabled="stopping"
+					>
+						Stop
+					</button>
+				</div>
 			</div>
-		</Transition>
+
+			<!-- Progress Bar -->
+			<div v-if="status === 'running' || status === 'completed'" class="agent-progress">
+				<div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
+			</div>
+
+			<!-- Collapsible Status Details -->
+			<details class="agent-details-section" open>
+				<summary class="agent-details-summary">Session Details</summary>
+				<div class="agent-details-content">
+					<p>Larastan Level: {{ config.larastan_level }}</p>
+					<p>Auto-apply Fixes: {{ config.auto_apply ? 'Yes' : 'No' }}</p>
+					<p>Max Iterations: {{ maxIterations }}</p>
+				</div>
+			</details>
+
+			<!-- Logs Viewer -->
+			<AgentLogViewer
+				:session-id="sessionId"
+				:logs="logs"
+				@load-more="() => { loadingMore = true; loadMoreLogs(); }"
+			/>
+
+			<!-- Pending Changes (Review Mode) -->
+			<details v-if="!autoApply && pendingChanges.length > 0" class="pending-changes-section" open>
+				<summary class="pending-changes-summary">Pending Changes ({{ pendingChanges.length }})</summary>
+				<div class="pending-changes-list">
+					<FileChangePreview
+						v-for="change in pendingChanges"
+						:key="change.id"
+						:change="change"
+						@approve="approveChange"
+						@reject="rejectChange"
+					/>
+				</div>
+			</details>
+		</div>
 	</div>
 </template>
 
@@ -247,11 +189,8 @@ const errorMessage = ref(null);
 const pausing = ref(false);
 const resuming = ref(false);
 const stopping = ref(false);
-const retrying = ref(false);
 const statusPollInterval = ref(null);
 const logsPollInterval = ref(null);
-const isStartingNewSession = ref(false);
-const loadingMore = ref(false);
 
 const config = ref({
 	larastan_level: 1,
@@ -295,17 +234,6 @@ async function startAgent() {
 	if (starting.value) return;
 
 	starting.value = true;
-	isStartingNewSession.value = true; // Prevent loadActiveSession from interfering
-	
-	// Clear previous session state if it's completed/stopped/failed
-	if (sessionId.value && ['stopped', 'completed', 'failed'].includes(status.value)) {
-		sessionId.value = null;
-		status.value = 'pending';
-		errorMessage.value = null;
-		logs.value = [];
-		pendingChanges.value = [];
-	}
-	
 	try {
 		const response = await axios.post(api.agent.start(), {
 			larastan_level: config.value.larastan_level,
@@ -313,60 +241,19 @@ async function startAgent() {
 			auto_apply: config.value.auto_apply,
 		});
 
-		if (response.data.success) {
-			// Set the new session immediately - don't let anything override this
-			const newSessionId = response.data.result.session_id;
-			sessionId.value = newSessionId;
-			status.value = response.data.result.status || 'pending';
-			errorMessage.value = null;
-			logs.value = [];
-			pendingChanges.value = [];
-			currentIteration.value = response.data.result.current_iteration || 0;
-			maxIterations.value = response.data.result.max_iterations || config.value.max_iterations;
-			totalIssuesFound.value = response.data.result.total_issues_found || 0;
-			totalIssuesFixed.value = response.data.result.total_issues_fixed || 0;
-			
-			console.log('New session created:', newSessionId, 'Status:', status.value);
-			
-			// Load status immediately (bypass isStartingNewSession flag for initial load)
-			// This ensures the UI shows the session right away
-			loadStatus(true).then(() => {
-				console.log('Initial status loaded for session:', newSessionId);
-			}).catch(err => {
-				console.error('Failed to load initial status:', err);
-			});
-			
-			// Start polling immediately - this will continue to update status and logs
-			startPolling();
-		} else {
-			errorMessage.value = response.data.error || 'Unknown error';
-			
-			// If there's an existing ACTIVE session, offer to load it
-			if (response.data.existing_session && 
-				['pending', 'running', 'paused'].includes(response.data.existing_session.status)) {
-				const loadExisting = confirm(
-					'You have an active session (ID: ' + response.data.existing_session.id + 
-					', Status: ' + response.data.existing_session.status + 
-					'). Would you like to load it?'
-				);
-				if (loadExisting) {
-					sessionId.value = response.data.existing_session.id;
-					await loadStatus();
-					startPolling();
-				}
+			if (response.data.success) {
+				sessionId.value = response.data.result.session_id;
+				status.value = response.data.result.status;
+				errorMessage.value = null;
+				startPolling();
+			} else {
+				errorMessage.value = response.data.error || 'Unknown error';
 			}
-		}
 	} catch (error) {
 		console.error('Failed to start agent:', error);
-		errorMessage.value = error.response?.data?.error || error.message || 'Failed to start agent';
+		alert('Failed to start agent: ' + (error.response?.data?.error || error.message));
 	} finally {
 		starting.value = false;
-		// Clear the flag after a short delay to allow the session to be established
-		// This prevents loadActiveSession and loadStatus from interfering
-		setTimeout(() => {
-			isStartingNewSession.value = false;
-			console.log('isStartingNewSession flag cleared, polling can now update status');
-		}, 3000); // Increased to 3 seconds to ensure session is fully established
 	}
 }
 
@@ -423,107 +310,40 @@ async function stopAgent() {
 	}
 }
 
-async function retryStart() {
-	if (retrying.value || !sessionId.value) return;
-
-	retrying.value = true;
-	try {
-		// First, try to resume if paused
-		if (status.value === 'paused') {
-			await resumeAgent();
-		} else {
-			// If pending, try to resume (which will restart the job)
-			const response = await axios.post(api.agent.resume(sessionId.value));
-			if (response.data.success) {
-				status.value = response.data.result.status;
-				errorMessage.value = null;
-				startPolling();
-			} else {
-				errorMessage.value = response.data.error || 'Failed to retry';
-			}
-		}
-	} catch (error) {
-		console.error('Failed to retry start:', error);
-		errorMessage.value = error.response?.data?.error || error.message || 'Failed to retry start';
-	} finally {
-		retrying.value = false;
-	}
-}
-
-async function loadStatus(force = false) {
-	if (!sessionId.value) {
-		console.log('loadStatus: No sessionId, skipping');
-		return;
-	}
-
-	// Don't load status if we're starting a new session (prevent race condition)
-	// Unless force=true (for initial load after session creation)
-	if (isStartingNewSession.value && !force) {
-		console.log('loadStatus: Starting new session, skipping load');
-		return;
-	}
+async function loadStatus() {
+	if (!sessionId.value) return;
 
 	try {
-		const currentSessionId = sessionId.value; // Capture current session ID
-		const response = await axios.get(api.agent.status(currentSessionId));
-		
-		// Check if sessionId changed while we were loading (user started new session)
-		if (sessionId.value !== currentSessionId) {
-			console.log('loadStatus: Session ID changed during load, ignoring result');
-			return;
-		}
-		
+		const response = await axios.get(api.agent.status(sessionId.value));
 		if (response.data.success) {
 			const result = response.data.result;
 			const oldStatus = status.value;
+			status.value = result.status;
+			currentIteration.value = result.current_iteration;
+			maxIterations.value = result.max_iterations;
+			totalIssuesFound.value = result.total_issues_found;
+			totalIssuesFixed.value = result.total_issues_fixed;
 			
-			// Only update if we still have the same session
-			if (sessionId.value === currentSessionId) {
-				status.value = result.status;
-				currentIteration.value = result.current_iteration;
-				maxIterations.value = result.max_iterations;
-				totalIssuesFound.value = result.total_issues_found;
-				totalIssuesFixed.value = result.total_issues_fixed;
-				
-				// Update config from session
-				if (result.auto_apply !== undefined) {
-					config.value.auto_apply = result.auto_apply;
-				}
-
-				// Log status changes
-				if (oldStatus !== result.status) {
-					console.log('Agent status changed:', oldStatus, '->', result.status, 'Session:', currentSessionId);
-				}
-
-				// Check if session has been pending too long (likely stuck)
-				if (result.status === 'pending' && currentIteration.value === 0) {
-					const sessionAge = new Date() - new Date(result.created_at);
-					const minutesOld = sessionAge / 1000 / 60;
-					
-					if (minutesOld > 2) {
-						// Session has been pending for more than 2 minutes, likely stuck
-						if (!errorMessage.value || !errorMessage.value.includes('stuck')) {
-							errorMessage.value = 'Session appears to be stuck in pending status. Try clicking "Retry Start" or stop and start a new session.';
-						}
-					}
-				}
-
-				// Show error message if failed
-				if (result.status === 'failed' && result.error_message) {
-					errorMessage.value = result.error_message;
-				} else if (result.status !== 'failed') {
-					errorMessage.value = null;
-				}
-
-			// Stop polling if stopped/failed (but keep polling for completed to show final state)
-			if (['stopped', 'failed'].includes(result.status)) {
-				stopPolling();
-			} else if (result.status === 'completed') {
-				// For completed, stop polling after a short delay to show final state
-				setTimeout(() => {
-					stopPolling();
-				}, 2000);
+			// Update config from session
+			if (result.auto_apply !== undefined) {
+				config.value.auto_apply = result.auto_apply;
 			}
+
+			// Log status changes
+			if (oldStatus !== result.status) {
+				console.log('Agent status changed:', oldStatus, '->', result.status);
+			}
+
+			// Show error message if failed
+			if (result.status === 'failed' && result.error_message) {
+				errorMessage.value = result.error_message;
+			} else if (result.status !== 'failed') {
+				errorMessage.value = null;
+			}
+
+			// Stop polling if completed/stopped/failed
+			if (['completed', 'stopped', 'failed'].includes(result.status)) {
+				stopPolling();
 			}
 		} else {
 			console.error('Failed to load status:', response.data.error);
@@ -536,19 +356,6 @@ async function loadStatus(force = false) {
 	}
 }
 
-// Helper function to sort logs by created_at then id (oldest first, stable)
-function sortLogs(logsArray) {
-	return [...logsArray].sort((a, b) => {
-		const dateA = new Date(a.created_at || 0);
-		const dateB = new Date(b.created_at || 0);
-		if (dateA.getTime() === dateB.getTime()) {
-			// If timestamps are equal, use ID as tiebreaker for stability
-			return (a.id || 0) - (b.id || 0);
-		}
-		return dateA - dateB;
-	});
-}
-
 async function loadLogs() {
 	if (!sessionId.value) return;
 
@@ -559,22 +366,7 @@ async function loadLogs() {
 		}));
 
 		if (response.data.success) {
-			const newLogs = response.data.result.logs || [];
-			
-			// Backend now returns logs in ASC order (oldest first)
-			// If we have no logs yet, just set them
-			if (logs.value.length === 0) {
-				logs.value = newLogs;
-			} else {
-				// Merge: add only new logs that don't exist yet (newer logs at the end)
-				const existingIds = new Set(logs.value.map(log => log.id));
-				const newLogsToAdd = newLogs.filter(log => !existingIds.has(log.id));
-				
-				if (newLogsToAdd.length > 0) {
-					// Append new logs and re-sort to maintain order
-					logs.value = sortLogs([...logs.value, ...newLogsToAdd]);
-				}
-			}
+			logs.value = response.data.result.logs.reverse(); // Reverse to show oldest first
 		}
 	} catch (error) {
 		console.error('Failed to load logs:', error);
@@ -582,33 +374,19 @@ async function loadLogs() {
 }
 
 async function loadMoreLogs() {
-	if (!sessionId.value || loadingMore.value) return;
-
-	loadingMore.value = true;
+	if (!sessionId.value) return;
 
 	try {
-		// Load older logs (before the current oldest log)
 		const response = await axios.get(api.agent.logs(sessionId.value, {
 			limit: 50,
 			offset: logs.value.length,
 		}));
 
 		if (response.data.success && response.data.result.logs.length > 0) {
-			const olderLogs = response.data.result.logs || [];
-			
-			// Filter out logs we already have
-			const existingIds = new Set(logs.value.map(log => log.id));
-			const newOlderLogs = olderLogs.filter(log => !existingIds.has(log.id));
-			
-			if (newOlderLogs.length > 0) {
-				// Prepend older logs to the beginning and re-sort
-				logs.value = sortLogs([...newOlderLogs, ...logs.value]);
-			}
+			logs.value = [...logs.value, ...response.data.result.logs.reverse()];
 		}
 	} catch (error) {
 		console.error('Failed to load more logs:', error);
-	} finally {
-		loadingMore.value = false;
 	}
 }
 
@@ -660,35 +438,19 @@ async function rejectChange(changeId) {
 function startPolling() {
 	stopPolling();
 	
-	if (!sessionId.value) {
-		console.log('startPolling: No sessionId, cannot start polling');
-		return;
-	}
-	
-	console.log('startPolling: Starting for session', sessionId.value);
-	
-	// Load logs and pending changes immediately (these don't interfere with session creation)
+	// Load immediately
+	loadStatus();
 	loadLogs();
 	loadPendingChanges();
-	
-	// Load status immediately only if not starting a new session
-	// (If starting new session, loadStatus was already called in startAgent)
-	if (!isStartingNewSession.value) {
-		loadStatus();
-	}
 
 	// Poll more frequently for better feedback
 	statusPollInterval.value = setInterval(() => {
-		if (sessionId.value && !isStartingNewSession.value) {
-			loadStatus();
-		}
+		loadStatus();
 		loadPendingChanges();
 	}, 1000); // Poll every 1 second for better responsiveness
 
 	logsPollInterval.value = setInterval(() => {
-		if (sessionId.value) {
-			loadLogs();
-		}
+		loadLogs();
 	}, 2000); // Poll logs every 2 seconds
 }
 
@@ -705,85 +467,16 @@ function stopPolling() {
 
 // Watch for visibility
 watch(() => props.visible, (newValue) => {
-	if (newValue) {
-		if (sessionId.value) {
-			startPolling();
-		} else if (!isStartingNewSession.value) {
-			// Try to load existing active session when pane opens
-			// But only if we're not in the process of starting a new one
-			loadActiveSession();
-		}
+	if (newValue && sessionId.value) {
+		startPolling();
 	} else if (!newValue) {
 		stopPolling();
 	}
 });
 
-// Load active session on mount
-async function loadActiveSession() {
-	// Don't load if we're in the process of starting a new session
-	if (isStartingNewSession.value) {
-		return;
-	}
-	
-	// Don't load if we already have a session
-	if (sessionId.value) {
-		return;
-	}
-	
-	try {
-		const response = await axios.get(api.agent.active());
-		if (response.data.success && response.data.result) {
-			const activeSession = response.data.result;
-			
-			// Only load if it's actually active (not completed/stopped/failed)
-			if (['pending', 'running', 'paused'].includes(activeSession.status)) {
-				sessionId.value = activeSession.session_id;
-				status.value = activeSession.status;
-				currentIteration.value = activeSession.current_iteration;
-				maxIterations.value = activeSession.max_iterations;
-				totalIssuesFound.value = activeSession.total_issues_found;
-				totalIssuesFixed.value = activeSession.total_issues_fixed;
-				config.value.larastan_level = activeSession.larastan_level;
-				config.value.auto_apply = activeSession.auto_apply;
-				config.value.max_iterations = activeSession.max_iterations;
-				
-				if (activeSession.error_message) {
-					errorMessage.value = activeSession.error_message;
-				}
-				
-				// Start polling for active sessions
-				startPolling();
-			} else {
-				// Session is completed/stopped/failed - show it but allow new session
-				sessionId.value = activeSession.session_id;
-				status.value = activeSession.status;
-				currentIteration.value = activeSession.current_iteration;
-				maxIterations.value = activeSession.max_iterations;
-				totalIssuesFound.value = activeSession.total_issues_found;
-				totalIssuesFixed.value = activeSession.total_issues_fixed;
-				config.value.larastan_level = activeSession.larastan_level;
-				config.value.auto_apply = activeSession.auto_apply;
-				config.value.max_iterations = activeSession.max_iterations;
-				
-				if (activeSession.error_message) {
-					errorMessage.value = activeSession.error_message;
-				}
-			}
-		}
-	} catch (error) {
-		console.error('Failed to load active session:', error);
-	}
-}
-
 onMounted(() => {
-	if (props.visible) {
-		if (sessionId.value) {
-			startPolling();
-		} else if (!isStartingNewSession.value) {
-			// Try to load existing active session
-			// But only if we're not in the process of starting a new one
-			loadActiveSession();
-		}
+	if (props.visible && sessionId.value) {
+		startPolling();
 	}
 });
 
@@ -805,13 +498,13 @@ onUnmounted(() => {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 8px 10px;
+	padding: 12px 16px;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
 }
 
 .terminal-agent-header h3 {
 	margin: 0;
-	font-size: var(--terminal-font-size-sm, 12px);
+	font-size: var(--terminal-font-size-base, 14px);
 	font-weight: 600;
 }
 
@@ -819,7 +512,7 @@ onUnmounted(() => {
 .terminal-agent-session {
 	flex: 1;
 	overflow-y: auto;
-	padding: 10px;
+	padding: 16px;
 }
 
 .config-section {
@@ -860,25 +553,24 @@ onUnmounted(() => {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 6px 10px;
+	padding: 8px 12px;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
+	font-size: var(--terminal-font-size-sm, 12px);
+	background: var(--terminal-bg-secondary, #252526);
 }
 
 .status-info {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	flex: 1;
-	min-width: 0;
+	gap: 12px;
 }
 
 .status-badge {
-	padding: 2px 6px;
-	border-radius: 3px;
-	font-size: 10px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: var(--terminal-font-size-xs, 11px);
 	font-weight: 600;
 	text-transform: uppercase;
-	white-space: nowrap;
 }
 
 .status-pending {
@@ -907,78 +599,10 @@ onUnmounted(() => {
 	color: white;
 }
 
-.status-details-collapsible {
-	flex: 1;
-	min-width: 0;
-}
-
-.status-details-collapsible summary {
-	list-style: none;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 6px;
-	user-select: none;
-}
-
-.status-details-collapsible summary::-webkit-details-marker {
-	display: none;
-}
-
-.status-summary {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex: 1;
-	min-width: 0;
-}
-
-.status-summary-text {
-	font-size: 11px;
+.status-details {
+	font-size: var(--terminal-font-size-xs, 11px);
 	color: var(--terminal-text-secondary, #858585);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.status-indicator {
-	display: inline-block;
-	font-size: 8px;
-	vertical-align: middle;
-	margin-left: 4px;
-}
-
-.chevron-icon {
-	width: 12px;
-	height: 12px;
-	color: var(--terminal-text-secondary, #858585);
-	transition: transform 0.2s ease;
-	flex-shrink: 0;
-}
-
-.status-details-collapsible[open] .chevron-icon {
-	transform: rotate(180deg);
-}
-
-.status-details-expanded {
-	padding: 6px 0 0 0;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	margin-top: 4px;
-}
-
-.status-detail-item {
-	font-size: 11px;
-	color: var(--terminal-text-secondary, #858585);
-	display: flex;
-	gap: 8px;
-}
-
-.status-detail-label {
-	font-weight: 500;
-	min-width: 80px;
+	margin-left: 12px;
 }
 
 .status-warning {
@@ -992,11 +616,6 @@ onUnmounted(() => {
 	animation: pulse 2s infinite;
 }
 
-.status-success {
-	color: #10b981;
-	font-weight: 600;
-}
-
 @keyframes pulse {
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.6; }
@@ -1004,14 +623,7 @@ onUnmounted(() => {
 
 .status-actions {
 	display: flex;
-	gap: 4px;
-	flex-shrink: 0;
-}
-
-.terminal-btn-xs {
-	padding: 3px 8px;
-	font-size: 10px;
-	line-height: 1.4;
+	gap: 8px;
 }
 
 .agent-progress {
@@ -1022,119 +634,68 @@ onUnmounted(() => {
 
 .progress-bar {
 	height: 100%;
-	background: linear-gradient(90deg, var(--terminal-primary, #0e639c), #1a8cd8);
+	background: linear-gradient(90deg, var(--terminal-primary-light, #1a73e8), var(--terminal-primary, #0e639c));
 	transition: width 0.3s ease;
-	box-shadow: 0 0 4px rgba(14, 99, 156, 0.5);
 }
 
+.agent-details-section,
 .pending-changes-section {
-	padding: 8px 10px;
-	border-top: 1px solid var(--terminal-border, #3e3e42);
+	margin: 8px 0;
+	border: 1px solid var(--terminal-border, #3e3e42);
+	border-radius: 4px;
+	background: var(--terminal-bg-secondary, #252526);
 }
 
-.pending-changes-header {
-	width: 100%;
-}
-
+.agent-details-summary,
 .pending-changes-summary {
-	list-style: none;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 4px 0;
-	font-size: 11px;
+	padding: 8px 12px;
+	font-size: var(--terminal-font-size-sm, 12px);
 	font-weight: 600;
-	color: var(--terminal-text, #d4d4d4);
+	cursor: pointer;
 	user-select: none;
+	display: block;
+	list-style: none;
 }
 
+.agent-details-summary::-webkit-details-marker,
 .pending-changes-summary::-webkit-details-marker {
 	display: none;
 }
 
-.pending-changes-header[open] .chevron-icon {
-	transform: rotate(180deg);
+.agent-details-summary::before,
+.pending-changes-summary::before {
+	content: '▶';
+	display: inline-block;
+	margin-right: 6px;
+	transition: transform 0.2s;
+}
+
+.agent-details-section[open] .agent-details-summary::before,
+.pending-changes-section[open] .pending-changes-summary::before {
+	transform: rotate(90deg);
+}
+
+.agent-details-content,
+.pending-changes-list {
+	padding: 8px 12px;
+	font-size: var(--terminal-font-size-xs, 11px);
+	border-top: 1px solid var(--terminal-border, #3e3e42);
 }
 
 .pending-changes-list {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	margin-top: 6px;
-}
-
-.previous-session-info {
-	margin-top: 16px;
-	padding: 12px;
-	background: var(--terminal-bg-secondary, #252526);
-	border-radius: 4px;
-	border-left: 3px solid var(--terminal-primary, #0e639c);
-}
-
-.previous-session-info p {
-	margin: 0 0 8px 0;
-	font-size: var(--terminal-font-size-sm, 12px);
-	color: var(--terminal-text-secondary, #858585);
-}
-
-.previous-session-info .session-note {
-	font-size: var(--terminal-font-size-xs, 11px);
-	color: var(--terminal-text-secondary, #858585);
-	font-style: italic;
-	margin-top: 4px;
+	gap: 8px;
 }
 
 .agent-error {
-	padding: 6px 10px;
+	padding: 12px 16px;
 	background: rgba(239, 68, 68, 0.1);
-	border-left: 2px solid #ef4444;
-	border-radius: 3px;
-	margin: 6px 10px;
+	border-left: 3px solid #ef4444;
+	border-radius: 4px;
+	margin: 16px;
 	color: var(--terminal-text, #d4d4d4);
-	font-size: 11px;
-	line-height: 1.4;
-}
-
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-	transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-	opacity: 0;
-}
-
-.slide-down-enter-active,
-.slide-down-leave-active {
-	transition: all 0.2s ease;
-}
-
-.slide-down-enter-from {
-	opacity: 0;
-	transform: translateY(-4px);
-}
-
-.slide-down-leave-to {
-	opacity: 0;
-	transform: translateY(-4px);
-}
-
-.slide-up-enter-active,
-.slide-up-leave-active {
-	transition: all 0.2s ease;
-}
-
-.slide-up-enter-from {
-	opacity: 0;
-	transform: translateY(4px);
-}
-
-.slide-up-leave-to {
-	opacity: 0;
-	transform: translateY(4px);
+	font-size: var(--terminal-font-size-sm, 12px);
 }
 
 .agent-error strong {

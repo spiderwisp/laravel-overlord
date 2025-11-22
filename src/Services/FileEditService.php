@@ -138,18 +138,6 @@ class FileEditService
 				$backupPath = $backupResult['backup_path'];
 			}
 
-			// Validate syntax for PHP files BEFORE writing
-			if (pathinfo($fullPath, PATHINFO_EXTENSION) === 'php') {
-				$syntaxCheck = $this->validatePhpSyntaxFromContent($content);
-				if (!$syntaxCheck['valid']) {
-					return [
-						'success' => false,
-						'backup_path' => null,
-						'error' => 'Invalid PHP syntax: ' . $syntaxCheck['error'],
-					];
-				}
-			}
-
 			// Ensure directory exists
 			$directory = dirname($fullPath);
 			if (!is_dir($directory)) {
@@ -176,6 +164,23 @@ class FileEditService
 					'backup_path' => $backupPath,
 					'error' => 'Failed to write file',
 				];
+			}
+
+			// Validate syntax for PHP files
+			if (pathinfo($fullPath, PATHINFO_EXTENSION) === 'php') {
+				$syntaxCheck = $this->validatePhpSyntax($fullPath);
+				if (!$syntaxCheck['valid']) {
+					// Restore backup if syntax is invalid
+					if ($backupPath && file_exists($backupPath)) {
+						$this->restoreBackup($backupPath, $fullPath);
+					}
+
+					return [
+						'success' => false,
+						'backup_path' => $backupPath,
+						'error' => 'Invalid PHP syntax: ' . $syntaxCheck['error'],
+					];
+				}
 			}
 
 			return [
@@ -386,7 +391,7 @@ class FileEditService
 	}
 
 	/**
-	 * Validate PHP syntax from file path
+	 * Validate PHP syntax
 	 *
 	 * @param string $filePath Full path to PHP file
 	 * @return array ['valid' => bool, 'error' => string|null]
@@ -420,83 +425,6 @@ class FileEditService
 			return [
 				'valid' => true,
 				'error' => null,
-			];
-		}
-	}
-
-	/**
-	 * Validate PHP syntax from content (without writing to disk first)
-	 *
-	 * @param string $content PHP code content
-	 * @return array ['valid' => bool, 'error' => string|null, 'line' => int|null, 'context' => string|null]
-	 */
-	public function validatePhpSyntaxFromContent(string $content): array
-	{
-		try {
-			// Create temporary file
-			$tempFile = tempnam(sys_get_temp_dir(), 'php_syntax_check_');
-			if ($tempFile === false) {
-				return [
-					'valid' => true, // Assume valid if we can't check
-					'error' => null,
-					'line' => null,
-					'context' => null,
-				];
-			}
-
-			// Write content to temp file
-			file_put_contents($tempFile, $content);
-
-			// Validate syntax
-			$result = $this->validatePhpSyntax($tempFile);
-			
-			// Extract line number and context from error if available
-			if (!$result['valid'] && isset($result['error'])) {
-				$error = $result['error'];
-				
-				// Try to extract line number from error message
-				$lineNumber = null;
-				if (preg_match('/on line (\d+)/i', $error, $matches)) {
-					$lineNumber = (int) $matches[1];
-				}
-				
-				// Get context around the error line
-				$context = null;
-				if ($lineNumber !== null) {
-					$lines = explode("\n", $content);
-					$contextStart = max(0, $lineNumber - 3);
-					$contextEnd = min(count($lines), $lineNumber + 2);
-					$contextLines = array_slice($lines, $contextStart, $contextEnd - $contextStart);
-					$context = implode("\n", $contextLines);
-					
-					// Add line numbers to context for clarity
-					$contextWithNumbers = [];
-					foreach ($contextLines as $i => $line) {
-						$actualLineNum = $contextStart + $i + 1;
-						$marker = ($actualLineNum === $lineNumber) ? ' >>> ' : '     ';
-						$contextWithNumbers[] = $marker . $actualLineNum . ': ' . $line;
-					}
-					$context = implode("\n", $contextWithNumbers);
-				}
-				
-				$result['line'] = $lineNumber;
-				$result['context'] = $context;
-			}
-
-			// Clean up temp file
-			@unlink($tempFile);
-
-			return $result;
-		} catch (\Exception $e) {
-			Log::warning('FileEditService: PHP syntax check from content failed', [
-				'error' => $e->getMessage(),
-			]);
-
-			return [
-				'valid' => true, // Assume valid if check fails
-				'error' => null,
-				'line' => null,
-				'context' => null,
 			];
 		}
 	}

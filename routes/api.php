@@ -13,9 +13,6 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\BugReportController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\PhpstanController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\AgentController;
 
-// No middleware resolution needed - Laravel handles this automatically
-// If middleware can't be resolved, Laravel will throw a proper error
-
 // Wrap all routes in web middleware to ensure session support
 // Use static values to avoid config() calls - config is merged in service provider
 Route::middleware('web')->group(function () {
@@ -24,11 +21,9 @@ Route::middleware('web')->group(function () {
     $routePrefix = 'admin/overlord';
     
     // Protected routes - require authentication
-    // Apply middleware from config - Laravel will handle resolution
-    $middleware = config('laravel-overlord.middleware', []);
-    
+    // SECURITY: Apply auth middleware from config to all routes including help route
     Route::prefix($routePrefix)
-        ->middleware(is_array($middleware) ? $middleware : [])
+        ->middleware(config('laravel-overlord.middleware', ['auth']))
         ->group(function () {
             Route::get('/help', [TerminalController::class, 'getHelp']);
             Route::post('/execute', [TerminalController::class, 'execute']);
@@ -206,7 +201,6 @@ Route::middleware('web')->group(function () {
             
             // Agent routes
             Route::prefix('agent')->group(function () {
-                Route::get('/active', [AgentController::class, 'getActiveSession']);
                 Route::post('/start', [AgentController::class, 'start']);
                 Route::get('/status/{sessionId}', [AgentController::class, 'status']);
                 Route::post('/stop/{sessionId}', [AgentController::class, 'stop']);

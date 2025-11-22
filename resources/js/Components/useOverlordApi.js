@@ -276,7 +276,6 @@ export function useOverlordApi() {
         },
         // Agent endpoints
         agent: {
-            active: () => `${cleanBaseUrl}/agent/active`,
             start: () => `${cleanBaseUrl}/agent/start`,
             status: (sessionId) => `${cleanBaseUrl}/agent/status/${sessionId}`,
             stop: (sessionId) => `${cleanBaseUrl}/agent/stop/${sessionId}`,
