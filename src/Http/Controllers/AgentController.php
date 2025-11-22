@@ -588,7 +588,8 @@ PHP;
 			$offset = (int) $request->input('offset', 0);
 
 			$logs = AgentLog::where('agent_session_id', $session->id)
-				->orderBy('created_at', 'desc')
+				->orderBy('created_at', 'asc') // Oldest first for consistent ordering
+				->orderBy('id', 'asc') // Secondary sort by ID for stability
 				->offset($offset)
 				->limit($limit)
 				->get()

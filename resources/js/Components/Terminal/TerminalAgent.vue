@@ -73,99 +73,145 @@
 		</div>
 
 		<!-- Active Session View (show for any session, including completed ones) -->
-		<div v-else-if="sessionId || starting" class="terminal-agent-session">
+		<Transition name="fade">
+			<div v-if="sessionId || starting" class="terminal-agent-session">
 				<!-- Error Message -->
-				<div v-if="errorMessage" class="agent-error">
-					<strong>Error:</strong> {{ errorMessage }}
+				<Transition name="slide-down">
+					<div v-if="errorMessage" class="agent-error">
+						<strong>Error:</strong> {{ errorMessage }}
+					</div>
+				</Transition>
+
+				<!-- Compact Status Bar -->
+				<div class="agent-status-bar">
+					<div class="status-info">
+						<span class="status-badge" :class="statusClass">{{ statusText }}</span>
+						<details class="status-details-collapsible">
+							<summary class="status-summary">
+								<span class="status-summary-text">
+									{{ currentIteration }}/{{ maxIterations }} iter
+									· {{ totalIssuesFound }} found
+									· {{ totalIssuesFixed }} fixed
+									<span v-if="status === 'running'" class="status-indicator status-active">●</span>
+									<span v-else-if="status === 'paused'" class="status-indicator status-warning">●</span>
+									<span v-else-if="status === 'completed'" class="status-indicator status-success">●</span>
+								</span>
+								<svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+								</svg>
+							</summary>
+							<div class="status-details-expanded">
+								<div class="status-detail-item">
+									<span class="status-detail-label">Iteration:</span>
+									<span>{{ currentIteration }} / {{ maxIterations }}</span>
+								</div>
+								<div class="status-detail-item">
+									<span class="status-detail-label">Issues Found:</span>
+									<span>{{ totalIssuesFound }}</span>
+								</div>
+								<div class="status-detail-item">
+									<span class="status-detail-label">Issues Fixed:</span>
+									<span>{{ totalIssuesFixed }}</span>
+								</div>
+								<div v-if="status === 'pending' && currentIteration === 0" class="status-detail-item status-warning">
+									Waiting to start...
+								</div>
+								<div v-if="status === 'pending' && currentIteration > 0" class="status-detail-item status-warning">
+									Paused or stuck - try Retry Start
+								</div>
+								<div v-if="status === 'paused'" class="status-detail-item status-warning">
+									Paused - click Resume to continue
+								</div>
+								<div v-if="status === 'completed'" class="status-detail-item status-success">
+									All issues resolved!
+								</div>
+							</div>
+						</details>
+					</div>
+					<div class="status-actions">
+						<button
+							v-if="status === 'pending' && currentIteration === 0"
+							@click="retryStart"
+							class="terminal-btn terminal-btn-primary terminal-btn-xs"
+							:disabled="retrying"
+							title="Retry starting the agent"
+						>
+							<span v-if="retrying" class="spinner-small"></span>
+							{{ retrying ? 'Retrying...' : 'Retry' }}
+						</button>
+						<button
+							v-if="status === 'running'"
+							@click="pauseAgent"
+							class="terminal-btn terminal-btn-secondary terminal-btn-xs"
+							:disabled="pausing"
+						>
+							Pause
+						</button>
+						<button
+							v-if="status === 'paused'"
+							@click="resumeAgent"
+							class="terminal-btn terminal-btn-primary terminal-btn-xs"
+							:disabled="resuming"
+						>
+							Resume
+						</button>
+						<button
+							v-if="canStop"
+							@click="stopAgent"
+							class="terminal-btn terminal-btn-danger terminal-btn-xs"
+							:disabled="stopping"
+						>
+							Stop
+						</button>
+						<button
+							v-if="status === 'completed' || status === 'stopped' || status === 'failed'"
+							@click="sessionId = null; status = 'pending'; errorMessage = null; logs = []; pendingChanges = []; stopPolling();"
+							class="terminal-btn terminal-btn-secondary terminal-btn-xs"
+							title="Start a new session"
+						>
+							New
+						</button>
+					</div>
 				</div>
 
-			<!-- Status Bar -->
-			<div class="agent-status-bar">
-				<div class="status-info">
-					<span class="status-badge" :class="statusClass">{{ statusText }}</span>
-					<span class="status-details">
-						Iteration: {{ currentIteration }} / {{ maxIterations }}
-						| Issues Found: {{ totalIssuesFound }}
-						| Issues Fixed: {{ totalIssuesFixed }}
-						<span v-if="status === 'pending' && currentIteration === 0" class="status-warning">(Waiting to start...)</span>
-						<span v-if="status === 'pending' && currentIteration > 0" class="status-warning">(Paused or stuck - try Retry Start)</span>
-						<span v-if="status === 'running'" class="status-active">(Running...)</span>
-						<span v-if="status === 'paused'" class="status-warning">(Paused - click Resume to continue)</span>
-						<span v-if="status === 'completed'" class="status-success">(All issues resolved!)</span>
-					</span>
-				</div>
-				<div class="status-actions">
-					<button
-						v-if="status === 'pending' && currentIteration === 0"
-						@click="retryStart"
-						class="terminal-btn terminal-btn-primary terminal-btn-sm"
-						:disabled="retrying"
-						title="Retry starting the agent"
-					>
-						<span v-if="retrying" class="spinner-small"></span>
-						{{ retrying ? 'Retrying...' : 'Retry Start' }}
-					</button>
-					<button
-						v-if="status === 'running'"
-						@click="pauseAgent"
-						class="terminal-btn terminal-btn-secondary terminal-btn-sm"
-						:disabled="pausing"
-					>
-						Pause
-					</button>
-					<button
-						v-if="status === 'paused'"
-						@click="resumeAgent"
-						class="terminal-btn terminal-btn-primary terminal-btn-sm"
-						:disabled="resuming"
-					>
-						Resume
-					</button>
-					<button
-						v-if="canStop"
-						@click="stopAgent"
-						class="terminal-btn terminal-btn-danger terminal-btn-sm"
-						:disabled="stopping"
-					>
-						Stop
-					</button>
-					<button
-						v-if="status === 'completed' || status === 'stopped' || status === 'failed'"
-						@click="sessionId = null; status = 'pending'; errorMessage = null; logs = []; pendingChanges = []; stopPolling();"
-						class="terminal-btn terminal-btn-secondary terminal-btn-sm"
-						title="Start a new session"
-					>
-						Start New
-					</button>
-				</div>
+				<!-- Compact Progress Bar -->
+				<Transition name="slide-down">
+					<div v-if="status === 'running' || status === 'completed'" class="agent-progress">
+						<div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
+					</div>
+				</Transition>
+
+				<!-- Logs Viewer -->
+				<AgentLogViewer
+					:session-id="sessionId"
+					:logs="logs"
+					@load-more="() => { loadingMore = true; loadMoreLogs(); }"
+				/>
+
+				<!-- Pending Changes (Review Mode) -->
+				<Transition name="slide-up">
+					<div v-if="!autoApply && pendingChanges.length > 0" class="pending-changes-section">
+						<details class="pending-changes-header" open>
+							<summary class="pending-changes-summary">
+								<span>Pending Changes ({{ pendingChanges.length }})</span>
+								<svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+								</svg>
+							</summary>
+							<div class="pending-changes-list">
+								<FileChangePreview
+									v-for="change in pendingChanges"
+									:key="change.id"
+									:change="change"
+									@approve="approveChange"
+									@reject="rejectChange"
+								/>
+							</div>
+						</details>
+					</div>
+				</Transition>
 			</div>
-
-			<!-- Progress Bar -->
-			<div v-if="status === 'running' || status === 'completed'" class="agent-progress">
-				<div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
-			</div>
-
-			<!-- Logs Viewer -->
-			<AgentLogViewer
-				:session-id="sessionId"
-				:logs="logs"
-				@load-more="loadMoreLogs"
-			/>
-
-			<!-- Pending Changes (Review Mode) -->
-			<div v-if="!autoApply && pendingChanges.length > 0" class="pending-changes-section">
-				<h4>Pending Changes ({{ pendingChanges.length }})</h4>
-				<div class="pending-changes-list">
-					<FileChangePreview
-						v-for="change in pendingChanges"
-						:key="change.id"
-						:change="change"
-						@approve="approveChange"
-						@reject="rejectChange"
-					/>
-				</div>
-			</div>
-		</div>
+		</Transition>
 	</div>
 </template>
 
@@ -205,6 +251,7 @@ const retrying = ref(false);
 const statusPollInterval = ref(null);
 const logsPollInterval = ref(null);
 const isStartingNewSession = ref(false);
+const loadingMore = ref(false);
 
 const config = ref({
 	larastan_level: 1,
@@ -489,6 +536,19 @@ async function loadStatus(force = false) {
 	}
 }
 
+// Helper function to sort logs by created_at then id (oldest first, stable)
+function sortLogs(logsArray) {
+	return [...logsArray].sort((a, b) => {
+		const dateA = new Date(a.created_at || 0);
+		const dateB = new Date(b.created_at || 0);
+		if (dateA.getTime() === dateB.getTime()) {
+			// If timestamps are equal, use ID as tiebreaker for stability
+			return (a.id || 0) - (b.id || 0);
+		}
+		return dateA - dateB;
+	});
+}
+
 async function loadLogs() {
 	if (!sessionId.value) return;
 
@@ -499,7 +559,22 @@ async function loadLogs() {
 		}));
 
 		if (response.data.success) {
-			logs.value = response.data.result.logs.reverse(); // Reverse to show oldest first
+			const newLogs = response.data.result.logs || [];
+			
+			// Backend now returns logs in ASC order (oldest first)
+			// If we have no logs yet, just set them
+			if (logs.value.length === 0) {
+				logs.value = newLogs;
+			} else {
+				// Merge: add only new logs that don't exist yet (newer logs at the end)
+				const existingIds = new Set(logs.value.map(log => log.id));
+				const newLogsToAdd = newLogs.filter(log => !existingIds.has(log.id));
+				
+				if (newLogsToAdd.length > 0) {
+					// Append new logs and re-sort to maintain order
+					logs.value = sortLogs([...logs.value, ...newLogsToAdd]);
+				}
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load logs:', error);
@@ -507,19 +582,33 @@ async function loadLogs() {
 }
 
 async function loadMoreLogs() {
-	if (!sessionId.value) return;
+	if (!sessionId.value || loadingMore.value) return;
+
+	loadingMore.value = true;
 
 	try {
+		// Load older logs (before the current oldest log)
 		const response = await axios.get(api.agent.logs(sessionId.value, {
 			limit: 50,
 			offset: logs.value.length,
 		}));
 
 		if (response.data.success && response.data.result.logs.length > 0) {
-			logs.value = [...logs.value, ...response.data.result.logs.reverse()];
+			const olderLogs = response.data.result.logs || [];
+			
+			// Filter out logs we already have
+			const existingIds = new Set(logs.value.map(log => log.id));
+			const newOlderLogs = olderLogs.filter(log => !existingIds.has(log.id));
+			
+			if (newOlderLogs.length > 0) {
+				// Prepend older logs to the beginning and re-sort
+				logs.value = sortLogs([...newOlderLogs, ...logs.value]);
+			}
 		}
 	} catch (error) {
 		console.error('Failed to load more logs:', error);
+	} finally {
+		loadingMore.value = false;
 	}
 }
 
@@ -716,13 +805,13 @@ onUnmounted(() => {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 12px 16px;
+	padding: 8px 10px;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
 }
 
 .terminal-agent-header h3 {
 	margin: 0;
-	font-size: var(--terminal-font-size-base, 14px);
+	font-size: var(--terminal-font-size-sm, 12px);
 	font-weight: 600;
 }
 
@@ -730,7 +819,7 @@ onUnmounted(() => {
 .terminal-agent-session {
 	flex: 1;
 	overflow-y: auto;
-	padding: 16px;
+	padding: 10px;
 }
 
 .config-section {
@@ -771,22 +860,25 @@ onUnmounted(() => {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 12px 16px;
+	padding: 6px 10px;
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
 }
 
 .status-info {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
+	flex: 1;
+	min-width: 0;
 }
 
 .status-badge {
-	padding: 4px 8px;
-	border-radius: 4px;
-	font-size: var(--terminal-font-size-xs, 11px);
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 10px;
 	font-weight: 600;
 	text-transform: uppercase;
+	white-space: nowrap;
 }
 
 .status-pending {
@@ -815,9 +907,78 @@ onUnmounted(() => {
 	color: white;
 }
 
-.status-details {
-	font-size: var(--terminal-font-size-sm, 12px);
+.status-details-collapsible {
+	flex: 1;
+	min-width: 0;
+}
+
+.status-details-collapsible summary {
+	list-style: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	user-select: none;
+}
+
+.status-details-collapsible summary::-webkit-details-marker {
+	display: none;
+}
+
+.status-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+.status-summary-text {
+	font-size: 11px;
 	color: var(--terminal-text-secondary, #858585);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.status-indicator {
+	display: inline-block;
+	font-size: 8px;
+	vertical-align: middle;
+	margin-left: 4px;
+}
+
+.chevron-icon {
+	width: 12px;
+	height: 12px;
+	color: var(--terminal-text-secondary, #858585);
+	transition: transform 0.2s ease;
+	flex-shrink: 0;
+}
+
+.status-details-collapsible[open] .chevron-icon {
+	transform: rotate(180deg);
+}
+
+.status-details-expanded {
+	padding: 6px 0 0 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 4px;
+}
+
+.status-detail-item {
+	font-size: 11px;
+	color: var(--terminal-text-secondary, #858585);
+	display: flex;
+	gap: 8px;
+}
+
+.status-detail-label {
+	font-weight: 500;
+	min-width: 80px;
 }
 
 .status-warning {
@@ -843,36 +1004,64 @@ onUnmounted(() => {
 
 .status-actions {
 	display: flex;
-	gap: 8px;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.terminal-btn-xs {
+	padding: 3px 8px;
+	font-size: 10px;
+	line-height: 1.4;
 }
 
 .agent-progress {
-	height: 4px;
+	height: 2px;
 	background: var(--terminal-bg-tertiary, #3e3e42);
 	overflow: hidden;
 }
 
 .progress-bar {
 	height: 100%;
-	background: var(--terminal-primary, #0e639c);
+	background: linear-gradient(90deg, var(--terminal-primary, #0e639c), #1a8cd8);
 	transition: width 0.3s ease;
+	box-shadow: 0 0 4px rgba(14, 99, 156, 0.5);
 }
 
 .pending-changes-section {
-	padding: 16px;
+	padding: 8px 10px;
 	border-top: 1px solid var(--terminal-border, #3e3e42);
 }
 
-.pending-changes-section h4 {
-	margin: 0 0 12px 0;
-	font-size: var(--terminal-font-size-base, 14px);
+.pending-changes-header {
+	width: 100%;
+}
+
+.pending-changes-summary {
+	list-style: none;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 0;
+	font-size: 11px;
 	font-weight: 600;
+	color: var(--terminal-text, #d4d4d4);
+	user-select: none;
+}
+
+.pending-changes-summary::-webkit-details-marker {
+	display: none;
+}
+
+.pending-changes-header[open] .chevron-icon {
+	transform: rotate(180deg);
 }
 
 .pending-changes-list {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 6px;
+	margin-top: 6px;
 }
 
 .previous-session-info {
@@ -897,13 +1086,55 @@ onUnmounted(() => {
 }
 
 .agent-error {
-	padding: 12px 16px;
+	padding: 6px 10px;
 	background: rgba(239, 68, 68, 0.1);
-	border-left: 3px solid #ef4444;
-	border-radius: 4px;
-	margin: 16px;
+	border-left: 2px solid #ef4444;
+	border-radius: 3px;
+	margin: 6px 10px;
 	color: var(--terminal-text, #d4d4d4);
-	font-size: var(--terminal-font-size-sm, 12px);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+	transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+	opacity: 0;
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+	transition: all 0.2s ease;
+}
+
+.slide-down-enter-from {
+	opacity: 0;
+	transform: translateY(-4px);
+}
+
+.slide-down-leave-to {
+	opacity: 0;
+	transform: translateY(-4px);
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+	transition: all 0.2s ease;
+}
+
+.slide-up-enter-from {
+	opacity: 0;
+	transform: translateY(4px);
+}
+
+.slide-up-leave-to {
+	opacity: 0;
+	transform: translateY(4px);
 }
 
 .agent-error strong {
