@@ -460,6 +460,101 @@ class PhpstanService
 	}
 
 	/**
+	 * Validate PHP code content using Larastan
+	 *
+	 * @param string $content PHP code content
+	 * @param int|null $level Larastan level (defaults to 1)
+	 * @return array ['valid' => bool, 'errors' => array, 'error' => string|null]
+	 */
+	public function validateContent(string $content, ?int $level = null): array
+	{
+		try {
+			// Create temporary file with .php extension
+			$tempDir = sys_get_temp_dir();
+			$tempBase = tempnam($tempDir, 'phpstan_validate_');
+			
+			if ($tempBase === false) {
+				return [
+					'valid' => false,
+					'errors' => [],
+					'error' => 'Failed to create temporary file for validation',
+				];
+			}
+
+			// Rename to add .php extension
+			$tempFile = $tempBase . '.php';
+			rename($tempBase, $tempFile);
+
+			// Write content to temp file
+			file_put_contents($tempFile, $content);
+
+			// Get temp file name for filtering
+			$tempFileName = basename($tempFile);
+			$tempFilePath = $tempFile;
+
+			// Run Larastan on the temp file directly
+			$config = [
+				'level' => $level ?? 1,
+				'paths' => [$tempFilePath], // Scan the specific temp file
+				'config_file' => null, // Don't use config file for temp validation
+			];
+
+			$results = $this->analyze($config);
+
+			// Clean up temp file
+			@unlink($tempFile);
+
+			// Filter results to only include errors for our temp file
+			$errors = [];
+			if (isset($results['errors']) && is_array($results['errors'])) {
+				foreach ($results['errors'] as $error) {
+					// Check if error is for our temp file
+					if (isset($error['file'])) {
+						$errorFile = $error['file'];
+						// Match by filename or full path
+						if (str_contains($errorFile, $tempFileName) || str_contains($errorFile, $tempFilePath)) {
+							$errors[] = $error;
+						}
+					} else {
+						// Internal errors without file - these might be dependency issues
+						// We'll include them but they're less critical
+						if (isset($error['message']) && (
+							str_contains($error['message'], 'Class') ||
+							str_contains($error['message'], 'not found') ||
+							str_contains($error['message'], 'Could not')
+						)) {
+							// These are likely dependency issues, not syntax errors
+							// We'll log but not fail validation for them
+							Log::debug('PhpstanService: Internal error during validation (likely dependency)', [
+								'error' => $error,
+							]);
+						}
+					}
+				}
+			}
+
+			// Valid if no errors found (only count file-specific errors, not dependency issues)
+			$valid = empty($errors);
+
+			return [
+				'valid' => $valid,
+				'errors' => $errors,
+				'error' => $valid ? null : 'Larastan found ' . count($errors) . ' error(s)',
+			];
+		} catch (\Exception $e) {
+			Log::error('PhpstanService: Failed to validate content', [
+				'error' => $e->getMessage(),
+			]);
+
+			return [
+				'valid' => false,
+				'errors' => [],
+				'error' => 'Validation failed: ' . $e->getMessage(),
+			];
+		}
+	}
+
+	/**
 	 * Parse JSON output from PHPStan
 	 */
 	protected function parseJsonOutput(array $jsonData): array

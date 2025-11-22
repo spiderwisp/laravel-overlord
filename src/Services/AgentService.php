@@ -303,53 +303,132 @@ class AgentService
 	 * @param string $fileContent
 	 * @param array $issue
 	 * @param string $contextCode
-	 * @return array ['success' => bool, 'new_content' => string|null, 'error' => string|null]
+	 * @return array ['success' => bool, 'new_content' => string|null, 'error' => string|null, 'retries' => int]
 	 */
 	public function generateFixes(AgentSession $session, string $filePath, string $fileContent, array $issue, string $contextCode): array
 	{
 		try {
-			$line = $issue['line'] ?? null;
-			$message = $issue['message'] ?? '';
-			$rule = $issue['rule'] ?? null;
+			$maxRetries = 3;
+			$retryCount = 0;
+			$lastPrompt = $this->buildFixPrompt($filePath, $fileContent, $issue, $contextCode);
+			$lastAttempt = null;
+			$lastValidationErrors = [];
 
-			// Build AI prompt
-			$prompt = $this->buildFixPrompt($filePath, $fileContent, $issue, $contextCode);
+			while ($retryCount < $maxRetries) {
+				$retryCount++;
+				
+				// Build prompt (use retry prompt if this is a retry)
+				$prompt = ($retryCount === 1) 
+					? $lastPrompt 
+					: $this->buildRetryPrompt($lastPrompt, $lastAttempt ?? '', $lastValidationErrors, $retryCount);
 
-			// Call AI service
-			$aiResult = $this->aiService->chat(
-				$prompt,
-				[],
-				null,
-				['session_id' => $session->id, 'file_path' => $filePath],
-				'agent_fix',
-				['issue' => $issue, 'file_path' => $filePath]
-			);
+				// Call AI service
+				$aiResult = $this->aiService->chat(
+					$prompt,
+					[],
+					null,
+					['session_id' => $session->id, 'file_path' => $filePath],
+					'agent_fix',
+					['issue' => $issue, 'file_path' => $filePath, 'attempt' => $retryCount]
+				);
 
-			if (!$aiResult['success']) {
-				return [
-					'success' => false,
-					'new_content' => null,
-					'error' => $aiResult['error'] ?? 'AI service failed',
+				if (!$aiResult['success']) {
+					$this->addLog($session, 'warning', "AI service failed on attempt {$retryCount}: " . ($aiResult['error'] ?? 'Unknown error'));
+					if ($retryCount >= $maxRetries) {
+						return [
+							'success' => false,
+							'new_content' => null,
+							'error' => $aiResult['error'] ?? 'AI service failed after ' . $maxRetries . ' attempts',
+							'retries' => $retryCount,
+						];
+					}
+					continue; // Retry
+				}
+
+				$aiResponse = $aiResult['message'] ?? '';
+				$lastAttempt = $aiResponse;
+
+				// Extract code from AI response
+				$extractedCode = $this->extractFixedCode($aiResponse, $fileContent);
+
+				if (!$extractedCode) {
+					$this->addLog($session, 'warning', "Could not extract code from AI response on attempt {$retryCount}");
+					if ($retryCount >= $maxRetries) {
+						return [
+							'success' => false,
+							'new_content' => null,
+							'error' => 'Could not extract fixed code from AI response after ' . $maxRetries . ' attempts',
+							'retries' => $retryCount,
+						];
+					}
+					continue; // Retry
+				}
+
+				// Clean extracted code
+				$cleanedCode = $this->cleanExtractedCode($extractedCode);
+
+				// Check for placeholder text and attempt repair
+				$hasPlaceholder = false;
+				$placeholderPatterns = [
+					'/\.\.\.\s*(?:the\s+)?rest\s+of\s+(?:the\s+)?code/i',
+					'/\.\.\.\s*(?:rest|remaining|remaining\s+code)/i',
+					'/\/\/\s*\.\.\./',
+					'/\/\*\s*\.\.\.\s*\*\//',
 				];
+				
+				foreach ($placeholderPatterns as $pattern) {
+					if (preg_match($pattern, $cleanedCode)) {
+						$hasPlaceholder = true;
+						break;
+					}
+				}
+
+				if ($hasPlaceholder) {
+					$this->addLog($session, 'info', "Placeholder text detected on attempt {$retryCount}, attempting repair");
+					$cleanedCode = $this->repairCodeWithOriginal($cleanedCode, $fileContent);
+				}
+
+				// Validate code
+				$validationResult = $this->validateCode($filePath, $fileContent, $cleanedCode);
+
+				if ($validationResult['valid']) {
+					// Validation passed!
+					if ($retryCount > 1) {
+						$this->addLog($session, 'success', "Code validation passed on attempt {$retryCount}");
+					}
+					return [
+						'success' => true,
+						'new_content' => $cleanedCode,
+						'error' => null,
+						'retries' => $retryCount,
+					];
+				}
+
+				// Validation failed - log and retry
+				$lastValidationErrors = $validationResult['errors'] ?? [];
+				$errorSummary = implode('; ', array_slice($lastValidationErrors, 0, 3));
+				$this->addLog($session, 'warning', "Code validation failed on attempt {$retryCount} ({$validationResult['stage']}): {$errorSummary}", [
+					'errors' => $lastValidationErrors,
+					'stage' => $validationResult['stage'],
+				]);
+
+				if ($retryCount >= $maxRetries) {
+					// All retries exhausted
+					return [
+						'success' => false,
+						'new_content' => null,
+						'error' => 'Code validation failed after ' . $maxRetries . ' attempts. Errors: ' . implode('; ', $lastValidationErrors),
+						'retries' => $retryCount,
+					];
+				}
 			}
 
-			$aiResponse = $aiResult['message'] ?? '';
-
-			// Extract code from AI response
-			$newContent = $this->extractFixedCode($aiResponse, $fileContent);
-
-			if (!$newContent) {
-				return [
-					'success' => false,
-					'new_content' => null,
-					'error' => 'Could not extract fixed code from AI response',
-				];
-			}
-
+			// Should not reach here, but just in case
 			return [
-				'success' => true,
-				'new_content' => $newContent,
-				'error' => null,
+				'success' => false,
+				'new_content' => null,
+				'error' => 'Failed to generate valid fix after ' . $maxRetries . ' attempts',
+				'retries' => $retryCount,
 			];
 		} catch (\Exception $e) {
 			Log::error('AgentService: Failed to generate fixes', [
@@ -362,6 +441,7 @@ class AgentService
 				'success' => false,
 				'new_content' => null,
 				'error' => $e->getMessage(),
+				'retries' => 0,
 			];
 		}
 	}
@@ -379,12 +459,30 @@ class AgentService
 	public function applyFixes(AgentSession $session, string $filePath, string $originalContent, string $newContent, array $issue): array
 	{
 		try {
+			// Final validation before applying
+			$validationResult = $this->validateCode($filePath, $originalContent, $newContent);
+			if (!$validationResult['valid']) {
+				$errorMsg = 'Final validation failed: ' . implode('; ', $validationResult['errors']);
+				$this->addLog($session, 'error', "Final validation failed for {$filePath}: {$errorMsg}", [
+					'errors' => $validationResult['errors'],
+					'stage' => $validationResult['stage'],
+				]);
+				return ['success' => false, 'error' => $errorMsg];
+			}
+
 			if ($session->auto_apply) {
 				// Auto-apply mode - apply immediately
 				$writeResult = $this->fileEditService->writeFile($filePath, $newContent, true);
 				if (!$writeResult['success']) {
-					$this->addLog($session, 'error', "Failed to apply fix to {$filePath}: " . $writeResult['error']);
-					return ['success' => false, 'error' => $writeResult['error']];
+					$errorMsg = 'Failed to apply fix: ' . $writeResult['error'];
+					if (isset($writeResult['line']) && $writeResult['line'] !== null) {
+						$errorMsg .= ' on line ' . $writeResult['line'];
+					}
+					if (isset($writeResult['context']) && $writeResult['context']) {
+						$errorMsg .= "\nContext:\n" . $writeResult['context'];
+					}
+					$this->addLog($session, 'error', "Failed to apply fix to {$filePath}: {$errorMsg}");
+					return ['success' => false, 'error' => $errorMsg];
 				}
 
 				$this->addLog($session, 'fix_applied', "Applied fix to {$filePath}", [
@@ -408,7 +506,7 @@ class AgentService
 
 				return ['success' => true, 'error' => null];
 			} else {
-				// Review mode - create pending change
+				// Review mode - create pending change (still validate before storing)
 				$fileChange = AgentFileChange::create([
 					'agent_session_id' => $session->id,
 					'file_path' => $filePath,
@@ -437,6 +535,132 @@ class AgentService
 
 			return ['success' => false, 'error' => $e->getMessage()];
 		}
+	}
+
+	/**
+	 * Validate code using multiple stages
+	 *
+	 * @param string $filePath
+	 * @param string $originalContent
+	 * @param string $newContent
+	 * @return array ['valid' => bool, 'errors' => array, 'stage' => string|null]
+	 */
+	protected function validateCode(string $filePath, string $originalContent, string $newContent): array
+	{
+		$errors = [];
+		
+		// Stage 1: Structure validation
+		$structureErrors = $this->validateStructure($newContent);
+		if (!empty($structureErrors)) {
+			$errors = array_merge($errors, $structureErrors);
+			return [
+				'valid' => false,
+				'errors' => $errors,
+				'stage' => 'structure',
+			];
+		}
+		
+		// Stage 2: PHP syntax validation
+		$syntaxCheck = $this->fileEditService->validatePhpSyntaxFromContent($newContent);
+		if (!$syntaxCheck['valid']) {
+			$errorMsg = 'PHP syntax error: ' . ($syntaxCheck['error'] ?? 'Unknown error');
+			if (isset($syntaxCheck['line']) && $syntaxCheck['line'] !== null) {
+				$errorMsg .= ' on line ' . $syntaxCheck['line'];
+			}
+			if (isset($syntaxCheck['context']) && $syntaxCheck['context']) {
+				$errorMsg .= "\nContext:\n" . $syntaxCheck['context'];
+			}
+			$errors[] = $errorMsg;
+			return [
+				'valid' => false,
+				'errors' => $errors,
+				'stage' => 'syntax',
+			];
+		}
+		
+		// Stage 3: Larastan validation (only check for errors, not warnings)
+		try {
+			$larastanResult = $this->phpstanService->validateContent($newContent, 1);
+			if (!$larastanResult['valid']) {
+				$larastanErrors = $larastanResult['errors'] ?? [];
+				foreach ($larastanErrors as $error) {
+					$errorMsg = 'Larastan error';
+					if (isset($error['message'])) {
+						$errorMsg .= ': ' . $error['message'];
+					}
+					if (isset($error['line'])) {
+						$errorMsg .= ' on line ' . $error['line'];
+					}
+					$errors[] = $errorMsg;
+				}
+				return [
+					'valid' => false,
+					'errors' => $errors,
+					'stage' => 'larastan',
+				];
+			}
+		} catch (\Exception $e) {
+			// Larastan validation failed, but don't block on it
+			Log::warning('AgentService: Larastan validation failed', [
+				'error' => $e->getMessage(),
+			]);
+		}
+		
+		return [
+			'valid' => true,
+			'errors' => [],
+			'stage' => null,
+		];
+	}
+
+	/**
+	 * Validate code structure (PHP tag, no placeholders, matching braces)
+	 *
+	 * @param string $code
+	 * @return array Array of error messages
+	 */
+	protected function validateStructure(string $code): array
+	{
+		$errors = [];
+		
+		// Check for <?php tag (for PHP files)
+		if (!str_starts_with(trim($code), '<?php') && !str_starts_with(trim($code), '<?=')) {
+			// Check if it looks like PHP code
+			if (preg_match('/\b(namespace|class|function|use|return|public|private|protected)\b/', $code)) {
+				$errors[] = 'Missing <?php tag at the beginning of the file';
+			}
+		}
+		
+		// Check for placeholder text
+		$placeholderPatterns = [
+			'/\.\.\.\s*(?:the\s+)?rest\s+of\s+(?:the\s+)?code/i',
+			'/\.\.\.\s*(?:rest|remaining|remaining\s+code)/i',
+			'/\/\/\s*\.\.\./',
+			'/\/\*\s*\.\.\.\s*\*\//',
+		];
+		
+		foreach ($placeholderPatterns as $pattern) {
+			if (preg_match($pattern, $code)) {
+				$errors[] = 'Placeholder text detected in code (e.g., "... rest of code")';
+				break;
+			}
+		}
+		
+		// Check for matching braces (basic check)
+		$openBraces = substr_count($code, '{');
+		$closeBraces = substr_count($code, '}');
+		if ($openBraces !== $closeBraces) {
+			$errors[] = "Unmatched braces: {$openBraces} opening, {$closeBraces} closing";
+		}
+		
+		// Check for matching parentheses
+		$openParens = substr_count($code, '(');
+		$closeParens = substr_count($code, ')');
+		if ($openParens !== $closeParens) {
+			$errors[] = "Unmatched parentheses: {$openParens} opening, {$closeParens} closing";
+		}
+		
+		return $errors;
 	}
 
 	/**
@@ -472,10 +696,53 @@ class AgentService
 
 		$prompt .= "Full file content:\n```php\n{$fileContent}\n```\n\n";
 
-		$prompt .= "Please provide the COMPLETE fixed file content in a code block. ";
-		$prompt .= "Only fix the specific issue mentioned. Do not make other changes. ";
-		$prompt .= "Ensure the code is valid PHP and follows Laravel best practices.";
+		$prompt .= "CRITICAL REQUIREMENTS:\n";
+		$prompt .= "- Return ONLY complete, valid PHP code in a ```php code block\n";
+		$prompt .= "- Do NOT include placeholder text, comments like '... rest of code', or explanations\n";
+		$prompt .= "- The code block MUST start with `<?php` and contain the COMPLETE file\n";
+		$prompt .= "- Ensure all braces are matched and the code is syntactically valid\n";
+		$prompt .= "- Only fix the specific issue mentioned. Do not make other changes.\n";
+		$prompt .= "- Ensure the code follows Laravel best practices.";
 
+		return $prompt;
+	}
+
+	/**
+	 * Build retry prompt with validation errors
+	 *
+	 * @param string $originalPrompt
+	 * @param string $previousAttempt
+	 * @param array $validationErrors
+	 * @param int $attemptNumber
+	 * @return string
+	 */
+	protected function buildRetryPrompt(string $originalPrompt, string $previousAttempt, array $validationErrors, int $attemptNumber): string
+	{
+		$prompt = $originalPrompt;
+		
+		$prompt .= "\n\n--- PREVIOUS ATTEMPT FAILED VALIDATION ---\n";
+		$prompt .= "Attempt #{$attemptNumber} had the following validation errors:\n";
+		foreach ($validationErrors as $error) {
+			$prompt .= "- {$error}\n";
+		}
+		
+		if ($attemptNumber === 2) {
+			$prompt .= "\nIMPORTANT: The previous attempt had validation errors. Please ensure:\n";
+			$prompt .= "- The code is complete (no placeholders, no '... rest of code')\n";
+			$prompt .= "- The code starts with <?php\n";
+			$prompt .= "- All braces and parentheses are properly matched\n";
+			$prompt .= "- The code is syntactically valid PHP\n";
+		} elseif ($attemptNumber >= 3) {
+			$prompt .= "\nCRITICAL: This is the final attempt. The code MUST be:\n";
+			$prompt .= "- Complete and valid PHP code\n";
+			$prompt .= "- No placeholders, no explanations, no comments like '... rest of code'\n";
+			$prompt .= "- Must start with <?php\n";
+			$prompt .= "- All syntax must be correct\n";
+			$prompt .= "- Return ONLY the code block with the complete file\n";
+		}
+		
+		$prompt .= "\nPlease provide the corrected code:";
+		
 		return $prompt;
 	}
 
@@ -488,9 +755,21 @@ class AgentService
 	 */
 	protected function extractFixedCode(string $aiResponse, string $originalContent): ?string
 	{
-		// Try to extract code from markdown code blocks
-		if (preg_match('/```(?:php)?\s*\n(.*?)\n```/s', $aiResponse, $matches)) {
-			return trim($matches[1]);
+		// Try multiple patterns to extract code from markdown code blocks
+		$patterns = [
+			'/```php\s*\n(.*?)\n```/s',  // ```php ... ```
+			'/```\s*php\s*\n(.*?)\n```/s',  // ``` php ... ```
+			'/```\s*\n(.*?)\n```/s',  // ``` ... ``` (no language)
+			'/```(?:php)?\s*\n(.*?)\n```/s',  // Generic
+		];
+
+		foreach ($patterns as $pattern) {
+			if (preg_match($pattern, $aiResponse, $matches)) {
+				$extracted = trim($matches[1]);
+				if (!empty($extracted)) {
+					return $extracted;
+				}
+			}
 		}
 
 		// If no code block found, try to use the response as-is (might be just code)
@@ -499,8 +778,158 @@ class AgentService
 			return $trimmed;
 		}
 
-		// Fallback: return original content (no fix applied)
+		// Fallback: return null (no fix applied)
 		return null;
+	}
+
+	/**
+	 * Clean extracted code - remove placeholder text, ensure proper structure
+	 *
+	 * @param string $code
+	 * @return string
+	 */
+	protected function cleanExtractedCode(string $code): string
+	{
+		$code = trim($code);
+		
+		// Remove markdown code block markers if still present
+		$code = preg_replace('/^```(?:php)?\s*\n?/m', '', $code);
+		$code = preg_replace('/\n?```\s*$/m', '', $code);
+		
+		// Remove explanatory text before <?php tag
+		if (str_contains($code, '<?php')) {
+			$phpStart = strpos($code, '<?php');
+			if ($phpStart > 0) {
+				$beforePhp = substr($code, 0, $phpStart);
+				$beforePhpTrimmed = trim($beforePhp);
+				// If before <?php is not a comment, remove it
+				if (!empty($beforePhpTrimmed) && !preg_match('/^(\/\/|\/\*|\*|\#)/m', $beforePhpTrimmed)) {
+					$code = substr($code, $phpStart);
+				}
+			}
+		}
+		
+		// Remove placeholder text patterns
+		$placeholderPatterns = [
+			'/\.\.\.\s*(?:the\s+)?rest\s+of\s+(?:the\s+)?code/i',
+			'/\.\.\.\s*(?:rest|remaining|remaining\s+code)/i',
+			'/\/\/\s*\.\.\./',
+			'/\/\*\s*\.\.\.\s*\*\//',
+			'/\/\/\s*TODO:?\s*\.\.\./i',
+			'/\/\/\s*FIXME:?\s*\.\.\./i',
+			'/\/\/\s*placeholder/i',
+		];
+		
+		foreach ($placeholderPatterns as $pattern) {
+			$code = preg_replace($pattern, '', $code);
+		}
+		
+		// Remove trailing explanatory text after last closing brace
+		$lastBrace = strrpos($code, '}');
+		if ($lastBrace !== false && $lastBrace < strlen($code) - 10) {
+			$afterCode = substr($code, $lastBrace + 1);
+			$afterCodeTrimmed = trim($afterCode);
+			// If there's substantial text after last brace that's not a comment, remove it
+			if (!empty($afterCodeTrimmed) &&
+				!str_contains($afterCodeTrimmed, '}') &&
+				!str_contains($afterCodeTrimmed, ';') &&
+				!preg_match('/^(\/\/|\/\*|\*|\#)/m', $afterCodeTrimmed)) {
+				$code = substr($code, 0, $lastBrace + 1);
+			}
+		}
+		
+		// Normalize line endings
+		$code = str_replace(["\r\n", "\r"], "\n", $code);
+		
+		// Ensure <?php tag is present for PHP files
+		if (!str_starts_with(trim($code), '<?php') && !str_starts_with(trim($code), '<?=')) {
+			// Check if it looks like PHP code
+			if (preg_match('/\b(namespace|class|function|use|return|public|private|protected)\b/', $code)) {
+				$code = "<?php\n\n" . $code;
+			}
+		}
+		
+		return trim($code);
+	}
+
+	/**
+	 * Repair code by merging with original when placeholder text is detected
+	 *
+	 * @param string $newCode
+	 * @param string $originalCode
+	 * @return string
+	 */
+	protected function repairCodeWithOriginal(string $newCode, string $originalCode): string
+	{
+		// Detect placeholder patterns
+		$hasPlaceholder = false;
+		$placeholderPatterns = [
+			'/\.\.\.\s*(?:the\s+)?rest\s+of\s+(?:the\s+)?code/i',
+			'/\.\.\.\s*(?:rest|remaining|remaining\s+code)/i',
+			'/\/\/\s*\.\.\./',
+			'/\/\*\s*\.\.\.\s*\*\//',
+		];
+		
+		foreach ($placeholderPatterns as $pattern) {
+			if (preg_match($pattern, $newCode)) {
+				$hasPlaceholder = true;
+				break;
+			}
+		}
+		
+		if (!$hasPlaceholder) {
+			return $newCode; // No placeholder, return as-is
+		}
+		
+		// Try to identify where placeholder appears
+		$newLines = explode("\n", $newCode);
+		$originalLines = explode("\n", $originalCode);
+		
+		$repaired = [];
+		$originalIndex = 0;
+		
+		foreach ($newLines as $line) {
+			$lineTrimmed = trim($line);
+			
+			// Check if this line contains placeholder
+			$isPlaceholder = false;
+			foreach ($placeholderPatterns as $pattern) {
+				if (preg_match($pattern, $line)) {
+					$isPlaceholder = true;
+					break;
+				}
+			}
+			
+			if ($isPlaceholder) {
+				// Replace placeholder with corresponding original code
+				// Try to find matching context in original
+				$contextBefore = implode("\n", array_slice($repaired, -3)); // Last 3 lines
+				
+				// Find similar context in original
+				$foundMatch = false;
+				for ($i = $originalIndex; $i < count($originalLines); $i++) {
+					$originalContext = implode("\n", array_slice($originalLines, max(0, $i - 3), 3));
+					if (similar_text($contextBefore, $originalContext) > 50) {
+						// Found similar context, use remaining original code
+						$remainingOriginal = array_slice($originalLines, $i);
+						$repaired = array_merge($repaired, $remainingOriginal);
+						$foundMatch = true;
+						break;
+					}
+				}
+				
+				if (!$foundMatch) {
+					// Couldn't find match, just skip placeholder line
+					continue;
+				}
+				
+				break; // We've merged the rest, stop processing new lines
+			} else {
+				$repaired[] = $line;
+			}
+		}
+		
+		return implode("\n", $repaired);
 	}
 
 	/**

@@ -138,6 +138,27 @@ class FileEditService
 				$backupPath = $backupResult['backup_path'];
 			}
 
+			// Validate syntax for PHP files BEFORE writing
+			if (pathinfo($fullPath, PATHINFO_EXTENSION) === 'php') {
+				$syntaxCheck = $this->validatePhpSyntaxFromContent($content);
+				if (!$syntaxCheck['valid']) {
+					$errorMsg = 'Invalid PHP syntax: ' . $syntaxCheck['error'];
+					if (isset($syntaxCheck['line']) && $syntaxCheck['line'] !== null) {
+						$errorMsg .= "\nError on line " . $syntaxCheck['line'];
+					}
+					if (isset($syntaxCheck['context']) && $syntaxCheck['context']) {
+						$errorMsg .= "\n\nContext:\n" . $syntaxCheck['context'];
+					}
+					return [
+						'success' => false,
+						'backup_path' => $backupPath,
+						'error' => $errorMsg,
+						'line' => $syntaxCheck['line'] ?? null,
+						'context' => $syntaxCheck['context'] ?? null,
+					];
+				}
+			}
+
 			// Ensure directory exists
 			$directory = dirname($fullPath);
 			if (!is_dir($directory)) {
@@ -164,23 +185,6 @@ class FileEditService
 					'backup_path' => $backupPath,
 					'error' => 'Failed to write file',
 				];
-			}
-
-			// Validate syntax for PHP files
-			if (pathinfo($fullPath, PATHINFO_EXTENSION) === 'php') {
-				$syntaxCheck = $this->validatePhpSyntax($fullPath);
-				if (!$syntaxCheck['valid']) {
-					// Restore backup if syntax is invalid
-					if ($backupPath && file_exists($backupPath)) {
-						$this->restoreBackup($backupPath, $fullPath);
-					}
-
-					return [
-						'success' => false,
-						'backup_path' => $backupPath,
-						'error' => 'Invalid PHP syntax: ' . $syntaxCheck['error'],
-					];
-				}
 			}
 
 			return [
@@ -391,10 +395,47 @@ class FileEditService
 	}
 
 	/**
+	 * Validate PHP syntax from content string
+	 *
+	 * @param string $content PHP code content
+	 * @return array ['valid' => bool, 'error' => string|null, 'line' => int|null, 'context' => string|null]
+	 */
+	public function validatePhpSyntaxFromContent(string $content): array
+	{
+		try {
+			$tempFile = tempnam(sys_get_temp_dir(), 'php_syntax_check_');
+			if ($tempFile === false) {
+				return [
+					'valid' => false,
+					'error' => 'Failed to create temporary file for syntax check',
+					'line' => null,
+					'context' => null,
+				];
+			}
+			
+			file_put_contents($tempFile, $content);
+			$result = $this->validatePhpSyntax($tempFile);
+			unlink($tempFile);
+			
+			return $result;
+		} catch (\Exception $e) {
+			Log::error('FileEditService: PHP syntax check from content failed', [
+				'error' => $e->getMessage(),
+			]);
+			return [
+				'valid' => false,
+				'error' => 'Internal error during syntax check: ' . $e->getMessage(),
+				'line' => null,
+				'context' => null,
+			];
+		}
+	}
+
+	/**
 	 * Validate PHP syntax
 	 *
 	 * @param string $filePath Full path to PHP file
-	 * @return array ['valid' => bool, 'error' => string|null]
+	 * @return array ['valid' => bool, 'error' => string|null, 'line' => int|null, 'context' => string|null]
 	 */
 	protected function validatePhpSyntax(string $filePath): array
 	{
@@ -405,28 +446,71 @@ class FileEditService
 
 			if ($returnVar !== 0) {
 				$error = implode("\n", $output);
+				$errorLine = null;
+				$errorContext = null;
+
+				// Attempt to extract line number and context from error output
+				if (preg_match('/on line (\d+)/', $error, $matches)) {
+					$errorLine = (int) $matches[1];
+					// Read the file content to get context
+					$fileContent = file_get_contents($filePath);
+					if ($fileContent !== false) {
+						$errorContext = $this->getCodeAroundLine($fileContent, $errorLine, 5);
+					}
+				}
+
 				return [
 					'valid' => false,
 					'error' => $error,
+					'line' => $errorLine,
+					'context' => $errorContext,
 				];
 			}
 
 			return [
 				'valid' => true,
 				'error' => null,
+				'line' => null,
+				'context' => null,
 			];
 		} catch (\Exception $e) {
-			// If syntax check fails, assume valid (don't block on check failure)
 			Log::warning('FileEditService: PHP syntax check failed', [
 				'file_path' => $filePath,
 				'error' => $e->getMessage(),
 			]);
 
 			return [
-				'valid' => true,
-				'error' => null,
+				'valid' => false,
+				'error' => 'Internal error during syntax check: ' . $e->getMessage(),
+				'line' => null,
+				'context' => null,
 			];
 		}
+	}
+
+	/**
+	 * Get code around a specific line for context
+	 *
+	 * @param string $content File content
+	 * @param int $lineNumber Line number (1-based)
+	 * @param int $contextLines Number of lines before and after
+	 * @return string Context code
+	 */
+	protected function getCodeAroundLine(string $content, int $lineNumber, int $contextLines = 5): string
+	{
+		$lines = explode("\n", $content);
+		$start = max(0, $lineNumber - 1 - $contextLines);
+		$end = min(count($lines), $lineNumber - 1 + $contextLines);
+		$context = array_slice($lines, $start, $end - $start);
+		
+		$result = [];
+		foreach ($context as $i => $line) {
+			$actualLine = $start + $i + 1;
+			$marker = ($actualLine === $lineNumber) ? '>>> ' : '    ';
+			$result[] = $marker . $actualLine . ': ' . $line;
+		}
+		
+		return implode("\n", $result);
 	}
 
 	/**
