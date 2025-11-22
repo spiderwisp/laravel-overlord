@@ -10,6 +10,7 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\DatabaseScanController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\DatabaseController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\MigrationController;
 use Spiderwisp\LaravelOverlord\Http\Controllers\BugReportController;
+use Spiderwisp\LaravelOverlord\Http\Controllers\PhpstanController;
 
 // Wrap all routes in web middleware to ensure session support
 // Use static values to avoid config() calls - config is merged in service provider
@@ -135,6 +136,19 @@ Route::middleware('web')->group(function () {
                 Route::post('/issues/{issueId}/resolve', [DatabaseScanController::class, 'resolveIssue']);
                 Route::post('/issues/{issueId}/unresolve', [DatabaseScanController::class, 'unresolveIssue']);
                 Route::delete('/issues', [DatabaseScanController::class, 'clearIssues']);
+            });
+            
+            // PHPStan routes
+            Route::prefix('phpstan')->group(function () {
+                Route::get('/config', [PhpstanController::class, 'config']);
+                Route::post('/start', [PhpstanController::class, 'start']);
+                Route::get('/history', [PhpstanController::class, 'history']);
+                Route::get('/{scanId}/status', [PhpstanController::class, 'status']);
+                Route::get('/{scanId}/results', [PhpstanController::class, 'results']);
+                Route::get('/issues', [PhpstanController::class, 'issues']);
+                Route::post('/issues/{issueId}/resolve', [PhpstanController::class, 'resolveIssue']);
+                Route::post('/issues/{issueId}/unresolve', [PhpstanController::class, 'unresolveIssue']);
+                Route::delete('/issues', [PhpstanController::class, 'clearIssues']);
             });
             
             // Database browser routes

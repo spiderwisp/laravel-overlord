@@ -255,6 +255,24 @@ export function useOverlordApi() {
                 const queryString = new URLSearchParams(params).toString();
                 return `${cleanBaseUrl}/mermaid/focused${queryString ? '?' + queryString : ''}`;
             },
+        },
+        // Larastan endpoints
+        phpstan: {
+            config: () => `${cleanBaseUrl}/phpstan/config`,
+            start: () => `${cleanBaseUrl}/phpstan/start`,
+            history: (params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/phpstan/history${queryString ? '?' + queryString : ''}`;
+            },
+            status: (scanId) => `${cleanBaseUrl}/phpstan/${scanId}/status`,
+            results: (scanId) => `${cleanBaseUrl}/phpstan/${scanId}/results`,
+            issues: (params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/phpstan/issues${queryString ? '?' + queryString : ''}`;
+            },
+            resolveIssue: (issueId) => `${cleanBaseUrl}/phpstan/issues/${issueId}/resolve`,
+            unresolveIssue: (issueId) => `${cleanBaseUrl}/phpstan/issues/${issueId}/unresolve`,
+            clearIssues: () => `${cleanBaseUrl}/phpstan/issues`,
         }
     };
 }

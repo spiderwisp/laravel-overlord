@@ -32,6 +32,7 @@ export const tabConfigs = {
 	'database-scan-config': { id: 'database-scan-config', label: 'Database Scan Configuration', closable: true },
 	'database-scan-results': { id: 'database-scan-results', label: 'Database Scan Results', closable: true },
 	'database-scan-history': { id: 'database-scan-history', label: 'Database Scan History', closable: true },
+	'phpstan': { id: 'phpstan', label: 'Larastan', closable: true },
 	'settings': { id: 'settings', label: 'UI Settings', closable: true },
 	'bug-report': { id: 'bug-report', label: 'Report Bug', closable: true },
 };

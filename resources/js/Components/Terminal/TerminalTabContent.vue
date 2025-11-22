@@ -28,6 +28,7 @@ import TerminalScanHistory from './TerminalScanHistory.vue';
 import TerminalDatabaseScanConfig from './TerminalDatabaseScanConfig.vue';
 import TerminalDatabaseScanResults from './TerminalDatabaseScanResults.vue';
 import TerminalDatabaseScanHistory from './TerminalDatabaseScanHistory.vue';
+import TerminalPhpstan from './TerminalPhpstan.vue';
 import TerminalDatabase from './TerminalDatabase.vue';
 import TerminalSettings from './TerminalSettings.vue';
 import TerminalBugReport from './TerminalBugReport.vue';
@@ -312,6 +313,14 @@ defineExpose({
 		@close="closeTab('database-scan-history')"
 		@view-scan="handleViewDatabaseScan"
 		@view-issues="handleViewDatabaseScanIssues"
+	/>
+
+	<!-- Larastan View -->
+	<TerminalPhpstan
+		v-if="isTabActive('phpstan')"
+		:visible="true"
+		@close="closeTab('phpstan')"
+		@create-issue="handleCreateIssueFromScan"
 	/>
 	
 	<TerminalDatabase

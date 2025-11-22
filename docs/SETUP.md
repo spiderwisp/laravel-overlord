@@ -23,6 +23,18 @@ Before installing, ensure you have:
 
 > **Note:** highlight.js is automatically loaded from CDN - no installation required!
 
+### Optional: PHPStan Static Analysis
+
+PHPStan is optional but enables static analysis features in the terminal:
+
+```bash
+composer require --dev phpstan/phpstan larastan/larastan
+```
+
+**Note:** Larastan is highly recommended as it reduces false positives by understanding Laravel's magic methods, facades, and Eloquent patterns.
+
+The install command (`php artisan overlord:install`) will check for PHPStan and offer to install both PHPStan and Larastan if they're not found. It will also create a default `phpstan.neon` configuration file with Larastan support.
+
 ### Redis Setup
 
 Redis is required for Horizon integration and job queue features.
@@ -541,6 +553,23 @@ composer require laravel/horizon
 php artisan horizon:install
 php artisan horizon
 ```
+
+### PHPStan Static Analysis (Optional)
+
+For static code analysis features:
+
+```bash
+composer require --dev phpstan/phpstan larastan/larastan
+```
+
+**Larastan** is a PHPStan extension specifically designed for Laravel. It significantly reduces false positives by understanding:
+- Laravel's magic methods (e.g., `$request->email`)
+- Facades (e.g., `Cache::get()`, `DB::table()`)
+- Eloquent magic methods (e.g., `User::whereEmail()`)
+- Collection methods
+- Model accessors/mutators
+
+After installation, PHPStan analysis will be available in the terminal under the "ANALYZE" section. The `overlord:install` command will automatically create a `phpstan.neon` configuration file with Larastan support, or you can create one manually in your project root.
 
 ## Frontend Integration
 

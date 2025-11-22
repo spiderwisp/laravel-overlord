@@ -40,6 +40,7 @@ A powerful Laravel development console with advanced features including interact
 
 ### Code Analysis
 - **Codebase Scanning**: Automated code analysis to identify bugs, security issues, and improvements
+- **PHPStan Integration**: Static analysis with PHPStan for type checking and code quality (optional)
 - **Issue Management**: Create, track, assign, and resolve issues from scans and manual reports
 
 ### Monitoring & Logging
@@ -56,6 +57,11 @@ A powerful Laravel development console with advanced features including interact
 - PHP ^8.2
 - Laravel ^12.0
 - Redis (required for queue features)
+
+### Optional Dependencies
+
+- **PHPStan** (for static analysis features): `composer require --dev phpstan/phpstan larastan/larastan`
+  - Larastan is recommended to reduce false positives with Laravel magic methods and facades
 
 ## Installation
 
@@ -403,6 +409,17 @@ All endpoints are prefixed with the configured `route_prefix` (default: `admin/o
 - `POST /{prefix}/scan/database/issues/{issueId}/resolve` - Resolve a database scan issue
 - `POST /{prefix}/scan/database/issues/{issueId}/unresolve` - Unresolve a database scan issue
 - `DELETE /{prefix}/scan/database/issues` - Clear all database scan issues
+
+### PHPStan Static Analysis
+- `GET /{prefix}/phpstan/config` - Get PHPStan configuration (auto-detected)
+- `POST /{prefix}/phpstan/start` - Start a PHPStan analysis
+- `GET /{prefix}/phpstan/history` - Get PHPStan scan history
+- `GET /{prefix}/phpstan/{scanId}/status` - Get PHPStan scan status
+- `GET /{prefix}/phpstan/{scanId}/results` - Get PHPStan scan results
+- `GET /{prefix}/phpstan/issues` - Get PHPStan issues
+- `POST /{prefix}/phpstan/issues/{issueId}/resolve` - Resolve a PHPStan issue
+- `POST /{prefix}/phpstan/issues/{issueId}/unresolve` - Unresolve a PHPStan issue
+- `DELETE /{prefix}/phpstan/issues` - Clear all PHPStan issues
 
 ### Issues Management
 - `GET /{prefix}/issues` - Get all issues

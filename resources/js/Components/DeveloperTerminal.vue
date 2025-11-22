@@ -30,6 +30,7 @@ import TerminalScanHistory from './Terminal/TerminalScanHistory.vue';
 import TerminalDatabaseScanResults from './Terminal/TerminalDatabaseScanResults.vue';
 import TerminalDatabaseScanConfig from './Terminal/TerminalDatabaseScanConfig.vue';
 import TerminalDatabaseScanHistory from './Terminal/TerminalDatabaseScanHistory.vue';
+import TerminalPhpstan from './Terminal/TerminalPhpstan.vue';
 import TerminalDatabase from './Terminal/TerminalDatabase.vue';
 import TerminalThemeToggle from './Terminal/TerminalThemeToggle.vue';
 import TerminalSettings from './Terminal/TerminalSettings.vue';
@@ -267,6 +268,7 @@ const navigationConfig = computed(() => {
 		openSettings,
 		toggleBugReport,
 		issuesCounter,
+		togglePhpstan,
 	});
 });
 
@@ -571,6 +573,10 @@ function startScan() {
 
 function startDatabaseScan() {
 	ensureTabOpen('database-scan-config');
+}
+
+function togglePhpstan() {
+	ensureTabOpen('phpstan');
 }
 
 // Issue handlers are now in useTerminalIssues composable
