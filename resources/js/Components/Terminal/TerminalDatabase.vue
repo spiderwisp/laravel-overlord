@@ -48,9 +48,9 @@
 					<span class="breadcrumb-item">Database</span>
 					<span v-if="selectedTable" class="breadcrumb-separator">/</span>
 					<span v-if="selectedTable" class="breadcrumb-item">{{ selectedTable }}</span>
-					<span v-if="selectedTable && activeView !== 'data'" class="breadcrumb-separator">/</span>
+					<span v-if="(selectedTable && activeView !== 'data') || (!selectedTable && activeView === 'sql')" class="breadcrumb-separator">/</span>
 					<span v-if="selectedTable && activeView === 'structure'" class="breadcrumb-item">Structure</span>
-					<span v-if="selectedTable && activeView === 'sql'" class="breadcrumb-item">SQL</span>
+					<span v-if="activeView === 'sql'" class="breadcrumb-item">SQL</span>
 				</div>
 				<button
 					@click="$emit('close')"
@@ -90,8 +90,118 @@
 
 			<!-- Content Area -->
 			<div class="content-body">
+				<!-- SQL View (can be shown without selected table) -->
+				<div v-if="activeView === 'sql'" class="content-view">
+					<div class="view-sql-editor">
+						<div class="sql-toolbar">
+							<button
+								@click="executeQuery"
+								:disabled="executingQuery || !sqlQuery.trim()"
+								class="terminal-btn terminal-btn-primary"
+							>
+								Execute
+							</button>
+							<button
+								@click="clearQuery"
+								class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+							>
+								Clear
+							</button>
+							<select v-model="selectedHistoryQuery" @change="loadHistoryQuery" class="terminal-select terminal-select-sm">
+								<option value="">Query History</option>
+								<option v-for="(query, index) in queryHistory" :key="index" :value="index">
+									{{ query.substring(0, 50) }}{{ query.length > 50 ? '...' : '' }}
+								</option>
+							</select>
+						</div>
+						<textarea
+							v-model="sqlQuery"
+							class="sql-textarea"
+							placeholder="Enter SQL query (SELECT only)..."
+							rows="10"
+						></textarea>
+						<div v-if="executingQuery" class="view-loading">
+							<p>Executing query...</p>
+						</div>
+						<div v-else-if="queryError" class="view-error">
+							<p>{{ queryError }}</p>
+						</div>
+						<div v-else-if="queryResults" class="view-query-results">
+							<div class="query-results-header">
+								<div class="query-results-info">
+									<span>{{ queryResults.count }} row(s) returned</span>
+									<span v-if="queryResults.execution_time">in {{ queryResults.execution_time }}s</span>
+									<span v-if="queryResults.limited" class="warning">(Limited to 1000 rows)</span>
+								</div>
+								<div class="query-results-actions" @click.stop>
+									<div class="export-dropdown">
+										<button
+											@click="showExportMenu = !showExportMenu"
+											:disabled="exportingQuery"
+											class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+										>
+											<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 4px;">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+											</svg>
+											{{ exportingQuery ? 'Exporting...' : 'Export' }}
+										</button>
+										<div v-if="showExportMenu" class="export-menu">
+											<div class="export-menu-section">
+												<label>Format:</label>
+												<select v-model="exportFormat" class="terminal-select terminal-select-sm">
+													<option value="csv">CSV</option>
+													<option value="json">JSON</option>
+													<option value="xlsx">Excel (XLSX)</option>
+												</select>
+											</div>
+											<div class="export-menu-section">
+												<label>Scope:</label>
+												<select v-model="exportScope" class="terminal-select terminal-select-sm">
+													<option value="displayed">Displayed results</option>
+													<option value="all">All results</option>
+												</select>
+											</div>
+											<div class="export-menu-actions">
+												<button
+													@click="exportQueryResults"
+													:disabled="exportingQuery || !sqlQuery.trim()"
+													class="terminal-btn terminal-btn-primary terminal-btn-sm"
+												>
+													Export
+												</button>
+												<button
+													@click="showExportMenu = false"
+													class="terminal-btn terminal-btn-secondary terminal-btn-sm"
+												>
+													Cancel
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="data-grid-wrapper">
+								<table class="data-table">
+									<thead>
+										<tr>
+											<th v-for="column in queryResultColumns" :key="column">{{ column }}</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr v-for="(row, index) in queryResults.data" :key="index" :class="{ 'row-even': index % 2 === 0 }">
+											<td v-for="column in queryResultColumns" :key="column" :title="getFullCellValue(row[column])">
+												{{ truncateValue(row[column]) }}
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+
 				<!-- Empty State -->
-				<div v-if="!selectedTable" class="content-empty">
+				<div v-else-if="!selectedTable" class="content-empty">
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="empty-icon">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
 					</svg>
@@ -122,8 +232,12 @@
 						<button
 							@click="openRowEditor(null)"
 							class="terminal-btn terminal-btn-primary terminal-btn-sm"
+							title="Insert Row"
 						>
-							+ Insert Row
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 6px;">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+							</svg>
+							Insert Row
 						</button>
 					</div>
 					<div v-if="loadingData" class="view-loading">
@@ -162,17 +276,21 @@
 										<td class="actions-column">
 											<button
 												@click="openRowEditor(row)"
-												class="terminal-btn terminal-btn-sm terminal-btn-secondary"
+												class="terminal-btn terminal-btn-sm terminal-btn-icon"
 												title="Edit"
 											>
-												Edit
+												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+												</svg>
 											</button>
 											<button
 												@click="deleteRow(row)"
-												class="terminal-btn terminal-btn-sm terminal-btn-danger"
+												class="terminal-btn terminal-btn-sm terminal-btn-icon terminal-btn-danger"
 												title="Delete"
 											>
-												Delete
+												<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+												</svg>
 											</button>
 										</td>
 									</tr>
@@ -188,7 +306,7 @@
 								Previous
 							</button>
 							<span class="pagination-info">
-								Page {{ pagination.current_page }} of {{ pagination.last_page }} ({{ pagination.total }} total)
+								{{ pagination.current_page }} of {{ pagination.last_page }} · {{ pagination.total }} total
 							</span>
 							<button
 								@click="changePage(pagination.current_page + 1)"
@@ -287,68 +405,6 @@
 						</div>
 					</div>
 				</div>
-
-				<!-- SQL View -->
-				<div v-else-if="activeView === 'sql'" class="content-view">
-					<div class="view-sql-editor">
-						<div class="sql-toolbar">
-							<button
-								@click="executeQuery"
-								:disabled="executingQuery || !sqlQuery.trim()"
-								class="terminal-btn terminal-btn-primary"
-							>
-								Execute
-							</button>
-							<button
-								@click="clearQuery"
-								class="terminal-btn terminal-btn-secondary terminal-btn-sm"
-							>
-								Clear
-							</button>
-							<select v-model="selectedHistoryQuery" @change="loadHistoryQuery" class="terminal-select terminal-select-sm">
-								<option value="">Query History</option>
-								<option v-for="(query, index) in queryHistory" :key="index" :value="index">
-									{{ query.substring(0, 50) }}{{ query.length > 50 ? '...' : '' }}
-								</option>
-							</select>
-						</div>
-						<textarea
-							v-model="sqlQuery"
-							class="sql-textarea"
-							placeholder="Enter SQL query (SELECT only)..."
-							rows="10"
-						></textarea>
-						<div v-if="executingQuery" class="view-loading">
-							<p>Executing query...</p>
-						</div>
-						<div v-else-if="queryError" class="view-error">
-							<p>{{ queryError }}</p>
-						</div>
-						<div v-else-if="queryResults" class="view-query-results">
-							<div class="query-results-header">
-								<span>{{ queryResults.count }} row(s) returned</span>
-								<span v-if="queryResults.execution_time">in {{ queryResults.execution_time }}s</span>
-								<span v-if="queryResults.limited" class="warning">(Limited to 1000 rows)</span>
-							</div>
-							<div class="data-grid-wrapper">
-								<table class="data-table">
-									<thead>
-										<tr>
-											<th v-for="column in queryResultColumns" :key="column">{{ column }}</th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr v-for="(row, index) in queryResults.data" :key="index" :class="{ 'row-even': index % 2 === 0 }">
-											<td v-for="column in queryResultColumns" :key="column" :title="getFullCellValue(row[column])">
-												{{ truncateValue(row[column]) }}
-											</td>
-										</tr>
-									</tbody>
-								</table>
-							</div>
-						</div>
-					</div>
-				</div>
 			</div>
 		</div>
 
@@ -423,7 +479,7 @@ const emit = defineEmits(['close']);
 const api = useOverlordApi();
 
 // State
-const activeView = ref('data');
+const activeView = ref('sql');
 const selectedTable = ref(null);
 const tableSearch = ref('');
 const loadingTables = ref(false);
@@ -455,6 +511,12 @@ const queryError = ref(null);
 const queryResults = ref(null);
 const queryHistory = ref([]);
 const selectedHistoryQuery = ref('');
+
+// Export state
+const showExportMenu = ref(false);
+const exportingQuery = ref(false);
+const exportFormat = ref('csv');
+const exportScope = ref('displayed');
 
 // Row editor state
 const showRowEditor = ref(false);
@@ -493,11 +555,16 @@ function selectTable(tableName) {
 function switchView(view) {
 	activeView.value = view;
 	if (view === 'data') {
-		loadTableData();
+		if (selectedTable.value) {
+			loadTableData();
+		}
 	} else if (view === 'structure') {
-		loadTableStructure();
-	} else if (view === 'sql' && selectedTable.value) {
-		if (!sqlQuery.value.trim()) {
+		if (selectedTable.value) {
+			loadTableStructure();
+		}
+	} else if (view === 'sql') {
+		// Auto-populate query if table is selected and query is empty
+		if (selectedTable.value && !sqlQuery.value.trim()) {
 			sqlQuery.value = `SELECT * FROM ${selectedTable.value} LIMIT 100;`;
 		}
 	}
@@ -682,6 +749,108 @@ function loadHistoryQuery() {
 		}
 		selectedHistoryQuery.value = '';
 	}
+}
+
+function exportQueryResults() {
+	if (!sqlQuery.value.trim() || !queryResults.value) return;
+	
+	exportingQuery.value = true;
+	showExportMenu.value = false;
+	
+	axios.post(api.database.exportQuery(), {
+		query: sqlQuery.value,
+		format: exportFormat.value,
+		scope: exportScope.value,
+	}, {
+		responseType: 'blob',
+	})
+		.then(response => {
+			// Get filename from Content-Disposition header or generate one
+			let filename = `query-export-${Date.now()}.${exportFormat.value}`;
+			const contentDisposition = response.headers['content-disposition'];
+			if (contentDisposition) {
+				const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+				if (filenameMatch) {
+					filename = filenameMatch[1];
+				}
+			}
+			
+			// Create blob and download
+			const blob = new Blob([response.data], {
+				type: response.headers['content-type'] || 'application/octet-stream'
+			});
+			const url = window.URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+			
+			Swal.fire({
+				toast: true,
+				icon: 'success',
+				title: 'Export completed',
+				text: `File "${filename}" has been downloaded`,
+				position: 'bottom-end',
+				showConfirmButton: false,
+				timer: 3000,
+			});
+		})
+		.catch(error => {
+			let errorMessage = 'Export failed';
+			
+			// Try to get error message from response
+			if (error.response) {
+				if (error.response.data instanceof Blob) {
+					// Try to parse blob as JSON
+					error.response.data.text().then(text => {
+						try {
+							const errorData = JSON.parse(text);
+							errorMessage = errorData.error || errorMessage;
+						} catch (e) {
+							// If not JSON, use default message
+						}
+						Swal.fire({
+							toast: true,
+							icon: 'error',
+							title: 'Export failed',
+							text: errorMessage,
+							position: 'bottom-end',
+							showConfirmButton: false,
+							timer: 4000,
+						});
+					}).catch(() => {
+						Swal.fire({
+							toast: true,
+							icon: 'error',
+							title: 'Export failed',
+							text: errorMessage,
+							position: 'bottom-end',
+							showConfirmButton: false,
+							timer: 4000,
+						});
+					});
+					return;
+				} else if (error.response.data && error.response.data.error) {
+					errorMessage = error.response.data.error;
+				}
+			}
+			
+			Swal.fire({
+				toast: true,
+				icon: 'error',
+				title: 'Export failed',
+				text: errorMessage,
+				position: 'bottom-end',
+				showConfirmButton: false,
+				timer: 4000,
+			});
+		})
+		.finally(() => {
+			exportingQuery.value = false;
+		});
 }
 
 function openRowEditor(row) {
@@ -877,6 +1046,13 @@ onMounted(() => {
 			// Ignore
 		}
 	}
+	
+	// Close export menu when clicking outside
+	document.addEventListener('click', (e) => {
+		if (showExportMenu.value && !e.target.closest('.export-dropdown')) {
+			showExportMenu.value = false;
+		}
+	});
 });
 
 watch(() => props.visible, (newVal) => {
@@ -1246,9 +1422,13 @@ watch(() => props.visible, (newVal) => {
 }
 
 .actions-column {
-	width: 120px;
+	width: 100px;
 	text-align: center;
 	white-space: nowrap;
+}
+
+.actions-column .terminal-btn {
+	margin: 0 2px;
 }
 
 .no-data {
@@ -1410,14 +1590,65 @@ watch(() => props.visible, (newVal) => {
 
 .query-results-header {
 	display: flex;
-	gap: 12px;
+	justify-content: space-between;
 	align-items: center;
+	gap: 12px;
 	color: var(--terminal-text-secondary);
 	font-size: 12px;
 }
 
+.query-results-info {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+
+.query-results-actions {
+	position: relative;
+}
+
 .query-results-header .warning {
 	color: var(--terminal-error);
+}
+
+.export-dropdown {
+	position: relative;
+}
+
+.export-menu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	margin-top: 8px;
+	background: var(--terminal-bg-secondary);
+	border: 1px solid var(--terminal-border);
+	border-radius: 4px;
+	padding: 12px;
+	min-width: 250px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+}
+
+.export-menu-section {
+	margin-bottom: 12px;
+}
+
+.export-menu-section:last-of-type {
+	margin-bottom: 16px;
+}
+
+.export-menu-section label {
+	display: block;
+	margin-bottom: 6px;
+	color: var(--terminal-text);
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.export-menu-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
 }
 
 /* Modal */
@@ -1573,6 +1804,32 @@ watch(() => props.visible, (newVal) => {
 .terminal-btn-sm {
 	padding: 4px 8px;
 	font-size: 11px;
+}
+
+.terminal-btn-icon {
+	padding: 6px;
+	min-width: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.terminal-btn-icon.terminal-btn-secondary {
+	background: var(--terminal-bg-tertiary);
+	color: var(--terminal-text);
+}
+
+.terminal-btn-icon.terminal-btn-secondary:hover {
+	background: var(--terminal-border);
+}
+
+.terminal-btn-icon.terminal-btn-danger {
+	background: var(--terminal-error);
+	color: #ffffff;
+}
+
+.terminal-btn-icon.terminal-btn-danger:hover {
+	opacity: 0.9;
 }
 
 .terminal-btn-close {

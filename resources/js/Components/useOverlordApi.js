@@ -67,6 +67,7 @@ export function useOverlordApi() {
             },
             tableStats: (table) => `${cleanBaseUrl}/database/tables/${table}/stats`,
             executeQuery: () => `${cleanBaseUrl}/database/query`,
+            exportQuery: () => `${cleanBaseUrl}/database/query/export`,
             getRow: (table, params = {}) => {
                 const queryString = new URLSearchParams(params).toString();
                 return `${cleanBaseUrl}/database/tables/${table}/row${queryString ? '?' + queryString : ''}`;

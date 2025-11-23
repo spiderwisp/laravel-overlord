@@ -8,7 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Response;
 use Spiderwisp\LaravelOverlord\Services\DatabaseSchemaService;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 class DatabaseController
 {
@@ -409,6 +414,254 @@ class DatabaseController
 				'error' => $errorMessage,
 			], 500);
 		}
+	}
+
+	/**
+	 * Export SQL query results.
+	 * 
+	 * SECURITY: Reuses all security validations from executeQuery() method.
+	 */
+	public function exportQuery(Request $request)
+	{
+		try {
+			$validator = Validator::make($request->all(), [
+				'query' => 'required|string|max:10000',
+				'format' => 'required|in:csv,json,xlsx',
+				'scope' => 'required|in:displayed,all',
+			]);
+
+			if ($validator->fails()) {
+				return response()->json([
+					'success' => false,
+					'error' => 'Validation failed',
+					'errors' => $validator->errors(),
+				], 422);
+			}
+
+			$query = trim($request->input('query'));
+			$format = $request->input('format');
+			$scope = $request->input('scope');
+
+			// Reuse security validation from executeQuery
+			$queryUpper = trim(strtoupper($query));
+
+			// SECURITY: Only allow SELECT statements
+			if (!str_starts_with($queryUpper, 'SELECT')) {
+				return response()->json([
+					'success' => false,
+					'error' => 'Only SELECT queries are allowed. Use CRUD endpoints for INSERT/UPDATE/DELETE operations.',
+				], 403);
+			}
+
+			// SECURITY: Block dangerous keywords and patterns
+			$dangerousPatterns = [
+				'/\b(UNION|UNION ALL)\b/i',
+				'/\b(EXEC|EXECUTE|EXECUTE IMMEDIATE)\b/i',
+				'/\b(SP_|XP_|xp_)\w+/i',
+				'/;\s*(DROP|TRUNCATE|ALTER|CREATE|DELETE|UPDATE|INSERT)/i',
+				'/--/',
+				'/\/\*.*?\*\//s',
+				'/\b(INTO\s+OUTFILE|INTO\s+DUMPFILE)\b/i',
+				'/\b(LOAD_FILE|LOAD_DATA)\b/i',
+				'/\b(INFORMATION_SCHEMA|mysql\.|sys\.)/i',
+			];
+
+			foreach ($dangerousPatterns as $pattern) {
+				if (preg_match($pattern, $query)) {
+					return response()->json([
+						'success' => false,
+						'error' => 'Query contains potentially dangerous patterns and cannot be executed.',
+					], 403);
+				}
+			}
+
+			// SECURITY: Block DDL and DML operations
+			$dangerousKeywords = ['DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'DELETE', 'UPDATE', 'INSERT', 'REPLACE'];
+			foreach ($dangerousKeywords as $keyword) {
+				if (preg_match('/\b' . preg_quote($keyword, '/') . '\b/i', $queryUpper)) {
+					return response()->json([
+						'success' => false,
+						'error' => "Dangerous operation detected. Only SELECT queries are allowed. Use CRUD endpoints for {$keyword} operations.",
+					], 403);
+				}
+			}
+
+			// SECURITY: Validate table names against whitelist
+			if (preg_match_all('/\bFROM\s+([`"]?)(\w+)\1/i', $query, $fromMatches)) {
+				$allowedTables = $this->schemaService->getTables();
+				foreach ($fromMatches[2] as $table) {
+					if (!in_array(strtolower($table), array_map('strtolower', $allowedTables))) {
+						return response()->json([
+							'success' => false,
+							'error' => "Table '{$table}' does not exist or is not accessible.",
+						], 403);
+					}
+				}
+			}
+
+			// Get data based on scope
+			if ($scope === 'displayed') {
+				// Use existing results (limited to 1000 rows)
+				$results = DB::select($query);
+				if (count($results) > 1000) {
+					$results = array_slice($results, 0, 1000);
+				}
+			} else {
+				// Execute query without limit for "all" scope
+				$results = DB::select($query);
+			}
+
+			if (empty($results)) {
+				return response()->json([
+					'success' => false,
+					'error' => 'No results to export',
+				], 404);
+			}
+
+			// Get column names from first row
+			$columns = array_keys((array) $results[0]);
+
+			// Generate export based on format
+			switch ($format) {
+				case 'csv':
+					return $this->exportToCsv($results, $columns);
+				case 'json':
+					return $this->exportToJson($results);
+				case 'xlsx':
+					return $this->exportToExcel($results, $columns);
+				default:
+					return response()->json([
+						'success' => false,
+						'error' => 'Invalid export format',
+					], 400);
+			}
+		} catch (\Exception $e) {
+			Log::error('Failed to export query', [
+				'error' => $e->getMessage(),
+			]);
+
+			$errorMessage = config('app.debug')
+				? 'Failed to export query: ' . $e->getMessage()
+				: 'Failed to export query. Please try again.';
+
+			return response()->json([
+				'success' => false,
+				'error' => $errorMessage,
+			], 500);
+		}
+	}
+
+	/**
+	 * Export data to CSV format.
+	 */
+	protected function exportToCsv(array $data, array $columns)
+	{
+		$filename = 'query-export-' . date('Y-m-d-His') . '.csv';
+		
+		$headers = [
+			'Content-Type' => 'text/csv',
+			'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+		];
+
+		$callback = function() use ($data, $columns) {
+			$file = fopen('php://output', 'w');
+			
+			// Add BOM for UTF-8 to help Excel recognize encoding
+			fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+			
+			// Write headers
+			fputcsv($file, $columns);
+			
+			// Write data rows
+			foreach ($data as $row) {
+				$rowArray = (array) $row;
+				$csvRow = [];
+				foreach ($columns as $column) {
+					$value = $rowArray[$column] ?? '';
+					// Convert to string and handle null values
+					$csvRow[] = $value !== null ? (string) $value : '';
+				}
+				fputcsv($file, $csvRow);
+			}
+			
+			fclose($file);
+		};
+
+		return Response::stream($callback, 200, $headers);
+	}
+
+	/**
+	 * Export data to JSON format.
+	 */
+	protected function exportToJson(array $data)
+	{
+		$filename = 'query-export-' . date('Y-m-d-His') . '.json';
+		
+		$jsonData = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+		
+		return Response::make($jsonData, 200, [
+			'Content-Type' => 'application/json',
+			'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+		]);
+	}
+
+	/**
+	 * Export data to Excel format.
+	 */
+	protected function exportToExcel(array $data, array $columns)
+	{
+		$filename = 'query-export-' . date('Y-m-d-His') . '.xlsx';
+		
+		$spreadsheet = new Spreadsheet();
+		$sheet = $spreadsheet->getActiveSheet();
+		
+		// Set headers
+		$colIndex = 1;
+		foreach ($columns as $column) {
+			$sheet->setCellValueByColumnAndRow($colIndex, 1, $column);
+			$colIndex++;
+		}
+		
+		// Style header row
+		$headerRange = 'A1:' . $sheet->getCellByColumnAndRow(count($columns), 1)->getCoordinate();
+		$sheet->getStyle($headerRange)->applyFromArray([
+			'font' => ['bold' => true],
+			'fill' => [
+				'fillType' => Fill::FILL_SOLID,
+				'startColor' => ['rgb' => 'E0E0E0'],
+			],
+			'alignment' => [
+				'horizontal' => Alignment::HORIZONTAL_LEFT,
+			],
+		]);
+		
+		// Write data rows
+		$rowIndex = 2;
+		foreach ($data as $row) {
+			$rowArray = (array) $row;
+			$colIndex = 1;
+			foreach ($columns as $column) {
+				$value = $rowArray[$column] ?? '';
+				$sheet->setCellValueByColumnAndRow($colIndex, $rowIndex, $value);
+				$colIndex++;
+			}
+			$rowIndex++;
+		}
+		
+		// Auto-size columns
+		foreach (range(1, count($columns)) as $col) {
+			$sheet->getColumnDimensionByColumn($col)->setAutoSize(true);
+		}
+		
+		// Create writer and save to temporary file
+		$writer = new Xlsx($spreadsheet);
+		$tempFile = tempnam(sys_get_temp_dir(), 'overlord_export_');
+		$writer->save($tempFile);
+		
+		// Return file download
+		return Response::download($tempFile, $filename, [
+			'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		])->deleteFileAfterSend(true);
 	}
 
 	/**

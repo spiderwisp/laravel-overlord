@@ -144,6 +144,7 @@ Route::middleware('web')->group(function () {
                 Route::get('/tables/{table}/data', [DatabaseController::class, 'tableData']);
                 Route::get('/tables/{table}/stats', [DatabaseController::class, 'tableStats']);
                 Route::post('/query', [DatabaseController::class, 'executeQuery']);
+                Route::post('/query/export', [DatabaseController::class, 'exportQuery']);
                 Route::get('/tables/{table}/row', [DatabaseController::class, 'getRow']);
                 Route::post('/tables/{table}/row', [DatabaseController::class, 'createRow']);
                 Route::put('/tables/{table}/row/{id}', [DatabaseController::class, 'updateRow']);
