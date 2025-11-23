@@ -286,6 +286,7 @@ export function useOverlordApi() {
                 return `${cleanBaseUrl}/agent/logs/${sessionId}${queryString ? '?' + queryString : ''}`;
             },
             pendingChanges: (sessionId) => `${cleanBaseUrl}/agent/changes/${sessionId}/pending`,
+            appliedChanges: (sessionId) => `${cleanBaseUrl}/agent/changes/${sessionId}/applied`,
             approveChange: (changeId) => `${cleanBaseUrl}/agent/changes/${changeId}/approve`,
             rejectChange: (changeId) => `${cleanBaseUrl}/agent/changes/${changeId}/reject`,
         }

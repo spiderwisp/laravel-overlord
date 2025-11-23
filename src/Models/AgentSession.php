@@ -31,8 +31,10 @@ class AgentSession extends Model
 		'total_scans',
 		'total_issues_found',
 		'total_issues_fixed',
+		'failed_issues_count',
 		'current_iteration',
 		'max_iterations',
+		'max_retries',
 		'error_message',
 	];
 
@@ -47,8 +49,10 @@ class AgentSession extends Model
 		'total_scans' => 'integer',
 		'total_issues_found' => 'integer',
 		'total_issues_fixed' => 'integer',
+		'failed_issues_count' => 'integer',
 		'current_iteration' => 'integer',
 		'max_iterations' => 'integer',
+		'max_retries' => 'integer',
 	];
 
 	/**

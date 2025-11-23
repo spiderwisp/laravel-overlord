@@ -208,6 +208,7 @@ Route::middleware('web')->group(function () {
                 Route::post('/resume/{sessionId}', [AgentController::class, 'resume']);
                 Route::get('/logs/{sessionId}', [AgentController::class, 'getLogs']);
                 Route::get('/changes/{sessionId}/pending', [AgentController::class, 'getPendingChanges']);
+                Route::get('/changes/{sessionId}/applied', [AgentController::class, 'getAppliedChanges']);
                 Route::post('/changes/{changeId}/approve', [AgentController::class, 'approveChange']);
                 Route::post('/changes/{changeId}/reject', [AgentController::class, 'rejectChange']);
             });

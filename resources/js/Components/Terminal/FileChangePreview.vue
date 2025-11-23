@@ -1,6 +1,6 @@
 <template>
 	<div class="file-change-preview">
-		<details :open="false">
+		<details :open="change.status === 'applied'">
 			<summary class="change-summary-header">
 				<div class="change-file-path">{{ change.file_path }}</div>
 				<div class="change-summary-text">
@@ -10,7 +10,11 @@
 					<button @click.stop="$emit('approve', change.id)" class="terminal-btn terminal-btn-primary terminal-btn-xs">Approve</button>
 					<button @click.stop="$emit('reject', change.id)" class="terminal-btn terminal-btn-danger terminal-btn-xs">Reject</button>
 				</div>
-				<div class="change-status" :class="`status-${change.status}`">
+				<div v-if="change.status === 'applied'" class="change-status-badge applied">
+					<span class="applied-checkmark">✓</span>
+					<span class="applied-text">Applied</span>
+				</div>
+				<div v-else class="change-status" :class="`status-${change.status}`">
 					{{ change.status }}
 				</div>
 			</summary>
@@ -21,7 +25,7 @@
 				</div>
 
 				<div class="change-diff unified-diff">
-					<pre v-html="highlightedDiff"></pre>
+					<pre><code class="hljs language-php" v-html="highlightedDiff"></code></pre>
 				</div>
 
 				<div v-if="change.status === 'rejected' && change.rejection_reason" class="rejection-reason">
@@ -113,24 +117,88 @@ const diffStats = computed(() => {
 
 const highlightedDiff = computed(() => {
 	const diff = createUnifiedDiff(props.change.original_content || '', props.change.new_content || '');
-
-	// Basic highlighting for diff lines
-	return diff.split('\n').map(line => {
-		const escaped = line
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;');
+	
+	// Check if this is PHP code
+	const isPhp = (props.change.file_path || '').endsWith('.php');
+	
+	if (!isPhp) {
+		// For non-PHP files, just do basic diff highlighting
+		return diff.split('\n').map(line => {
+			const escaped = line
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+			
+			if (line.startsWith('+') && !line.startsWith('+++')) {
+				return `<span class="diff-added">+${escaped}</span>`;
+			} else if (line.startsWith('-') && !line.startsWith('---')) {
+				return `<span class="diff-removed">-${escaped}</span>`;
+			} else if (line.startsWith('@@')) {
+				return `<span class="diff-meta">${escaped}</span>`;
+			}
+			return `<span>${escaped}</span>`;
+		}).join('\n');
+	}
+	
+	// For PHP files, apply syntax highlighting line by line
+	try {
+		const diffLines = diff.split('\n');
+		const result = [];
 		
-		if (line.startsWith('+') && !line.startsWith('+++')) {
-			return `<span class="diff-added">${escaped}</span>`;
-		} else if (line.startsWith('-') && !line.startsWith('---')) {
-			return `<span class="diff-removed">${escaped}</span>`;
-		} else if (line.startsWith('@@')) {
-			return `<span class="diff-meta">${escaped}</span>`;
-		}
-		return `<span>${escaped}</span>`;
-	}).join('\n');
+		// Highlight each code line individually
+		diffLines.forEach((diffLine) => {
+			if (diffLine.startsWith('+') && !diffLine.startsWith('+++')) {
+				const codeLine = diffLine.substring(1);
+				// Highlight just this line
+				const highlighted = highlightCode(codeLine, 'php');
+				result.push(`<span class="diff-added">+${highlighted}</span>`);
+			} else if (diffLine.startsWith('-') && !diffLine.startsWith('---')) {
+				const codeLine = diffLine.substring(1);
+				// Highlight just this line
+				const highlighted = highlightCode(codeLine, 'php');
+				result.push(`<span class="diff-removed">-${highlighted}</span>`);
+			} else if (diffLine.startsWith('@@')) {
+				result.push(`<span class="diff-meta">${escapeHtml(diffLine)}</span>`);
+			} else {
+				// Context line - highlight if it's not empty
+				const codeLine = diffLine.startsWith(' ') ? diffLine.substring(1) : diffLine;
+				if (codeLine.trim()) {
+					const highlighted = highlightCode(codeLine, 'php');
+					result.push(`<span>${highlighted}</span>`);
+				} else {
+					result.push(`<span>${escapeHtml(diffLine)}</span>`);
+				}
+			}
+		});
+		
+		return result.join('\n');
+	} catch (e) {
+		// Fallback to basic highlighting if syntax highlighting fails
+		console.warn('Syntax highlighting failed:', e);
+		return diff.split('\n').map(line => {
+			const escaped = line
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+			
+			if (line.startsWith('+') && !line.startsWith('+++')) {
+				return `<span class="diff-added">+${escaped}</span>`;
+			} else if (line.startsWith('-') && !line.startsWith('---')) {
+				return `<span class="diff-removed">-${escaped}</span>`;
+			} else if (line.startsWith('@@')) {
+				return `<span class="diff-meta">${escaped}</span>`;
+			}
+			return `<span>${escaped}</span>`;
+		}).join('\n');
+	}
 });
+
+function escapeHtml(text) {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;');
+}
 </script>
 
 <style scoped>
@@ -216,6 +284,29 @@ const highlightedDiff = computed(() => {
 	color: white;
 }
 
+.change-status-badge.applied {
+	background: #10b981;
+	color: white;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: var(--terminal-font-size-xs, 11px);
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.applied-checkmark {
+	display: inline-block;
+	line-height: 1;
+}
+
+.applied-text {
+	display: inline-block;
+	line-height: 1;
+}
+
 .change-details-content {
 	padding: 8px 12px;
 	border-top: 1px solid var(--terminal-border, #3e3e42);
@@ -247,6 +338,19 @@ const highlightedDiff = computed(() => {
 	font-family: 'Courier New', monospace;
 }
 
+.unified-diff pre code {
+	background: transparent;
+	padding: 0;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	display: block;
+}
+
+.unified-diff pre code.hljs {
+	background: var(--terminal-bg, #1e1e1e);
+}
+
 .diff-added {
 	color: #10b981;
 }
@@ -257,6 +361,26 @@ const highlightedDiff = computed(() => {
 
 .diff-meta {
 	color: #f59e0b;
+}
+
+/* Ensure syntax highlighting works with diff markers */
+.unified-diff pre code.hljs {
+	background: var(--terminal-bg, #1e1e1e);
+}
+
+.unified-diff pre code.hljs .diff-added {
+	color: #10b981 !important;
+	font-weight: 500;
+}
+
+.unified-diff pre code.hljs .diff-removed {
+	color: #ef4444 !important;
+	font-weight: 500;
+}
+
+.unified-diff pre code.hljs .diff-meta {
+	color: #f59e0b !important;
+	font-weight: 500;
 }
 
 .rejection-reason {

@@ -14,26 +14,31 @@
 					:key="`log-${log.id}`"
 					class="log-entry"
 					:class="`log-${log.type}`"
-					:open="log.type === 'error' || (log.type !== 'info' && log.type !== 'fix_generated')"
+					:open="log.type === 'error' || (log.type !== 'info' && log.type !== 'fix_generated') || (log.data && log.data.failed_issues && log.data.failed_issues.length > 0)"
 				>
 					<summary class="log-summary">
 						<span class="log-icon" :class="`icon-${log.type}`">{{ getLogIcon(log.type) }}</span>
-						<span class="log-timestamp">{{ formatRelativeTime(log.created_at) }}</span>
+						<span class="log-timestamp" :class="{'timestamp-just-now': formatRelativeTime(log.created_at) === 'just now'}">{{ formatRelativeTime(log.created_at) }}</span>
 						<span class="log-type-badge" :class="`type-${log.type}`">{{ log.type }}</span>
 						<span class="log-message-summary" :class="{'log-message-error': log.type === 'error'}">{{ log.message }}</span>
 					</summary>
 					<div class="log-details-content">
 						<div class="log-message" v-html="formatLogMessage(log.message)"></div>
 						<div v-if="log.data && Object.keys(log.data).length > 0" class="log-data">
-							<div v-if="log.data.failed_issues" class="failed-issues-list">
-								<strong>Failed Issues:</strong>
-								<ul>
-									<li v-for="(failedIssue, idx) in log.data.failed_issues" :key="idx">
-										<strong>{{ failedIssue.file }}</strong> (line {{ failedIssue.line }}): {{ failedIssue.error }}
+							<div v-if="log.data.failed_issues && Array.isArray(log.data.failed_issues) && log.data.failed_issues.length > 0" class="failed-issues-list">
+								<strong class="failed-issues-header">Failed Issues ({{ log.data.failed_issues.length }}):</strong>
+								<ul class="failed-issues-ul">
+									<li v-for="(failedIssue, idx) in log.data.failed_issues" :key="idx" class="failed-issue-item">
+										<span class="failed-issue-number">{{ idx + 1 }}.</span>
+										<span class="failed-issue-file"><strong>{{ failedIssue.file }}</strong></span>
+										<span v-if="failedIssue.line" class="failed-issue-line">(line {{ failedIssue.line }})</span>
+										<span class="failed-issue-separator">:</span>
+										<span class="failed-issue-error">{{ failedIssue.error }}</span>
+										<span v-if="failedIssue.failure_stage" class="failed-issue-stage">[{{ failedIssue.failure_stage }}]</span>
 									</li>
 								</ul>
 							</div>
-							<pre v-if="Object.keys(log.data).length > 0">{{ JSON.stringify(log.data, null, 2) }}</pre>
+							<pre v-if="shouldShowJsonData(log.data)" class="log-data-json">{{ JSON.stringify(log.data, null, 2) }}</pre>
 						</div>
 					</div>
 				</details>
@@ -101,11 +106,31 @@ function getLogIcon(type) {
 }
 
 function formatLogMessage(message) {
-	// Highlight FAILED, ERROR, etc.
-	return message
+	// Replace newlines with <br> for better formatting
+	let formatted = message.replace(/\n/g, '<br>');
+	
+	// Highlight key failure indicators with emojis
+	formatted = formatted
+		.replace(/❌ FAILURE REASON:/g, '<span class="log-highlight-error-bold">❌ FAILURE REASON:</span>')
+		.replace(/📍 FAILURE STAGE:/g, '<span class="log-highlight-warning-bold">📍 FAILURE STAGE:</span>')
+		.replace(/📋 ORIGINAL ISSUE:/g, '<span class="log-highlight-info-bold">📋 ORIGINAL ISSUE:</span>')
 		.replace(/\b(FAILED|FAIL|ERROR|✗)\b/gi, '<span class="log-highlight-error">$1</span>')
 		.replace(/\b(SUCCESS|SUCCESSFULLY|✓)\b/gi, '<span class="log-highlight-success">$1</span>')
-		.replace(/\b(WARNING|⚠)\b/gi, '<span class="log-highlight-warning">$1</span>');
+		.replace(/\b(WARNING|⚠)\b/gi, '<span class="log-highlight-warning">$1</span>')
+		// Highlight failure stages
+		.replace(/\b(code_generation|code_extraction|code_validation|ai_service|file_write|final_validation|file_application|exception)\b/gi, '<span class="log-highlight-stage">[$1]</span>');
+	
+	return formatted;
+}
+
+function shouldShowJsonData(data) {
+	// Don't show JSON if we're already showing failed_issues in a formatted way
+	if (data.failed_issues && Array.isArray(data.failed_issues) && data.failed_issues.length > 0) {
+		// Only show JSON if there are other fields besides failed_issues
+		const otherKeys = Object.keys(data).filter(key => key !== 'failed_issues');
+		return otherKeys.length > 0;
+	}
+	return Object.keys(data).length > 0;
 }
 
 async function fetchLogs(offset, limit, append = false) {
@@ -256,6 +281,12 @@ watch(() => props.sessionId, () => {
 	flex-shrink: 0;
 }
 
+.log-timestamp.timestamp-just-now {
+	font-size: 9px;
+	vertical-align: super;
+	opacity: 0.7;
+}
+
 .log-type-badge {
 	font-size: var(--terminal-font-size-xs, 11px);
 	padding: 2px 6px;
@@ -346,6 +377,118 @@ watch(() => props.sessionId, () => {
 .log-data pre {
 	margin: 8px 0 0 0;
 	color: var(--terminal-text-secondary, #858585);
+}
+
+.failed-issues-list {
+	margin: 12px 0;
+	padding: 12px;
+	background: rgba(239, 68, 68, 0.1);
+	border-left: 3px solid #ef4444;
+	border-radius: 4px;
+}
+
+.failed-issues-header {
+	display: block;
+	color: #ef4444;
+	font-size: var(--terminal-font-size-sm, 12px);
+	margin-bottom: 8px;
+	font-weight: 600;
+}
+
+.failed-issues-ul {
+	margin: 0;
+	padding-left: 20px;
+	list-style: none;
+}
+
+.failed-issue-item {
+	margin: 6px 0;
+	padding: 4px 0;
+	font-size: var(--terminal-font-size-xs, 11px);
+	line-height: 1.5;
+	color: var(--terminal-text, #d4d4d4);
+}
+
+.failed-issue-number {
+	color: var(--terminal-text-secondary, #858585);
+	margin-right: 6px;
+	font-weight: 600;
+}
+
+.failed-issue-file {
+	color: var(--terminal-text, #d4d4d4);
+}
+
+.failed-issue-file strong {
+	color: #f59e0b;
+	font-weight: 600;
+}
+
+.failed-issue-line {
+	color: var(--terminal-text-secondary, #858585);
+	margin: 0 4px;
+}
+
+.failed-issue-separator {
+	color: var(--terminal-text-secondary, #858585);
+	margin: 0 4px;
+}
+
+.failed-issue-error {
+	color: #ef4444;
+	font-weight: 500;
+}
+
+.failed-issue-stage {
+	color: #f59e0b;
+	font-size: 10px;
+	margin-left: 6px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.log-highlight-error {
+	color: #ef4444;
+	font-weight: 600;
+}
+
+.log-highlight-error-bold {
+	color: #ef4444;
+	font-weight: 700;
+	font-size: 1.1em;
+}
+
+.log-highlight-success {
+	color: #10b981;
+	font-weight: 600;
+}
+
+.log-highlight-warning {
+	color: #f59e0b;
+	font-weight: 600;
+}
+
+.log-highlight-warning-bold {
+	color: #f59e0b;
+	font-weight: 700;
+}
+
+.log-highlight-info {
+	color: #0e639c;
+	font-weight: 500;
+}
+
+.log-highlight-info-bold {
+	color: #0e639c;
+	font-weight: 600;
+}
+
+.log-highlight-stage {
+	color: #f59e0b;
+	font-weight: 600;
+	background: rgba(245, 158, 11, 0.1);
+	padding: 2px 4px;
+	border-radius: 3px;
 }
 </style>
 

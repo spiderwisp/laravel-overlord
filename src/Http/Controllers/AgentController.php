@@ -23,12 +23,14 @@ class AgentController extends Controller
 				'larastan_level' => 'required|integer|min:0|max:9',
 				'auto_apply' => 'boolean',
 				'max_iterations' => 'integer|min:1|max:100',
+				'max_retries' => 'integer|min:1|max:10',
 			]);
 
 			$userId = auth()->id();
 			$larastanLevel = (int) $request->input('larastan_level');
 			$autoApply = $request->input('auto_apply', true);
 			$maxIterations = $request->input('max_iterations', 50);
+			$maxRetries = $request->input('max_retries', 3);
 
 			// Check if user has an active session
 			$activeSession = AgentSession::where('user_id', $userId)
@@ -44,13 +46,27 @@ class AgentController extends Controller
 			}
 
 			// Create new session
-			$session = AgentSession::create([
+			$sessionData = [
 				'user_id' => $userId,
 				'status' => 'pending',
 				'larastan_level' => $larastanLevel,
 				'auto_apply' => $autoApply,
 				'max_iterations' => $maxIterations,
-			]);
+			];
+			
+			// Only include max_retries if the column exists (for backward compatibility)
+			// Check if column exists by trying to get the table schema
+			try {
+				$columns = \Illuminate\Support\Facades\Schema::getColumnListing('overlord_agent_sessions');
+				if (in_array('max_retries', $columns)) {
+					$sessionData['max_retries'] = $maxRetries;
+				}
+			} catch (\Exception $e) {
+				// If we can't check, assume it doesn't exist and skip it
+				// The migration will need to be run
+			}
+			
+			$session = AgentSession::create($sessionData);
 
 			// Add initial log
 			AgentLog::create([
@@ -61,6 +77,7 @@ class AgentController extends Controller
 					'larastan_level' => $larastanLevel,
 					'auto_apply' => $autoApply,
 					'max_iterations' => $maxIterations,
+					'max_retries' => $maxRetries,
 				],
 			]);
 
@@ -178,14 +195,16 @@ PHP;
 					'larastan_level' => $session->larastan_level,
 					'auto_apply' => $session->auto_apply,
 					'total_scans' => $session->total_scans,
-					'total_issues_found' => $session->total_issues_found,
-					'total_issues_fixed' => $session->total_issues_fixed,
-					'current_iteration' => $session->current_iteration,
-					'max_iterations' => $session->max_iterations,
-					'error_message' => $session->error_message,
-					'created_at' => $session->created_at->toIso8601String(),
-					'updated_at' => $session->updated_at->toIso8601String(),
-					'pending_changes_count' => $session->pendingFileChanges()->count(),
+				'total_issues_found' => $session->total_issues_found,
+				'total_issues_fixed' => $session->total_issues_fixed,
+				'failed_issues_count' => $session->failed_issues_count ?? 0,
+				'current_iteration' => $session->current_iteration,
+				'max_iterations' => $session->max_iterations,
+				'max_retries' => $session->max_retries ?? 3,
+				'error_message' => $session->error_message,
+				'created_at' => $session->created_at->toIso8601String(),
+				'updated_at' => $session->updated_at->toIso8601String(),
+				'pending_changes_count' => $session->pendingFileChanges()->count(),
 				],
 			]);
 		} catch (\Exception $e) {
@@ -413,6 +432,61 @@ PHP;
 			return response()->json([
 				'success' => false,
 				'error' => 'Failed to get pending changes: ' . $e->getMessage(),
+			], 500);
+		}
+	}
+
+	/**
+	 * Get applied file changes
+	 */
+	public function getAppliedChanges(Request $request, string $sessionId)
+	{
+		try {
+			$userId = auth()->id();
+			$session = AgentSession::where('id', $sessionId)
+				->where('user_id', $userId)
+				->first();
+
+			if (!$session) {
+				return response()->json([
+					'success' => false,
+					'error' => 'Session not found',
+				], 404);
+			}
+
+			$changes = AgentFileChange::where('agent_session_id', $session->id)
+				->where('status', 'applied')
+				->orderBy('created_at', 'desc')
+				->get()
+				->map(function ($change) {
+					return [
+						'id' => $change->id,
+						'file_path' => $change->file_path,
+						'original_content' => $change->original_content,
+						'new_content' => $change->new_content,
+						'status' => $change->status,
+						'backup_path' => $change->backup_path,
+						'change_summary' => $change->change_summary,
+						'created_at' => $change->created_at->toIso8601String(),
+					];
+				});
+
+			return response()->json([
+				'success' => true,
+				'result' => [
+					'changes' => $changes,
+					'count' => $changes->count(),
+				],
+			]);
+		} catch (\Exception $e) {
+			Log::error('Failed to get applied changes', [
+				'session_id' => $sessionId,
+				'error' => $e->getMessage(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'error' => 'Failed to get applied changes: ' . $e->getMessage(),
 			], 500);
 		}
 	}

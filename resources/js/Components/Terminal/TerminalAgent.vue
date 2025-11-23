@@ -47,6 +47,22 @@
 				</div>
 
 				<div class="config-field">
+					<label for="max-retries">Max Retries per Issue</label>
+					<div class="config-field-help">
+						Number of times the AI will retry generating code when validation fails (default: 3)
+					</div>
+					<input
+						id="max-retries"
+						v-model.number="config.max_retries"
+						type="number"
+						min="1"
+						max="10"
+						class="terminal-input"
+						:value="config.max_retries"
+					/>
+				</div>
+
+				<div class="config-field">
 					<label class="config-checkbox-label">
 						<input
 							v-model="config.auto_apply"
@@ -88,8 +104,8 @@
 					Iteration: {{ currentIteration }} / {{ maxIterations }}
 					| Issues Found: {{ totalIssuesFound }}
 					| <span class="status-success-count">{{ totalIssuesFixed }} fixed</span>
-					<span v-if="totalIssuesFound > totalIssuesFixed" class="status-failed-count">
-						| <span class="fail-indicator">✗</span> {{ totalIssuesFound - totalIssuesFixed }} failed
+					<span v-if="failedIssuesCount > 0" class="status-failed-count">
+						| <span class="fail-indicator">✗</span> {{ failedIssuesCount }} failed
 					</span>
 					<span v-if="status === 'pending'" class="status-warning">(Waiting to start...)</span>
 					<span v-if="status === 'running'" class="status-active">(Running...)</span>
@@ -158,6 +174,21 @@
 					/>
 				</div>
 			</details>
+
+			<!-- Applied Changes (Show what was actually changed) -->
+			<details v-if="appliedChanges.length > 0" class="applied-changes-section" :open="false">
+				<summary class="applied-changes-summary">
+					<span>Applied Changes ({{ appliedChanges.length }})</span>
+					<span class="applied-changes-badge">✓</span>
+				</summary>
+				<div class="applied-changes-list">
+					<FileChangePreview
+						v-for="change in appliedChanges"
+						:key="change.id"
+						:change="change"
+					/>
+				</div>
+			</details>
 		</div>
 	</div>
 </template>
@@ -187,8 +218,10 @@ const currentIteration = ref(0);
 const maxIterations = ref(50);
 const totalIssuesFound = ref(0);
 const totalIssuesFixed = ref(0);
+const failedIssuesCount = ref(0);
 const logs = ref([]);
 const pendingChanges = ref([]);
+const appliedChanges = ref([]);
 const starting = ref(false);
 const errorMessage = ref(null);
 const pausing = ref(false);
@@ -200,6 +233,7 @@ const logsPollInterval = ref(null);
 const config = ref({
 	larastan_level: 1,
 	max_iterations: 50,
+	max_retries: 3,
 	auto_apply: true,
 });
 
@@ -243,6 +277,7 @@ async function startAgent() {
 		const response = await axios.post(api.agent.start(), {
 			larastan_level: config.value.larastan_level,
 			max_iterations: config.value.max_iterations,
+			max_retries: config.value.max_retries,
 			auto_apply: config.value.auto_apply,
 		});
 
@@ -328,6 +363,7 @@ async function loadStatus() {
 			maxIterations.value = result.max_iterations;
 			totalIssuesFound.value = result.total_issues_found;
 			totalIssuesFixed.value = result.total_issues_fixed;
+			failedIssuesCount.value = result.failed_issues_count || 0;
 			
 			// Update config from session
 			if (result.auto_apply !== undefined) {
@@ -411,6 +447,22 @@ async function loadPendingChanges() {
 	}
 }
 
+async function loadAppliedChanges() {
+	if (!sessionId.value) {
+		appliedChanges.value = [];
+		return;
+	}
+
+	try {
+		const response = await axios.get(api.agent.appliedChanges(sessionId.value));
+		if (response.data.success) {
+			appliedChanges.value = response.data.result.changes;
+		}
+	} catch (error) {
+		console.error('Failed to load applied changes:', error);
+	}
+}
+
 async function approveChange(changeId) {
 	try {
 		const response = await axios.post(api.agent.approveChange(changeId));
@@ -447,11 +499,13 @@ function startPolling() {
 	loadStatus();
 	loadLogs();
 	loadPendingChanges();
+	loadAppliedChanges();
 
 	// Poll more frequently for better feedback
 	statusPollInterval.value = setInterval(() => {
 		loadStatus();
 		loadPendingChanges();
+		loadAppliedChanges();
 	}, 1000); // Poll every 1 second for better responsiveness
 
 	logsPollInterval.value = setInterval(() => {
@@ -805,11 +859,61 @@ onUnmounted(() => {
 }
 
 .agent-details-section,
-.pending-changes-section {
+.pending-changes-section,
+.applied-changes-section {
 	margin: 8px 0;
 	border: 1px solid var(--terminal-border, #3e3e42);
 	border-radius: 4px;
 	background: var(--terminal-bg-secondary, #252526);
+}
+
+.applied-changes-section {
+	border-left: 3px solid #10b981;
+}
+
+.applied-changes-summary {
+	padding: 8px 12px;
+	font-size: var(--terminal-font-size-sm, 12px);
+	font-weight: 600;
+	cursor: pointer;
+	user-select: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	list-style: none;
+}
+
+.applied-changes-summary::-webkit-details-marker {
+	display: none;
+}
+
+.applied-changes-summary::before {
+	content: '▶';
+	display: inline-block;
+	margin-right: 6px;
+	transition: transform 0.2s;
+}
+
+.applied-changes-section[open] .applied-changes-summary::before {
+	transform: rotate(90deg);
+}
+
+.applied-changes-badge {
+	background: #10b981;
+	color: white;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: var(--terminal-font-size-xs, 11px);
+	font-weight: 600;
+}
+
+.applied-changes-list {
+	padding: 8px 12px;
+	font-size: var(--terminal-font-size-xs, 11px);
+	border-top: 1px solid var(--terminal-border, #3e3e42);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
 .agent-details-summary,
