@@ -1,6 +1,7 @@
 <?php
 
-return [
+	return [
+		/*
 	/*
 	|--------------------------------------------------------------------------
 	| Paths Configuration
@@ -185,5 +186,22 @@ return [
 		// Encryption key: Uses same key as AI features
 		// Falls back to LARAVEL_OVERLORD_API_KEY if not set
 		'encryption_key' => env('LARAVEL_OVERLORD_ENCRYPTION_KEY'),
+	],
+
+	/*
+	|--------------------------------------------------------------------------
+	| Mermaid Diagram Configuration
+	|--------------------------------------------------------------------------
+	|
+	| Configure Mermaid diagram generation settings.
+	|
+	*/
+	'mermaid' => [
+		/*
+		| Include package components in diagram
+		| Set to true to include Spiderwisp\LaravelOverlord components
+		| Default is false to show only the main application
+		*/
+		'include_package' => env('LARAVEL_OVERLORD_MERMAID_INCLUDE_PACKAGE', false),
 	],
 ];

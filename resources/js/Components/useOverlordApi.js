@@ -242,6 +242,18 @@ export function useOverlordApi() {
         // Bug report endpoints
         bugReport: {
             submit: () => `${cleanBaseUrl}/bug-report/submit`,
+        },
+        // Mermaid diagram endpoints
+        mermaid: {
+            diagram: (params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/mermaid/diagram${queryString ? '?' + queryString : ''}`;
+            },
+            generate: () => `${cleanBaseUrl}/mermaid/generate`,
+            focused: (params = {}) => {
+                const queryString = new URLSearchParams(params).toString();
+                return `${cleanBaseUrl}/mermaid/focused${queryString ? '?' + queryString : ''}`;
+            },
         }
     };
 }

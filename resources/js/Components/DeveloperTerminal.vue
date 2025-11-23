@@ -34,6 +34,7 @@ import TerminalDatabase from './Terminal/TerminalDatabase.vue';
 import TerminalThemeToggle from './Terminal/TerminalThemeToggle.vue';
 import TerminalSettings from './Terminal/TerminalSettings.vue';
 import TerminalRoutes from './Terminal/TerminalRoutes.vue';
+import TerminalMermaid from './Terminal/TerminalMermaid.vue';
 import TerminalBugReport from './Terminal/TerminalBugReport.vue';
 import { useTerminalTheme, initThemeRoot } from './useTerminalTheme.js';
 import { useTerminalFont, initFontRoot } from './useTerminalFont.js';
@@ -247,6 +248,7 @@ const navigationConfig = computed(() => {
 		toggleRoutes,
 		toggleControllers,
 		toggleModelDiagram,
+		toggleMermaid,
 		startScan,
 		toggleCommands,
 		toggleIssues,
@@ -404,6 +406,27 @@ function handleNavigateToReference(navData) {
 	handleNavigateToReferenceBase(navData, openTab);
 }
 
+// Handle navigation from Mermaid diagram
+function handleNavigateFromDiagram(navData) {
+	if (!navData || !navData.tab) return;
+	
+	// Open the target tab
+	ensureTabOpen(navData.tab);
+	
+	// If there's a name/identifier, store it for the component to use
+	if (navData.name) {
+		if (typeof window !== 'undefined') {
+			if (!window.overlordTabOptions) {
+				window.overlordTabOptions = {};
+			}
+			window.overlordTabOptions[navData.tab] = {
+				itemId: navData.name,
+				highlight: navData.name,
+			};
+		}
+	}
+}
+
 async function handleTabContextMenu(event, tabId) {
 	// Simple context menu - could be enhanced with a proper menu component
 	if (tabId === 'terminal') return;
@@ -494,6 +517,7 @@ function toggleShell() {
 
 // Use createToggleFunction for simple toggles
 const toggleModelDiagram = createToggleFunction('model-diagram');
+const toggleMermaid = createToggleFunction('mermaid');
 const toggleControllers = createToggleFunction('controllers');
 const toggleRoutes = createToggleFunction('routes');
 const toggleClasses = createToggleFunction('classes');
@@ -794,6 +818,7 @@ onUnmounted(() => {
 								:handle-add-to-favorites="handleAddToFavorites"
 								:handle-navigate-to-reference="handleNavigateToReference"
 								:handle-navigate-to-source="handleNavigateToSource"
+								:handle-navigate-from-diagram="handleNavigateFromDiagram"
 								:handle-create-issue-from-logs="handleCreateIssueFromLogs"
 								:handle-create-issue-from-terminal="handleCreateIssueFromTerminal"
 								:handle-create-issue-from-scan="handleCreateIssueFromScan"

@@ -24,6 +24,7 @@ export const tabConfigs = {
 	'favorites': { id: 'favorites', label: 'Favorites', closable: true },
 	'ai': { id: 'ai', label: 'AI', closable: true },
 	'model-diagram': { id: 'model-diagram', label: 'Models', closable: true },
+	'mermaid': { id: 'mermaid', label: 'Mermaid Diagram', closable: true },
 	'routes': { id: 'routes', label: 'Routes', closable: true },
 	'scan-config': { id: 'scan-config', label: 'Scan Configuration', closable: true },
 	'scan-results': { id: 'scan-results', label: 'Scan Results', closable: true },

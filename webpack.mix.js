@@ -28,6 +28,12 @@ mix.js('resources/js/terminal.js', 'public/js')
 				vue: 'vue/dist/vue.esm-bundler.js',
 			},
 		},
+		output: {
+			// Set publicPath to empty string - webpack will use relative paths
+			// This ensures chunks load from the same directory as terminal.js
+			publicPath: '',
+			chunkFilename: 'js/[name].js',
+		},
 	})
 	.after(() => {
 		// Auto-publish assets after build (development only)

@@ -175,5 +175,12 @@ Route::middleware('web')->group(function () {
             Route::prefix('bug-report')->group(function () {
                 Route::post('/submit', [BugReportController::class, 'submit']);
             });
+            
+            // Mermaid diagram routes
+            Route::prefix('mermaid')->group(function () {
+                Route::get('/diagram', [TerminalController::class, 'getMermaidDiagram']);
+                Route::post('/generate', [TerminalController::class, 'generateMermaidDiagram']);
+                Route::get('/focused', [TerminalController::class, 'getFocusedMermaidDiagram']);
+            });
         });
 });

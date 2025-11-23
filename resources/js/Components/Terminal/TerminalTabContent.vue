@@ -3,6 +3,7 @@ import { ref, watch, nextTick } from 'vue';
 import TerminalHistory from './TerminalHistory.vue';
 import TerminalTemplates from './TerminalTemplates.vue';
 import TerminalModelDiagram from './TerminalModelDiagram.vue';
+import TerminalMermaid from './TerminalMermaid.vue';
 import TerminalControllers from './TerminalControllers.vue';
 import TerminalRoutes from './TerminalRoutes.vue';
 import TerminalClasses from './TerminalClasses.vue';
@@ -64,6 +65,7 @@ const props = defineProps({
 	handleAddToFavorites: Function,
 	handleNavigateToReference: Function,
 	handleNavigateToSource: Function,
+	handleNavigateFromDiagram: Function,
 	handleCreateIssueFromLogs: Function,
 	handleCreateIssueFromTerminal: Function,
 	handleCreateIssueFromScan: Function,
@@ -124,6 +126,13 @@ defineExpose({
 	<TerminalModelDiagram
 		:visible="isTabActive('model-diagram')"
 		@close="closeTab('model-diagram')"
+	/>
+
+	<!-- Mermaid Diagram -->
+	<TerminalMermaid
+		:visible="isTabActive('mermaid')"
+		@close="closeTab('mermaid')"
+		@navigate-to="handleNavigateToReference"
 	/>
 
 	<!-- Controllers View -->

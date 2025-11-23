@@ -19,6 +19,7 @@ use Spiderwisp\LaravelOverlord\Services\ControllerDiscovery;
 use Spiderwisp\LaravelOverlord\Services\ClassDiscovery;
 use Spiderwisp\LaravelOverlord\Services\RouteDiscovery;
 use Spiderwisp\LaravelOverlord\Services\SensitiveDataRedactor;
+use Spiderwisp\LaravelOverlord\Services\MermaidDiagramService;
 
 class TerminalController extends Controller
 {
@@ -5119,6 +5120,120 @@ class TerminalController extends Controller
 				'errors' => ['Failed to test route: ' . $e->getMessage()],
 				'result' => (object) [],
 			], 400);
+		}
+	}
+
+	/**
+	 * Get Mermaid diagram
+	 */
+	public function getMermaidDiagram(Request $request)
+	{
+		try {
+			$mermaidService = new MermaidDiagramService();
+			$diagram = $mermaidService->generateDiagram();
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'diagram' => $diagram,
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get Mermaid diagram', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get Mermaid diagram: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 500);
+		}
+	}
+
+	/**
+	 * Generate/regenerate Mermaid diagram
+	 */
+	public function generateMermaidDiagram(Request $request)
+	{
+		try {
+			$mermaidService = new MermaidDiagramService();
+			$diagram = $mermaidService->regenerateDiagram();
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'diagram' => $diagram,
+					'message' => 'Diagram regenerated successfully',
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to generate Mermaid diagram', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to generate Mermaid diagram: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 500);
+		}
+	}
+
+	/**
+	 * Get focused Mermaid diagram for a specific node
+	 */
+	public function getFocusedMermaidDiagram(Request $request)
+	{
+		try {
+			$modelName = $request->query('node') ?: $request->query('model');
+			$connectionDepth = (int) $request->query('depth', 1);
+
+			if (!$modelName) {
+				return response()->json([
+					'success' => false,
+					'status_code' => 'ERROR',
+					'errors' => ['Model name is required for focused diagram'],
+					'result' => (object) [],
+				], 400);
+			}
+
+			$connectionDepth = max(1, min(3, $connectionDepth)); // Clamp between 1 and 3
+
+			$mermaidService = new MermaidDiagramService();
+			$diagram = $mermaidService->getFocusedDiagram($modelName, $connectionDepth);
+
+			return response()->json([
+				'success' => true,
+				'status_code' => 'SUCCESS',
+				'errors' => [],
+				'result' => (object) [
+					'diagram' => $diagram,
+					'model_name' => $modelName,
+					'connection_depth' => $connectionDepth,
+				],
+			], 200);
+		} catch (\Throwable $e) {
+			\Log::error('Failed to get focused Mermaid diagram', [
+				'error' => $e->getMessage(),
+				'trace' => $e->getTraceAsString(),
+				'modelName' => $request->query('node') ?: $request->query('model'),
+			]);
+
+			return response()->json([
+				'success' => false,
+				'status_code' => 'ERROR',
+				'errors' => ['Failed to get focused Mermaid diagram: ' . $e->getMessage()],
+				'result' => (object) [],
+			], 500);
 		}
 	}
 }

@@ -12,14 +12,16 @@ export function useTerminalNavigation() {
 			'controller': 'controllers',
 			'middleware': 'middleware', // Future feature
 			'model': 'model-diagram',
-			'service': 'services', // Future feature
+			'service': 'services',
 			'trait': 'traits', // Future feature
 			'route': 'routes',
+			'job': 'jobs', // Jobs tab
+			'class': 'classes', // Classes tab for fallback
 		};
 		
 		const targetTab = typeMap[navData.type];
 		if (!targetTab || !tabConfigs[targetTab]) {
-			console.warn('Unknown navigation type:', navData.type);
+			console.warn('Unknown navigation type:', navData.type, 'Available types:', Object.keys(typeMap));
 			return;
 		}
 		
