@@ -60,8 +60,10 @@ class LaravelOverlordServiceProvider extends ServiceProvider
 		// Routes are cached when route:cache is run, so this is fast
 		$this->loadRoutesFrom(__DIR__.'/../routes/api.php');
 		
-		// Register default route if enabled (similar to Horizon's /horizon route)
-		if (config('laravel-overlord.default_route_enabled', true)) {
+		// Register default route if enabled AND standalone_route is NOT enabled
+		// This prevents duplicate route registration when standalone_route is configured
+		if (config('laravel-overlord.default_route_enabled', true) && 
+		    !config('laravel-overlord.standalone_route.enabled', false)) {
 			$this->loadRoutesFrom(__DIR__.'/../routes/web.php');
 		}
 

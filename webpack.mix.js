@@ -34,6 +34,8 @@ mix.js('resources/js/terminal.js', 'public/js')
 			publicPath: '',
 			chunkFilename: 'js/[name].js',
 		},
+		// Ensure Vue and all dependencies are bundled, not externalized
+		externals: {},
 	})
 	.after(() => {
 		// Auto-publish assets after build (development only)

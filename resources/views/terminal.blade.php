@@ -6,8 +6,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ config('laravel-overlord.ui.title', 'Laravel Overlord') }} - {{ config('laravel-overlord.ui.subtitle', 'Development Console') }}</title>
-
-    @vite(['resources/js/app.js'])
     
     <style>
         body {
@@ -18,7 +16,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }
         
-        #app {
+        #overlord-terminal-container {
             width: 100vw;
             height: 100vh;
         }
@@ -30,24 +28,11 @@
             routePrefix: '{{ config('laravel-overlord.route_prefix', 'admin/overlord') }}'
         };
     </script>
+    
+    <script src="{{ asset('vendor/laravel-overlord/js/terminal.js') }}"></script>
 </head>
 <body>
-    <div id="app">
-        <developer-terminal :visible="true" :floating="false" />
-    </div>
-
-    <script type="module">
-        import { createApp } from 'vue';
-        import DeveloperTerminal from '@/vendor/laravel-overlord/Components/DeveloperTerminal.vue';
-
-        const app = createApp({
-            components: {
-                DeveloperTerminal
-            }
-        });
-
-        app.mount('#app');
-    </script>
+    <div id="overlord-terminal-container"></div>
 </body>
 </html>
 

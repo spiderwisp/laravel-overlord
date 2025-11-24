@@ -1047,7 +1047,7 @@ class TerminalController extends Controller
 	/**
 	 * Display the standalone terminal interface
 	 */
-	public function index()
+	public function index(Request $request)
 	{
 		// Ensure the view exists
 		if (!view()->exists('laravel-overlord::terminal')) {
@@ -1059,7 +1059,11 @@ class TerminalController extends Controller
 			return response('Laravel Overlord: Terminal view not found. Please publish the views using: php artisan vendor:publish --tag=laravel-overlord-views', 500);
 		}
 
-		return view('laravel-overlord::terminal');
+		// Return HTML response that explicitly prevents Inertia from processing
+		// Use response()->view() and set headers to ensure Inertia doesn't intercept
+		return response()->view('laravel-overlord::terminal')
+			->header('Content-Type', 'text/html; charset=utf-8')
+			->header('X-Inertia', 'false');
 	}
 
 	/**
