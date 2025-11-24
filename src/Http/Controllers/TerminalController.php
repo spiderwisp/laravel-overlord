@@ -1045,7 +1045,7 @@ class TerminalController extends Controller
 	}
 
 	/**
-	 * Display the terminal interface (default route)
+	 * Display the standalone terminal interface
 	 */
 	public function index()
 	{
@@ -1063,7 +1063,7 @@ class TerminalController extends Controller
 	}
 
 	/**
-	 * Get help content via GET request (public endpoint)
+	 * Get help content via GET request
 	 */
 	public function getHelp(Request $request)
 	{

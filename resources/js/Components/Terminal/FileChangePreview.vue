@@ -38,6 +38,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { highlightCode } from '../../utils/syntaxHighlight.js';
 
 const props = defineProps({
 	change: {

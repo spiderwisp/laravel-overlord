@@ -16,6 +16,14 @@ use Spiderwisp\LaravelOverlord\Http\Controllers\AgentController;
 // Wrap all routes in web middleware to ensure session support
 // Use static values to avoid config() calls - config is merged in service provider
 Route::middleware('web')->group(function () {
+    // Standalone route - serves the terminal interface as a full-page view
+    if (config('laravel-overlord.standalone_route.enabled', true)) {
+        $standalonePath = config('laravel-overlord.standalone_route.path', 'overlord');
+        Route::get($standalonePath, [TerminalController::class, 'index'])
+            ->middleware(config('laravel-overlord.middleware', ['auth']))
+            ->name('overlord.index');
+    }
+    
     // Use default values directly - config is already merged, but avoid calling config() here
     // for performance. These defaults match the config file defaults.
     $routePrefix = 'admin/overlord';

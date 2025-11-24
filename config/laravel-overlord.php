@@ -109,6 +109,24 @@
 
 	/*
 	|--------------------------------------------------------------------------
+	| Standalone Route Configuration
+	|--------------------------------------------------------------------------
+	|
+	| Configure the standalone route that serves the terminal interface
+	| as a full-page view. This allows accessing the terminal directly
+	| without needing to integrate the Vue component into your application.
+	|
+	*/
+	'standalone_route' => [
+		// Enable or disable the standalone route
+		'enabled' => true,
+
+		// The path for the standalone route (e.g., 'overlord' creates /overlord)
+		'path' => 'overlord',
+	],
+
+	/*
+	|--------------------------------------------------------------------------
 	| AI Configuration
 	|--------------------------------------------------------------------------
 	|

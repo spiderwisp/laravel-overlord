@@ -197,8 +197,7 @@ class RealAiService
 
 		if ($this->provider instanceof LLMProviderInterface) {
 			try {
-				// For codebase scans, skip context gathering - file content is already in the message
-				if ($contextType === 'codebase_scan') {
+				if ($contextType === 'codebase_scan' || $contextType === 'larastan_scan') {
 					$context = [
 						'codebase' => '',
 						'database' => '',

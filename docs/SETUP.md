@@ -352,13 +352,14 @@ return [
 
 #### Middleware Configuration
 
-The `middleware` configuration controls access to all terminal routes. This middleware is automatically applied to all routes including the help route.
+The `middleware` configuration controls access to all terminal routes. This middleware is automatically applied to all routes, including the help route.
 
 **How it works:**
 - The middleware array from your config is applied to all routes via `Route::middleware(config('laravel-overlord.middleware'))`
 - Default behavior: empty array `[]` in local environment, `['auth']` in production
 - You can override via `.env` using `LARAVEL_OVERLORD_MIDDLEWARE` (comma-separated)
 - You can add multiple middleware for additional security
+- All routes are protected by the configured middleware
 
 **Examples:**
 
@@ -456,7 +457,6 @@ LARAVEL_OVERLORD_DEFAULT_ROUTE_PATH=overlord
 - You can disable it if you prefer to integrate the terminal component into your own pages
 - The route path should not conflict with your existing routes
 - The terminal uses pre-compiled assets that are automatically published. No build step is required!
-
 ### Environment Variables Configuration
 
 #### Required: Redis Configuration

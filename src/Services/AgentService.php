@@ -419,12 +419,13 @@ class AgentService
 					: $this->buildRetryPrompt($lastPrompt, $lastAttempt ?? '', $lastValidationErrors, $retryCount);
 
 				// Call AI service
+				// Use larastan_scan context type since this is for fixing Larastan/PHPStan issues
 				$aiResult = $this->aiService->chat(
 					$prompt,
 					[],
 					null,
 					['session_id' => $session->id, 'file_path' => $filePath],
-					'agent_fix',
+					'larastan_scan',
 					['issue' => $issue, 'file_path' => $filePath, 'attempt' => $retryCount]
 				);
 
@@ -848,15 +849,18 @@ class AgentService
 
 		$prompt .= "\nContext around the issue:\n```php\n{$contextCode}\n```\n\n";
 
-		$prompt .= "Full file content:\n```php\n{$fileContent}\n```\n\n";
+		$prompt .= "Full file content (for reference - preserve everything except the fix):\n```php\n{$fileContent}\n```\n\n";
 
 		$prompt .= "CRITICAL REQUIREMENTS:\n";
 		$prompt .= "- Return ONLY complete, valid PHP code in a ```php code block\n";
 		$prompt .= "- Do NOT include placeholder text, comments like '... rest of code', or explanations\n";
 		$prompt .= "- The code block MUST start with `<?php` and contain the COMPLETE file\n";
 		$prompt .= "- Ensure all braces are matched and the code is syntactically valid\n";
-		$prompt .= "- Only fix the specific issue mentioned. Do not make other changes.\n";
-		$prompt .= "- Ensure the code follows Laravel best practices.";
+		$prompt .= "- **ONLY fix the specific issue mentioned on line {$line}. Do NOT make ANY other changes to the file.**\n";
+		$prompt .= "- **PRESERVE all other code exactly as-is. Do not reformat, reorder, or modify any other parts of the file.**\n";
+		$prompt .= "- **Do NOT remove or change unrelated code, comments, whitespace, or formatting.**\n";
+		$prompt .= "- **Make the MINIMAL change necessary to fix ONLY the reported issue.**\n";
+		$prompt .= "- Ensure the code follows Laravel best practices, but only for the specific fix.";
 
 		return $prompt;
 	}

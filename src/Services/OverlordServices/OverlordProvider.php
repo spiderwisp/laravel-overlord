@@ -65,19 +65,20 @@ class OverlordProvider implements LLMProviderInterface
 		}
 
 		try {
-			// Format context if provided
-			$formattedContext = [];
-			if (!empty($context)) {
-				$formattedContext = $this->formatContextForApi($context);
-			}
-
 			// Build request payload
 			$payload = [
 				'message' => $message,
 				'conversation_history' => $conversationHistory,
 			];
 
-			$requestType = $this->mapContextTypeToRequestType($contextType);
+			// Detect Larastan scan if analysisData contains larastan_results
+			if ($analysisData !== null && isset($analysisData['larastan_results'])) {
+				$contextType = 'larastan_scan';
+				$requestType = 'larastan_scan';
+			} else {
+				$requestType = $this->mapContextTypeToRequestType($contextType);
+			}
+			
 			if ($requestType) {
 				$payload['request_type'] = $requestType;
 			}
@@ -86,11 +87,22 @@ class OverlordProvider implements LLMProviderInterface
 				$payload['context_type'] = $contextType;
 			}
 
-			$payload['data'] = [
-				'codebase' => $formattedContext['codebase'] ?? '',
-				'database' => $formattedContext['database'] ?? '',
-				'logs' => $formattedContext['logs'] ?? '',
-			];
+			// For Larastan scans, skip context gathering entirely - only send analysis data
+			if ($contextType === 'larastan_scan') {
+				$payload['data'] = [];
+			} else {
+				// Format context if provided (for other request types)
+				$formattedContext = [];
+				if (!empty($context)) {
+					$formattedContext = $this->formatContextForApi($context);
+				}
+
+				$payload['data'] = [
+					'codebase' => $formattedContext['codebase'] ?? '',
+					'database' => $formattedContext['database'] ?? '',
+					'logs' => $formattedContext['logs'] ?? '',
+				];
+			}
 
 			if ($analysisData !== null) {
 				$payload['data']['analysis_data'] = $analysisData;
@@ -133,6 +145,7 @@ class OverlordProvider implements LLMProviderInterface
 					];
 				}
 
+				// Handle error response from successful HTTP request (200 but success: false)
 				$errorCode = $data['code'] ?? 'API_ERROR';
 				$errorMessage = $data['error'] ?? $data['message'] ?? $data['error_message'] ?? $data['detail'] ?? 'Unknown error';
 
@@ -148,15 +161,85 @@ class OverlordProvider implements LLMProviderInterface
 			}
 
 			// Handle API errors (non-200 status codes)
-			$errorData = $response->json();
 			$statusCode = $response->status();
-			$errorCode = $errorData['code'] ?? 'API_ERROR';
-			$errorMessage = $errorData['error'] ?? $errorData['message'] ?? $errorData['error_message'] ?? $errorData['detail'] ?? 'Unknown error';
-
-			if ($errorCode === 'QUOTA_EXCEEDED' || $errorCode === AiErrorCode::QUOTA_EXCEEDED->value) {
-				$errorMessage = $errorMessage ?: 'Monthly quota exceeded. Please upgrade at laravel-overlord.com to continue.';
+			$responseBody = $response->body();
+			
+			// Try to parse JSON, but handle cases where response might not be JSON
+			$errorData = null;
+			try {
+				$errorData = $response->json();
+			} catch (\Exception $e) {
+				// Response is not valid JSON, use raw body
+				\Illuminate\Support\Facades\Log::warning('OverlordProvider: Failed to parse error response as JSON', [
+					'status_code' => $statusCode,
+					'response_preview' => strlen($responseBody) > 200 ? substr($responseBody, 0, 200) . '...' : $responseBody,
+				]);
+			}
+			
+			// Extract error message with better fallback handling
+			if (is_array($errorData) && !empty($errorData)) {
+				$errorMessage = $errorData['error'] ?? $errorData['message'] ?? $errorData['error_message'] ?? $errorData['detail'] ?? null;
+			} else {
+				$errorMessage = null;
+			}
+			
+			// If we still don't have an error message, try to extract from response body
+			if (empty($errorMessage)) {
+				// Try multiple patterns to extract error message from response body
+				$patterns = [
+					// JSON error object with message
+					'/"error"\s*:\s*\{[^}]*"message"\s*:\s*"([^"]+)"/',
+					// JSON error string
+					'/"error"\s*:\s*"([^"]+)"/',
+					// JSON message field
+					'/"message"\s*:\s*"([^"]+)"/',
+					// JSON error_message field
+					'/"error_message"\s*:\s*"([^"]+)"/',
+					// JSON detail field
+					'/"detail"\s*:\s*"([^"]+)"/',
+					// HTML error pages - try to extract meaningful text
+					'/<title>([^<]+)<\/title>/i',
+					'/<h1[^>]*>([^<]+)<\/h1>/i',
+					'/<p[^>]*class=["\']?error["\']?[^>]*>([^<]+)<\/p>/i',
+				];
+				
+				foreach ($patterns as $pattern) {
+					if (preg_match($pattern, $responseBody, $matches)) {
+						$errorMessage = trim(strip_tags($matches[1]));
+						if (!empty($errorMessage) && strlen($errorMessage) < 500) {
+							break; // Found a valid error message
+						}
+					}
+				}
+				
+				// If still no error message and response body is reasonable size, use it
+				if (empty($errorMessage)) {
+					$cleanedBody = trim(strip_tags($responseBody));
+					if (!empty($cleanedBody) && strlen($cleanedBody) < 500 && !preg_match('/^<html/i', $responseBody)) {
+						$errorMessage = $cleanedBody;
+					} else {
+						// Last resort: provide a descriptive error based on status code
+						$errorMessage = match($statusCode) {
+							400 => 'Bad request - invalid parameters',
+							401 => 'Unauthorized - check your API key',
+							403 => 'Forbidden - access denied',
+							404 => 'Not found - endpoint does not exist',
+							413 => 'Payload too large - reduce request size',
+							429 => 'Rate limit exceeded - too many requests',
+							500 => 'Internal server error - please try again later',
+							502 => 'Bad gateway - service temporarily unavailable',
+							503 => 'Service unavailable - please try again later',
+							504 => 'Gateway timeout - request took too long',
+							default => "HTTP {$statusCode} error from API",
+						};
+					}
+				}
 			}
 
+			// Map common error codes
+			$errorCode = (is_array($errorData) && isset($errorData['code'])) ? $errorData['code'] : 'API_ERROR';
+
+			// Check if error code matches Enum values - if so, pass through error message as-is
 			$recognizedCodes = [
 				AiErrorCode::QUOTA_EXCEEDED->value,
 				AiErrorCode::RATE_LIMIT_EXCEEDED->value,
@@ -273,7 +356,10 @@ class OverlordProvider implements LLMProviderInterface
 
 		return match ($contextType) {
 			'codebase_scan' => 'codebase_scan',
+			'code_scan' => 'code_scan',
+			'larastan_scan' => 'larastan_scan',
 			'database_scan' => 'database_scan',
+			'ask_question' => 'ask_question',
 			'migration_generation' => 'migration_generation',
 			'general' => 'general_chat',
 			default => 'general_chat',
