@@ -63,31 +63,31 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 ## Screenshot Gallery
 
 ### Controllers 
-<img src="art/Overlord 1.png" alt="Terminal with autocomplete suggestions, command history, and syntax highlighting" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-1.png" alt="Controllers explorer showing all application controllers with method source code" width="800">
 
 ### Models
-<img src="art/Overlord 2.png" alt="Database browser showing table data with inline editing capabilities" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-2.png" alt="Models explorer showing all Eloquent models with relationships and attributes" width="800">
 
 ### Model Mermaid
-<img src="art/Overlord 3.png" alt="Codebase explorer showing controllers, classes, and methods" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-3.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
 
 ### Database Explorer/Editor
-<img src="art/Overlord 4.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-4.png" alt="Database browser with inline editing capabilities" width="800">
 
 ### Migrations Management
-<img src="art/Overlord 5.png" alt="AI assistant providing context-aware answer about codebase" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-5.png" alt="Migration management interface for viewing, running, and rolling back migrations" width="800">
 
 ### Ai Code Scanner
-<img src="art/Overlord 6.png" alt="Full Horizon dashboard integrated within Overlord interface" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-6.png" alt="AI-powered code scanner for identifying bugs and security issues" width="800">
 
 ### Ai Larastan Code Fixer
-<img src="art/Overlord 7.png" alt="Log viewer with search and filtering capabilities" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-7.png" alt="AI Larastan code fixer for static analysis and automated fixes" width="800">
 
 ### Issues Tracker & Management
-<img src="art/Overlord 8.png" alt="Beautiful dark mode interface" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-8.png" alt="Issue tracker for managing bugs and code quality issues" width="800">
 
 ### Settings with Several Themes
-<img src="art/Overlord 9.png" alt="Additional Overlord features and capabilities" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-9.png" alt="Settings panel with multiple theme options" width="800">
 
 ## Just some of Overlord's Features
 
