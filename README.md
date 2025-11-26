@@ -62,32 +62,36 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 
 ## Screenshot Gallery
 
-### Terminal with Autocomplete
+### Controllers 
 <img src="art/Overlord 1.png" alt="Terminal with autocomplete suggestions, command history, and syntax highlighting" width="800">
 
-### Database Browser
+### Models
 <img src="art/Overlord 2.png" alt="Database browser showing table data with inline editing capabilities" width="800">
 
-### Codebase Explorer
+### Model Mermaid
 <img src="art/Overlord 3.png" alt="Codebase explorer showing controllers, classes, and methods" width="800">
 
-### Model Relationship Diagram
+### Database Explorer/Editor
 <img src="art/Overlord 4.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
 
-### AI Assistant
+### Migrations Management
 <img src="art/Overlord 5.png" alt="AI assistant providing context-aware answer about codebase" width="800">
 
-### Horizon Integration
+### Ai Code Scanner
 <img src="art/Overlord 6.png" alt="Full Horizon dashboard integrated within Overlord interface" width="800">
 
-### Log Viewer
+### Ai Larastan Code Fixer
 <img src="art/Overlord 7.png" alt="Log viewer with search and filtering capabilities" width="800">
 
-### Dark Mode Interface
+### Issues Tracker & Management
 <img src="art/Overlord 8.png" alt="Beautiful dark mode interface" width="800">
 
-### Additional Features
+### Settings with Several Themes
 <img src="art/Overlord 9.png" alt="Additional Overlord features and capabilities" width="800">
+
+## Just some of Overlord's Features
+
+- **Many other features, including Ai Code Scans, Ai Database Scans, Artisan Command Explorer & Building, & More
 
 ## Security
 
