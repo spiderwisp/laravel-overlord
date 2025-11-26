@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/banner.png" alt="Laravel Overlord">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/banner.png" alt="Laravel Overlord">
 
 # Laravel Overlord
 
@@ -63,31 +63,31 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 ## Screenshot Gallery
 
 ### Controllers 
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-1.png" alt="Controllers explorer showing all application controllers with method source code" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-1.png" alt="Controllers explorer showing all application controllers with method source code" width="800">
 
 ### Models
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-2.png" alt="Models explorer showing all Eloquent models with relationships and attributes" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-2.png" alt="Models explorer showing all Eloquent models with relationships and attributes" width="800">
 
 ### Model Mermaid
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-3.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-3.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
 
 ### Database Explorer/Editor
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-4.png" alt="Database browser with inline editing capabilities" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-4.png" alt="Database browser with inline editing capabilities" width="800">
 
 ### Migrations Management
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-5.png" alt="Migration management interface for viewing, running, and rolling back migrations" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-5.png" alt="Migration management interface for viewing, running, and rolling back migrations" width="800">
 
 ### Ai Code Scanner
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-6.png" alt="AI-powered code scanner for identifying bugs and security issues" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-6.png" alt="AI-powered code scanner for identifying bugs and security issues" width="800">
 
 ### Ai Larastan Code Fixer
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-7.png" alt="AI Larastan code fixer for static analysis and automated fixes" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-7.png" alt="AI Larastan code fixer for static analysis and automated fixes" width="800">
 
 ### Issues Tracker & Management
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-8.png" alt="Issue tracker for managing bugs and code quality issues" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-8.png" alt="Issue tracker for managing bugs and code quality issues" width="800">
 
 ### Settings with Several Themes
-<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/main/art/overlord-9.png" alt="Settings panel with multiple theme options" width="800">
+<img src="https://raw.githubusercontent.com/spiderwisp/laravel-overlord/master/art/overlord-9.png" alt="Settings panel with multiple theme options" width="800">
 
 ## Just some of Overlord's Features
 
