@@ -45,8 +45,6 @@ export function useOverlordApi() {
         // AI endpoints
         ai: {
             chat: () => `${cleanBaseUrl}/ai/chat`,
-            models: () => `${cleanBaseUrl}/ai/models`,
-            checkModel: () => `${cleanBaseUrl}/ai/models/check`,
             status: () => `${cleanBaseUrl}/ai/status`,
             apiKeyStatus: () => `${cleanBaseUrl}/ai/api-key-status`,
             getApiKeySetting: () => `${cleanBaseUrl}/ai/api-key-setting`,

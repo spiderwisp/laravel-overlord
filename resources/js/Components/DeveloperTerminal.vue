@@ -160,7 +160,7 @@ function executeCommandFromFavorite(command) {
 
 // Initialize AI composable
 const ai = useTerminalAi(api, { ensureTabOpen });
-const { aiConversationHistory, selectedAiModel, isSendingAi, loadAiStatus, sendAiMessage } = ai;
+const { aiConversationHistory, isSendingAi, loadAiStatus, sendAiMessage } = ai;
 
 // Watch for tabContentRef to be available and sync aiRef
 watch(tabContentRef, (newValue) => {

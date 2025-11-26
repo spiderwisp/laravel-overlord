@@ -24,8 +24,6 @@ const messages = ref([]);
 const inputMessage = ref('');
 const isLoading = ref(false);
 const isSending = ref(false);
-const selectedModel = ref(null);
-const availableModels = ref([]);
 const aiStatus = ref(null);
 const apiKeyStatus = ref(null);
 const conversationHistory = ref([]);
@@ -57,15 +55,12 @@ async function loadApiKeyStatus() {
 	}
 }
 
-// Load AI status and models
+// Load AI status
 async function loadAiStatus() {
 	try {
 		const response = await axios.get(api.ai.status());
 		if (response.data.success) {
 			aiStatus.value = response.data;
-			if (response.data.available) {
-				loadModels();
-			}
 		}
 	} catch (error) {
 		console.error('Failed to load AI status:', error);
@@ -74,22 +69,6 @@ async function loadAiStatus() {
 			available: false,
 			error: 'AI service is not available',
 		};
-	}
-}
-
-// Load available models from laravel-overlord.com (for display only - model is controlled by laravel-overlord.com)
-async function loadModels() {
-	try {
-		const response = await axios.get(api.ai.models());
-		if (response.data.success && response.data.available) {
-			availableModels.value = response.data.models || [];
-			// Display current model (read-only, from laravel-overlord.com)
-			if (response.data.default_model) {
-				selectedModel.value = response.data.default_model;
-			}
-		}
-	} catch (error) {
-		console.error('Failed to load models:', error);
 	}
 }
 
@@ -640,15 +619,6 @@ function dismissQuotaMessage(messageId) {
 							<p>Get your API key from <a href="https://laravel-overlord.com" target="_blank" rel="noopener noreferrer">laravel-overlord.com</a> to enable AI features.</p>
 						</div>
 					</div>
-				</div>
-				
-				<!-- Current Model (Read-only, from laravel-overlord.com) -->
-				<div
-					v-if="isAiAvailable && selectedModel"
-					class="terminal-ai-model-display"
-					title="Model is controlled by laravel-overlord.com based on your plan"
-				>
-					Model: {{ selectedModel }}
 				</div>
 				
 				<!-- Clear Conversation -->

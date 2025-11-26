@@ -2,11 +2,13 @@
 
 # Laravel Overlord
 
-**The ultimate local development console for Laravel** — Think Tinker on steroids crossed with Telescope, Horizon, and an AI pair programmer.
+**The ultimate local development console for Laravel** — Think Tinker on steroids with Telescope, Horizon, Larastan, a Ton of Tools and an AI pair programmer/scanner with optional auto-fixing.
 
 One command → full interactive terminal, database browser, queue monitor, log viewer, codebase explorer, relationship diagrams, PHPStan integration, and an AI assistant that actually knows your code.
 
 Perfect for solo developers and small teams who want to stop context-switching between 10 tools.
+
+> **⚠️ Local Development Only**: Overlord is designed for local development environments. **We strongly discourage using Overlord in production environments** due to security and performance considerations. A future release will include a read-only mode for production use.
 
 [![Latest Version](https://img.shields.io/packagist/v/spiderwisp/laravel-overlord.svg?style=flat-square)](https://packagist.org/packages/spiderwisp/laravel-overlord)
 
@@ -43,12 +45,23 @@ Overlord puts everything in one beautiful, fast console.
 | Horizon Dashboard             | Full Horizon UI built-in (no extra route)                     |
 | AI Assistant                  | "Why is this query N+1?" → it reads your code and explains    |
 
-(Yes, there are 50+ more features — power users love them)
+(There are many additional features available)
 
 ## Installation (30 seconds)
 
+### Standard Installation
+
 ```bash
 composer require spiderwisp/laravel-overlord
+php artisan overlord:install
+```
+
+### Dev-Only Installation (Recommended)
+
+Since Overlord is an extremely powerful tool, you can install it as a dev dependency to ensure it's not included in production:
+
+```bash
+composer require --dev spiderwisp/laravel-overlord
 php artisan overlord:install
 ```
 
@@ -95,8 +108,11 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 
 ## Security
 
+> **⚠️ Production Warning**: Overlord is **not recommended for production use**. It provides powerful tools that can modify your database, execute code, and access sensitive information. While authentication is required by default in production, we strongly recommend keeping Overlord disabled in production environments.
+
 - **Requires authentication in production** (defaults to `auth` middleware outside local environment)
 - **AI features are optional** — requires explicit API key configuration to enable
+- **Future release**: Read-only mode for production environments coming soon
 
 For detailed security configuration, see the [Setup Guide](docs/SETUP.md).
 
@@ -134,11 +150,6 @@ Type `help` or `?` in the terminal to view the comprehensive help guide.
 - PHP ^8.2
 - Laravel ^12.0
 - Redis (required for queue features)
-
-### Optional Dependencies
-
-- **PHPStan** (for static analysis features): `composer require --dev phpstan/phpstan larastan/larastan`
-  - Larastan is recommended to reduce false positives with Laravel magic methods and facades
 
 ## AI Features
 
@@ -188,6 +199,6 @@ LARAVEL_OVERLORD_MIDDLEWARE=auth,verified
 
 ## Credits & License
 
-Created by [Spiderwisp](https://spiderwisp.com)
+Created by [Spiderwisp](https://laravel-overlord.com)
 
 MIT License — free forever

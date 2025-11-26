@@ -4,26 +4,14 @@ import { useOverlordApi } from './useOverlordApi';
 
 export function useTerminalAi(api, { ensureTabOpen }) {
 	const aiConversationHistory = ref([]);
-	const selectedAiModel = ref(null);
 	const isSendingAi = ref(false);
 
-	// Load AI status and models
+	// Load AI status
 	async function loadAiStatus() {
 		try {
 			const response = await axios.get(api.ai.status());
 			if (response.data.success && response.data.available) {
-				// Load models
-				try {
-					const modelsResponse = await axios.get(api.ai.models());
-					if (modelsResponse.data.success && modelsResponse.data.available) {
-						const models = modelsResponse.data.models || [];
-						if (models.length > 0 && !selectedAiModel.value) {
-							selectedAiModel.value = modelsResponse.data.default_model || models[0].name;
-						}
-					}
-				} catch (error) {
-					console.error('Failed to load AI models:', error);
-				}
+				// AI is available - model is controlled by the SaaS server
 			}
 		} catch (error) {
 			console.error('Failed to load AI status:', error);
@@ -82,7 +70,6 @@ export function useTerminalAi(api, { ensureTabOpen }) {
 		try {
 			const response = await axios.post(api.ai.chat(), {
 				message: userMessage,
-				model: selectedAiModel.value,
 				conversation_history: aiConversationHistory.value.slice(-10), // Last 10 messages
 			});
 
@@ -162,7 +149,6 @@ export function useTerminalAi(api, { ensureTabOpen }) {
 
 	return {
 		aiConversationHistory,
-		selectedAiModel,
 		isSendingAi,
 		loadAiStatus,
 		sendAiMessage,

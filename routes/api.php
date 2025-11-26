@@ -88,8 +88,6 @@ Route::middleware('web')->group(function () {
             // AI routes
             Route::prefix('ai')->group(function () {
                 Route::post('/chat', [AiController::class, 'chat']);
-                Route::get('/models', [AiController::class, 'getModels']);
-                Route::post('/models/check', [AiController::class, 'checkModel']);
                 Route::get('/status', [AiController::class, 'getStatus']);
                 Route::get('/api-key-status', [AiController::class, 'getApiKeyStatus']);
                 Route::get('/api-key-setting', [AiController::class, 'getApiKeySetting']);

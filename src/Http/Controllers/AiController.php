@@ -105,57 +105,6 @@ class AiController extends Controller
 	}
 
 	/**
-	 * Get list of available AI models
-	 */
-	public function getModels()
-	{
-		if (!$this->aiService->isEnabled()) {
-			return response()->json([
-				'success' => false,
-				'error' => 'AI features are disabled',
-			], 403);
-		}
-
-		$models = $this->aiService->getAvailableModels();
-		$isAvailable = $this->aiService->isAvailable();
-		$defaultModel = $this->aiService->getDefaultModel();
-
-		return response()->json([
-			'success' => true,
-			'available' => $isAvailable,
-			'models' => $models,
-			'default_model' => $defaultModel,
-		]);
-	}
-
-	/**
-	 * Check if a specific model is available
-	 */
-	public function checkModel(Request $request)
-	{
-		$request->validate([
-			'model' => 'required|string|max:100',
-		]);
-
-		if (!$this->aiService->isEnabled()) {
-			return response()->json([
-				'success' => false,
-				'available' => false,
-				'error' => 'AI features are disabled',
-			], 403);
-		}
-
-		$model = $request->input('model');
-		$isAvailable = $this->aiService->isModelAvailable($model);
-
-		return response()->json([
-			'success' => true,
-			'model' => $model,
-			'available' => $isAvailable,
-		]);
-	}
-
-	/**
 	 * Get AI status and configuration
 	 */
 	public function getStatus()
