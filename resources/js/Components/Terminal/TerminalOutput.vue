@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import TerminalOutputItem from './TerminalOutputItem.vue';
 
 const props = defineProps({
@@ -24,6 +24,30 @@ const props = defineProps({
 const emit = defineEmits(['insert-command', 'execute-command', 'create-issue', 'clear-output', 'clear-session', 'close-terminal']);
 
 const outputContainerRef = ref(null);
+
+// Auto-scroll to bottom when new output is added
+watch(() => props.outputHistory.length, async (newLength, oldLength) => {
+	if (newLength > oldLength && outputContainerRef.value) {
+		// Wait for DOM to update
+		await nextTick();
+		// Smooth scroll to bottom
+		outputContainerRef.value.scrollTo({
+			top: outputContainerRef.value.scrollHeight,
+			behavior: 'smooth',
+		});
+	}
+});
+
+// Also scroll when execution state changes (for loading indicator)
+watch(() => props.isExecuting, async (isExecuting) => {
+	if (isExecuting && outputContainerRef.value) {
+		await nextTick();
+		outputContainerRef.value.scrollTo({
+			top: outputContainerRef.value.scrollHeight,
+			behavior: 'smooth',
+		});
+	}
+});
 
 // Handle insert command event
 function handleInsertCommand(code) {
@@ -55,7 +79,10 @@ function handleCreateIssue(prefillData) {
 defineExpose({
 	scrollToBottom() {
 		if (outputContainerRef.value) {
-			outputContainerRef.value.scrollTop = outputContainerRef.value.scrollHeight;
+			outputContainerRef.value.scrollTo({
+				top: outputContainerRef.value.scrollHeight,
+				behavior: 'smooth',
+			});
 		}
 	},
 });

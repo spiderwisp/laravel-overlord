@@ -62,25 +62,32 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 
 ## Screenshot Gallery
 
-<!-- TODO: Add 4-6 beautiful screenshots or short GIFs here -->
-
 ### Terminal with Autocomplete
-<!-- Screenshot: Terminal showing autocomplete suggestions, command history, and syntax highlighting -->
+<img src="art/Overlord 1.png" alt="Terminal with autocomplete suggestions, command history, and syntax highlighting" width="800">
 
-### Database CRUD
-<!-- Screenshot: Database browser showing table data with inline editing capabilities -->
+### Database Browser
+<img src="art/Overlord 2.png" alt="Database browser showing table data with inline editing capabilities" width="800">
 
-### Relationship Diagram
-<!-- Screenshot: Visual Mermaid diagram showing Eloquent model relationships -->
+### Codebase Explorer
+<img src="art/Overlord 3.png" alt="Codebase explorer showing controllers, classes, and methods" width="800">
 
-### AI Answering a Real Question
-<!-- Screenshot: AI assistant providing context-aware answer about codebase -->
+### Model Relationship Diagram
+<img src="art/Overlord 4.png" alt="Visual Mermaid diagram showing Eloquent model relationships" width="800">
+
+### AI Assistant
+<img src="art/Overlord 5.png" alt="AI assistant providing context-aware answer about codebase" width="800">
 
 ### Horizon Integration
-<!-- Screenshot: Full Horizon dashboard integrated within Overlord interface -->
+<img src="art/Overlord 6.png" alt="Full Horizon dashboard integrated within Overlord interface" width="800">
 
-### Dark Mode
-<!-- Screenshot: Beautiful dark mode interface (because devs love dark mode) -->
+### Log Viewer
+<img src="art/Overlord 7.png" alt="Log viewer with search and filtering capabilities" width="800">
+
+### Dark Mode Interface
+<img src="art/Overlord 8.png" alt="Beautiful dark mode interface" width="800">
+
+### Additional Features
+<img src="art/Overlord 9.png" alt="Additional Overlord features and capabilities" width="800">
 
 ## Security
 

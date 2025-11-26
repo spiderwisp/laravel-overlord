@@ -131,6 +131,46 @@ class TerminalController extends Controller
 
 			$userCommand = $request->input('command');
 
+			// Detect common mistake: Artisan::command() instead of Artisan::call()
+			// Artisan::command() is for registering commands, not executing them
+			if (preg_match('/Artisan::command\s*\(/i', $userCommand)) {
+				// Try to extract the command name and suggest the correct syntax
+				if (preg_match("/Artisan::command\s*\(\s*['\"]([^'\"]+)['\"]/i", $userCommand, $cmdMatches)) {
+					$suggestedCommand = "Artisan::call('{$cmdMatches[1]}')";
+					return response()->json([
+						'success' => false,
+						'status_code' => 'ERROR',
+						'errors' => [
+							"`Artisan::command()` is used to register new commands, not execute them.\n\n" .
+							"You tried: `{$userCommand}`\n\n" .
+							"To execute an Artisan command, use:\n" .
+							"`{$suggestedCommand}`\n\n" .
+							"Or use the shortcut:\n" .
+							"`artisan {$cmdMatches[1]}`"
+						],
+						'result' => (object) [],
+					], 400);
+				}
+			}
+
+			// Convert artisan command shortcuts to Artisan::call()
+			// e.g., "artisan horizon:publish" -> "Artisan::call('horizon:publish')"
+			if (preg_match('/^artisan\s+([a-z0-9:_-]+)(?:\s+(.*))?$/i', trim($userCommand), $matches)) {
+				$commandName = $matches[1];
+				$args = isset($matches[2]) && !empty(trim($matches[2])) ? trim($matches[2]) : '';
+				
+				// Build Artisan::call() with proper escaping
+				if ($args) {
+					// For commands with arguments, pass as array
+					// Most Artisan commands accept the first argument as 'name' or positionally
+					// Escape single quotes in arguments
+					$escapedArgs = str_replace("'", "\\'", $args);
+					$userCommand = "Artisan::call('{$commandName}', ['name' => '{$escapedArgs}'])";
+				} else {
+					$userCommand = "Artisan::call('{$commandName}')";
+				}
+			}
+
 			// Validate command is not a shell command (check BEFORE sanitization)
 			if ($this->isShellCommand($userCommand)) {
 				return response()->json([
