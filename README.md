@@ -29,7 +29,7 @@ You already use:
 - **Horizon** → only queues
 - **Separate PHPStan, log viewers, etc.**
 
-Overlord puts everything in one beautiful, fast, local-only (by default) console.
+Overlord puts everything in one beautiful, fast console.
 
 ## Features People Actually Use Every Day
 
@@ -82,13 +82,10 @@ For detailed installation instructions, see the [Setup Guide](docs/SETUP.md).
 ### Dark Mode
 <!-- Screenshot: Beautiful dark mode interface (because devs love dark mode) -->
 
-## Security (We're Not Evil)
+## Security
 
-- **Disabled by default in production** (`APP_ENV=production` → 404)
-- **Full authentication middleware** (defaults to `auth` outside local environment)
-- **Shell commands disabled by default** (requires explicit configuration)
-- **AI sends zero code unless you explicitly enable it** and provide your own API key
-- **You can self-host the AI endpoint** if you're paranoid
+- **Requires authentication in production** (defaults to `auth` middleware outside local environment)
+- **AI features are optional** — requires explicit API key configuration to enable
 
 For detailed security configuration, see the [Setup Guide](docs/SETUP.md).
 
