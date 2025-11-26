@@ -1,7 +1,7 @@
 <template>
 	<div v-if="visible" class="terminal-agent">
 		<div class="terminal-agent-header">
-			<h3>AI Agent</h3>
+			<h3>AI Agent <span class="experimental-tag">EXPERIMENTAL</span></h3>
 			<button @click="emit('close')" class="terminal-btn terminal-btn-close" title="Close">
 				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -96,68 +96,92 @@
 					<strong>Error:</strong> {{ errorMessage }}
 				</div>
 
-				<!-- Status Bar -->
-				<div class="agent-status-bar">
-				<div class="status-info">
-					<span class="status-badge" :class="statusClass">{{ statusText }}</span>
-				<span class="status-details">
-					Iteration: {{ currentIteration }} / {{ maxIterations }}
-					| Issues Found: {{ totalIssuesFound }}
-					| <span class="status-success-count">{{ totalIssuesFixed }} fixed</span>
-					<span v-if="failedIssuesCount > 0" class="status-failed-count">
-						| <span class="fail-indicator">✗</span> {{ failedIssuesCount }} failed
-					</span>
-					<span v-if="status === 'pending'" class="status-warning">(Waiting to start...)</span>
-					<span v-if="status === 'running'" class="status-active">(Running...)</span>
-				</span>
+				<!-- Unified Status Header -->
+				<div class="agent-status-header">
+					<!-- Left: Status and Progress -->
+					<div class="status-left">
+						<div class="status-badge-wrapper">
+							<span class="status-badge" :class="statusClass">
+								<span v-if="status === 'running'" class="status-pulse"></span>
+								{{ statusText }}
+							</span>
+						</div>
+						<div class="status-iteration">
+							Iteration {{ currentIteration }}<span class="iteration-max">/{{ maxIterations }}</span>
+						</div>
+					</div>
+					
+					<!-- Center: Stats Cards -->
+					<div class="status-stats">
+						<div class="stat-card">
+							<span class="stat-value">{{ totalIssuesFound }}</span>
+							<span class="stat-label">Found</span>
+						</div>
+						<div class="stat-card stat-fixed">
+							<span class="stat-value">{{ totalIssuesFixed }}</span>
+							<span class="stat-label">Fixed</span>
+						</div>
+						<div class="stat-card stat-failed" v-if="failedIssuesCount > 0">
+							<span class="stat-value">{{ failedIssuesCount }}</span>
+							<span class="stat-label">Failed</span>
+						</div>
+					</div>
+					
+					<!-- Right: Actions -->
+					<div class="status-actions">
+						<button
+							v-if="status === 'running'"
+							@click="pauseAgent"
+							class="action-btn action-pause"
+							:disabled="pausing"
+							title="Pause"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="16" height="16">
+								<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+							</svg>
+						</button>
+						<button
+							v-if="status === 'paused'"
+							@click="resumeAgent"
+							class="action-btn action-resume"
+							:disabled="resuming"
+							title="Resume"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="16" height="16">
+								<path d="M8 5v14l11-7z"/>
+							</svg>
+						</button>
+						<button
+							v-if="canStop"
+							@click="stopAgent"
+							class="action-btn action-stop"
+							:disabled="stopping"
+							title="Stop"
+						>
+							<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="16" height="16">
+								<path d="M6 6h12v12H6z"/>
+							</svg>
+						</button>
+					</div>
 				</div>
-				<div class="status-actions">
-					<button
-						v-if="status === 'running'"
-						@click="pauseAgent"
-						class="terminal-btn terminal-btn-secondary terminal-btn-sm"
-						:disabled="pausing"
-					>
-						Pause
-					</button>
-					<button
-						v-if="status === 'paused'"
-						@click="resumeAgent"
-						class="terminal-btn terminal-btn-primary terminal-btn-sm"
-						:disabled="resuming"
-					>
-						Resume
-					</button>
-					<button
-						v-if="canStop"
-						@click="stopAgent"
-						class="terminal-btn terminal-btn-danger terminal-btn-sm"
-						:disabled="stopping"
-					>
-						Stop
-					</button>
+				
+				<!-- Progress Bar -->
+				<div v-if="status === 'running'" class="agent-progress-bar">
+					<div class="progress-fill" :class="{ 'progress-animated': status === 'running' }"></div>
 				</div>
-			</div>
-
-			<!-- Progress Bar -->
-			<div v-if="status === 'running' || status === 'completed'" class="agent-progress">
-				<div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
-			</div>
-
-			<!-- Collapsible Status Details -->
-			<details class="agent-details-section" open>
-				<summary class="agent-details-summary">Session Details</summary>
-				<div class="agent-details-content">
-					<p>Larastan Level: {{ config.larastan_level }}</p>
-					<p>Auto-apply Fixes: {{ config.auto_apply ? 'Yes' : 'No' }}</p>
-					<p>Max Iterations: {{ maxIterations }}</p>
+				
+				<!-- Config Summary (collapsed inline) -->
+				<div class="config-summary">
+					<span class="config-item">Level {{ config.larastan_level }}</span>
+					<span class="config-divider">•</span>
+					<span class="config-item">{{ config.auto_apply ? 'Auto-apply' : 'Review mode' }}</span>
 				</div>
-			</details>
 
 			<!-- Logs Viewer -->
 			<AgentLogViewer
 				:session-id="sessionId"
 				:logs="logs"
+				:status="status"
 				@load-more="() => { loadingMore = true; loadMoreLogs(); }"
 			/>
 
@@ -565,6 +589,21 @@ onUnmounted(() => {
 	margin: 0;
 	font-size: var(--terminal-font-size-base, 14px);
 	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.experimental-tag {
+	font-size: 9px;
+	font-weight: 700;
+	padding: 3px 6px;
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+	color: #1e1e1e;
+	border-radius: 4px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	line-height: 1;
 }
 
 .terminal-agent-config,
@@ -753,112 +792,230 @@ onUnmounted(() => {
 	justify-content: center;
 }
 
-.agent-status-bar {
+/* Unified Status Header */
+.agent-status-header {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	padding: 8px 12px;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: linear-gradient(180deg, var(--terminal-bg-secondary, #252526) 0%, var(--terminal-bg, #1e1e1e) 100%);
 	border-bottom: 1px solid var(--terminal-border, #3e3e42);
-	font-size: var(--terminal-font-size-sm, 12px);
-	background: var(--terminal-bg-secondary, #252526);
+	gap: 16px;
 }
 
-.status-info {
+.status-left {
 	display: flex;
 	align-items: center;
 	gap: 12px;
 }
 
+.status-badge-wrapper {
+	position: relative;
+}
+
 .status-badge {
-	padding: 4px 8px;
-	border-radius: 4px;
-	font-size: var(--terminal-font-size-xs, 11px);
-	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border-radius: 16px;
+	font-size: 11px;
+	font-weight: 700;
 	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.status-pulse {
+	width: 8px;
+	height: 8px;
+	background: currentColor;
+	border-radius: 50%;
+	animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.5; transform: scale(0.8); }
 }
 
 .status-pending {
-	background: var(--terminal-bg-tertiary, #3e3e42);
-	color: var(--terminal-text-secondary, #858585);
+	background: rgba(156, 163, 175, 0.2);
+	color: #9ca3af;
+	border: 1px solid rgba(156, 163, 175, 0.3);
 }
 
 .status-running {
-	background: #0e639c;
-	color: white;
+	background: rgba(96, 165, 250, 0.2);
+	color: #60a5fa;
+	border: 1px solid rgba(96, 165, 250, 0.3);
 }
 
 .status-paused {
-	background: #f59e0b;
-	color: white;
+	background: rgba(245, 158, 11, 0.2);
+	color: #d97706;
+	border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .status-completed {
-	background: #10b981;
-	color: white;
+	background: rgba(52, 211, 153, 0.2);
+	color: #34d399;
+	border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 .status-stopped,
 .status-failed {
-	background: #ef4444;
-	color: white;
+	background: rgba(248, 113, 113, 0.2);
+	color: #f87171;
+	border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
-.status-details {
-	font-size: var(--terminal-font-size-xs, 11px);
+.status-iteration {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--terminal-text, #d4d4d4);
+}
+
+.iteration-max {
+	font-weight: 400;
 	color: var(--terminal-text-secondary, #858585);
-	margin-left: 12px;
 }
 
-.status-success-count {
-	color: #10b981;
-	font-weight: 600;
-}
-
-.status-failed-count {
-	color: #ef4444;
-	font-weight: 700;
-}
-
-.fail-indicator {
-	display: inline-block;
-	margin-right: 2px;
-	font-weight: bold;
-}
-
-.status-warning {
-	color: #f59e0b;
-	font-weight: 600;
-}
-
-.status-active {
-	color: #10b981;
-	font-weight: 600;
-	animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.6; }
-}
-
-.status-actions {
+/* Stats Cards */
+.status-stats {
 	display: flex;
 	gap: 8px;
+	flex: 1;
+	justify-content: center;
 }
 
-.agent-progress {
-	height: 2px;
+.stat-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 6px 16px;
+	background: var(--terminal-bg-tertiary, #2d2d30);
+	border-radius: 8px;
+	min-width: 60px;
+}
+
+.stat-card .stat-value {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--terminal-text, #d4d4d4);
+	line-height: 1.2;
+}
+
+.stat-card .stat-label {
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--terminal-text-secondary, #858585);
+	margin-top: 2px;
+}
+
+.stat-card.stat-fixed .stat-value {
+	color: #34d399;
+}
+
+.stat-card.stat-failed .stat-value {
+	color: #f87171;
+}
+
+/* Action Buttons */
+.status-actions {
+	display: flex;
+	gap: 6px;
+}
+
+.action-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.action-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.action-pause {
+	background: rgba(245, 158, 11, 0.15);
+	color: #d97706;
+}
+
+.action-pause:hover:not(:disabled) {
+	background: rgba(245, 158, 11, 0.25);
+}
+
+.action-resume {
+	background: rgba(52, 211, 153, 0.15);
+	color: #34d399;
+}
+
+.action-resume:hover:not(:disabled) {
+	background: rgba(52, 211, 153, 0.25);
+}
+
+.action-stop {
+	background: rgba(248, 113, 113, 0.15);
+	color: #f87171;
+}
+
+.action-stop:hover:not(:disabled) {
+	background: rgba(248, 113, 113, 0.25);
+}
+
+/* Progress Bar */
+.agent-progress-bar {
+	height: 3px;
 	background: var(--terminal-bg-tertiary, #3e3e42);
 	overflow: hidden;
 }
 
-.progress-bar {
+.progress-fill {
 	height: 100%;
-	background: linear-gradient(90deg, var(--terminal-primary-light, #1a73e8), var(--terminal-primary, #0e639c));
-	transition: width 0.3s ease;
+	width: 30%;
+	background: linear-gradient(90deg, #60a5fa, #3b82f6);
+	border-radius: 2px;
 }
 
-.agent-details-section,
+.progress-fill.progress-animated {
+	animation: progress-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+	0% { transform: translateX(-100%); width: 30%; }
+	50% { width: 50%; }
+	100% { transform: translateX(400%); width: 30%; }
+}
+
+/* Config Summary */
+.config-summary {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 6px 12px;
+	background: var(--terminal-bg-secondary, #252526);
+	border-bottom: 1px solid var(--terminal-border, #3e3e42);
+	font-size: 10px;
+	color: var(--terminal-text-secondary, #858585);
+}
+
+.config-item {
+	font-weight: 500;
+}
+
+.config-divider {
+	opacity: 0.5;
+}
+
 .pending-changes-section,
 .applied-changes-section {
 	margin: 8px 0;
@@ -916,7 +1073,6 @@ onUnmounted(() => {
 	gap: 8px;
 }
 
-.agent-details-summary,
 .pending-changes-summary {
 	padding: 8px 12px;
 	font-size: var(--terminal-font-size-sm, 12px);
@@ -927,12 +1083,10 @@ onUnmounted(() => {
 	list-style: none;
 }
 
-.agent-details-summary::-webkit-details-marker,
 .pending-changes-summary::-webkit-details-marker {
 	display: none;
 }
 
-.agent-details-summary::before,
 .pending-changes-summary::before {
 	content: '▶';
 	display: inline-block;
@@ -940,12 +1094,10 @@ onUnmounted(() => {
 	transition: transform 0.2s;
 }
 
-.agent-details-section[open] .agent-details-summary::before,
 .pending-changes-section[open] .pending-changes-summary::before {
 	transform: rotate(90deg);
 }
 
-.agent-details-content,
 .pending-changes-list {
 	padding: 8px 12px;
 	font-size: var(--terminal-font-size-xs, 11px);

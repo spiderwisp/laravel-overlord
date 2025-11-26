@@ -36,10 +36,8 @@ class AgentService
 			Log::info('AgentService: Starting agent', ['session_id' => $session->id]);
 			
 			$session->update(['status' => 'running']);
-			$this->addLog($session, 'info', 'Agent started', [
-				'larastan_level' => $session->larastan_level,
-				'auto_apply' => $session->auto_apply,
-			]);
+			$autoMode = $session->auto_apply ? 'auto-apply' : 'review';
+			$this->addLog($session, 'info', "Agent started (level {$session->larastan_level}, {$autoMode} mode)");
 
 			Log::info('AgentService: Agent status updated to running', ['session_id' => $session->id]);
 
@@ -77,7 +75,7 @@ class AgentService
 				]);
 
 				// Run Larastan scan
-				$this->addLog($session, 'info', "Running Larastan scan (level {$session->larastan_level})...");
+				$this->addLog($session, 'info', "Running scan...");
 				$scanResult = $this->runLarastanScan($session);
 				if (!$scanResult['success']) {
 					$this->addLog($session, 'error', 'Larastan scan failed: ' . $scanResult['error']);
@@ -100,7 +98,7 @@ class AgentService
 				'issues_found' => $totalIssues,
 			]);
 
-			$this->addLog($session, 'scan_complete', "Larastan scan completed. Found {$totalIssues} issues", [
+			$this->addLog($session, 'scan_complete', "Found {$totalIssues} issues", [
 				'iteration' => $session->current_iteration,
 				'issues_count' => $totalIssues,
 			]);
@@ -119,105 +117,72 @@ class AgentService
 				$issueNum = 0;
 				foreach ($issues as $issue) {
 					$issueNum++;
-					$this->addLog($session, 'info', "Processing issue {$issueNum}/{$totalIssues}: {$issue['file']} (line {$issue['line']})");
 					
-					Log::info('AgentService: Processing issue', [
-						'session_id' => $session->id,
-						'iteration' => $session->current_iteration,
-						'issue_num' => $issueNum,
-						'total_issues' => $totalIssues,
-						'file' => $issue['file'] ?? 'unknown',
-						'line' => $issue['line'] ?? null,
-					]);
+					// Extract issue details
+					$rule = $issue['rule'] ?? null;
+					$line = $issue['line'] ?? '?';
+					$file = basename($issue['file'] ?? 'unknown');
+					$fullPath = $issue['file'] ?? 'unknown';
+					$message = $issue['message'] ?? '';
 					
 					$fixResult = $this->processIssue($session, $issue);
+					
+					// Build log data with full details for expandable view
+					$logData = [
+						'issue_num' => $issueNum,
+						'total_issues' => $totalIssues,
+						'file' => $file,
+						'full_path' => $fullPath,
+						'line' => $line,
+						'rule' => $rule,
+						'message' => $message,
+					];
+					
 					if ($fixResult['success']) {
-						// Only count as applied if there was an actual change
 						if (!isset($fixResult['no_change']) || !$fixResult['no_change']) {
 							$fixesApplied++;
 							$diffInfo = isset($fixResult['diff_stats']) 
-								? " ({$fixResult['diff_stats']['additions']} additions, {$fixResult['diff_stats']['deletions']} deletions)"
+								? " +{$fixResult['diff_stats']['additions']}/-{$fixResult['diff_stats']['deletions']}"
 								: '';
-							$this->addLog($session, 'success', "✓ Successfully fixed issue {$issueNum}/{$totalIssues}: {$issue['file']} (line {$issue['line']}){$diffInfo}");
+							$logData['diff_stats'] = $fixResult['diff_stats'] ?? null;
+							$this->addLog($session, 'fixed', "[{$issueNum}/{$totalIssues}] {$file}:{$line}{$diffInfo}", $logData);
 						} else {
-							$this->addLog($session, 'info', "Issue {$issueNum}/{$totalIssues}: {$issue['file']} (line {$issue['line']}) - No changes needed (content already correct)");
+							$this->addLog($session, 'skipped', "[{$issueNum}/{$totalIssues}] {$file}:{$line}", $logData);
 						}
 					} else {
 						$fixesFailed++;
 						$errorMsg = $fixResult['error'] ?? 'Unknown error';
 						$failureStage = $fixResult['failure_stage'] ?? 'unknown';
-						$originalIssue = $issue['message'] ?? 'Unknown issue';
 						
-						// Build a very clear error message
-						$filePath = $issue['file'] ?? 'unknown';
-						$lineNum = $issue['line'] ?? '?';
+						$logData['error'] = $errorMsg;
+						$logData['failure_stage'] = $failureStage;
 						
-						// Determine if this is a validation error (AI's code had issues) vs other errors
-						$isValidationError = $failureStage === 'code_validation' || str_contains($errorMsg, 'validation');
+						$failedIssues[] = $logData;
 						
-						// Create a clear, prominent error message
-						if ($isValidationError) {
-							// For validation errors, make it VERY clear this is about the AI's generated code
-							$detailedError = "🔍 ORIGINAL PHPSTAN ISSUE (what we tried to fix): {$originalIssue}";
-							$detailedError .= "\n❌ AI-GENERATED CODE PROBLEM: {$errorMsg}";
-							$detailedError .= "\n💡 This means: The AI's fix attempt introduced NEW errors or didn't resolve the original issue";
-						} else {
-							// For other errors (AI service, extraction, etc.)
-							$detailedError = "❌ FAILURE REASON: {$errorMsg}";
-							if ($failureStage !== 'unknown') {
-								$detailedError .= "\n📍 FAILURE STAGE: {$failureStage}";
-							}
-							if ($originalIssue && $originalIssue !== $errorMsg) {
-								$detailedError .= "\n📋 ORIGINAL PHPSTAN ISSUE: {$originalIssue}";
-							}
-						}
-						
-						$failedIssues[] = [
-							'issue_num' => $issueNum,
-							'file' => $filePath,
-							'line' => $lineNum,
-							'message' => $originalIssue,
-							'error' => $errorMsg,
-							'failure_stage' => $failureStage,
-						];
-						
-						$logMessage = "✗ FAILED: {$filePath}:{$lineNum}\n{$detailedError}";
-						$this->addLog($session, 'error', $logMessage, [
-							'issue' => $issue,
-							'error' => $errorMsg,
-							'failure_stage' => $failureStage,
-							'original_issue' => $originalIssue,
-							'file_path' => $filePath,
-							'line' => $lineNum,
-						]);
+						$this->addLog($session, 'failed', "[{$issueNum}/{$totalIssues}] {$file}:{$line}", $logData);
 					}
 				}
 
 				$session->increment('total_issues_fixed', $fixesApplied);
 				
-				// Track actual failures (only count issues that definitively failed after all retries)
+				// Track actual failures
 				if ($fixesFailed > 0) {
 					$session->increment('failed_issues_count', $fixesFailed);
-					
-					$this->addLog($session, 'error', "Iteration {$session->current_iteration} Summary: {$fixesApplied} fixed, {$fixesFailed} FAILED", [
-						'fixed' => $fixesApplied,
-						'failed' => $fixesFailed,
-						'total' => $totalIssues,
-						'failed_issues' => $failedIssues,
-					]);
-				} else {
-					$this->addLog($session, 'success', "Iteration {$session->current_iteration} Summary: {$fixesApplied} fixes applied successfully");
 				}
+				
+				// Iteration summary with data for stats
+				$skipped = $totalIssues - $fixesApplied - $fixesFailed;
+				$this->addLog($session, 'iteration_complete', "Iteration {$session->current_iteration} complete", [
+					'iteration' => $session->current_iteration,
+					'fixed' => $fixesApplied,
+					'failed' => $fixesFailed,
+					'skipped' => $skipped,
+					'total' => $totalIssues,
+				]);
 
-				// If no fixes were applied, we might be stuck
+				// Warning if stuck
 				if ($fixesApplied === 0 && $fixesFailed > 0) {
-					$this->addLog($session, 'error', "⚠️ No fixes were applied in this iteration. {$fixesFailed} issue(s) failed. Agent may be unable to fix remaining issues.", [
-						'failed_count' => $fixesFailed,
-						'failed_issues' => $failedIssues,
-					]);
-					// Continue anyway - might be able to fix in next iteration
-				} elseif ($fixesApplied === 0) {
-					$this->addLog($session, 'warning', 'No fixes were applied in this iteration.');
+					$this->addLog($session, 'warning', "No progress - agent may be stuck on remaining issues");
 				}
 
 				// Small delay between iterations
@@ -226,11 +191,7 @@ class AgentService
 
 			if ($session->current_iteration >= $session->max_iterations) {
 				$remainingIssues = $session->total_issues_found - $session->total_issues_fixed;
-				$this->addLog($session, 'warning', "⚠️ Reached maximum iterations limit ({$session->max_iterations}). {$session->total_issues_fixed} issues fixed, {$remainingIssues} remaining.", [
-					'total_found' => $session->total_issues_found,
-					'total_fixed' => $session->total_issues_fixed,
-					'remaining' => $remainingIssues,
-				]);
+				$this->addLog($session, 'warning', "⚠️ Max iterations ({$session->max_iterations}) reached. {$session->total_issues_fixed} fixed, {$remainingIssues} remaining.");
 				$session->update(['status' => 'completed']);
 			}
 		} catch (\Exception $e) {
@@ -267,7 +228,6 @@ class AgentService
 				'paths' => ['app'], // Default to app directory
 			];
 
-			$this->addLog($session, 'info', "Executing Larastan with level {$session->larastan_level} on app directory...");
 			$results = $this->phpstanService->analyze($config);
 			
 			Log::info('AgentService: Larastan scan completed', [
@@ -337,11 +297,7 @@ class AgentService
 			// Read the file
 			$readResult = $this->fileEditService->readFile($filePath);
 			if (!$readResult['success']) {
-					$this->addLog($session, 'error', "✗ Cannot read file {$filePath}: " . $readResult['error'], [
-						'file_path' => $filePath,
-						'error' => $readResult['error'],
-					]);
-					return ['success' => false, 'error' => $readResult['error']];
+					return ['success' => false, 'error' => 'Cannot read file: ' . $readResult['error'], 'failure_stage' => 'file_read'];
 			}
 
 			$fileContent = $readResult['content'];
@@ -431,15 +387,11 @@ class AgentService
 
 				if (!$aiResult['success']) {
 					$aiError = $aiResult['error'] ?? 'Unknown error';
-					$this->addLog($session, 'error', "✗ AI service failed on attempt {$retryCount}: {$aiError}", [
-						'attempt' => $retryCount,
-						'error' => $aiError,
-					]);
 					if ($retryCount >= $maxRetries) {
 						return [
 							'success' => false,
 							'new_content' => null,
-							'error' => "AI service failed: {$aiError} (after {$maxRetries} attempts)",
+							'error' => "AI failed: {$aiError}",
 							'retries' => $retryCount,
 							'failure_stage' => 'ai_service',
 						];
@@ -448,21 +400,18 @@ class AgentService
 				}
 
 				$aiResponse = $aiResult['message'] ?? '';
+				$aiResponse = $this->stripThinkingBlocks($aiResponse);
 				$lastAttempt = $aiResponse;
 
 				// Extract code from AI response
 				$extractedCode = $this->extractFixedCode($aiResponse, $fileContent);
 
 				if (!$extractedCode) {
-					$this->addLog($session, 'error', "✗ Could not extract code from AI response on attempt {$retryCount}", [
-						'attempt' => $retryCount,
-						'ai_response_preview' => substr($aiResponse, 0, 500),
-					]);
 					if ($retryCount >= $maxRetries) {
 						return [
 							'success' => false,
 							'new_content' => null,
-							'error' => 'Could not extract fixed code from AI response - AI may not have returned code in expected format (after ' . $maxRetries . ' attempts)',
+							'error' => 'Could not extract code from AI response',
 							'retries' => $retryCount,
 							'failure_stage' => 'code_extraction',
 						];
@@ -490,7 +439,6 @@ class AgentService
 				}
 
 				if ($hasPlaceholder) {
-					$this->addLog($session, 'info', "Placeholder text detected on attempt {$retryCount}, attempting repair");
 					$cleanedCode = $this->repairCodeWithOriginal($cleanedCode, $fileContent);
 				}
 
@@ -498,10 +446,6 @@ class AgentService
 				$validationResult = $this->validateCode($filePath, $fileContent, $cleanedCode);
 
 				if ($validationResult['valid']) {
-					// Validation passed!
-					if ($retryCount > 1) {
-						$this->addLog($session, 'success', "Code validation passed on attempt {$retryCount}");
-					}
 					return [
 						'success' => true,
 						'new_content' => $cleanedCode,
@@ -510,36 +454,18 @@ class AgentService
 					];
 				}
 
-				// Validation failed - log and retry
+				// Validation failed - retry silently
 				$lastValidationErrors = $validationResult['errors'] ?? [];
-				$errorSummary = implode('; ', array_slice($lastValidationErrors, 0, 3));
-				$originalIssueMsg = $issue['message'] ?? 'Unknown issue';
-				$this->addLog($session, 'error', "✗ AI-GENERATED CODE VALIDATION FAILED (attempt {$retryCount})\n" .
-					"🔍 We were trying to fix: {$originalIssueMsg}\n" .
-					"❌ But the AI's generated code has NEW errors ({$validationResult['stage']}): {$errorSummary}", [
-					'attempt' => $retryCount,
-					'stage' => $validationResult['stage'],
-					'errors' => $lastValidationErrors,
-					'original_issue' => $originalIssueMsg,
-					'file_path' => $filePath,
-				]);
 
 				if ($retryCount >= $maxRetries) {
 					// All retries exhausted
-					$errorDetails = implode('; ', array_slice($lastValidationErrors, 0, 3));
-					if (count($lastValidationErrors) > 3) {
-						$errorDetails .= ' (and ' . (count($lastValidationErrors) - 3) . ' more)';
-					}
-					$originalIssueMsg = $issue['message'] ?? 'Unknown issue';
+					$errorDetails = implode('; ', array_slice($lastValidationErrors, 0, 2));
 					return [
 						'success' => false,
 						'new_content' => null,
-						'error' => "AI-generated code failed validation ({$validationResult['stage']}): {$errorDetails}. The AI's fix introduced new errors or didn't resolve the original issue: {$originalIssueMsg}",
+						'error' => "Validation failed ({$validationResult['stage']}): {$errorDetails}",
 						'retries' => $retryCount,
 						'failure_stage' => 'code_validation',
-						'validation_stage' => $validationResult['stage'] ?? 'unknown',
-						'validation_errors' => $lastValidationErrors,
-						'original_issue' => $originalIssueMsg,
 					];
 				}
 			}
@@ -587,29 +513,17 @@ class AgentService
 			$normalizedNew = $this->normalizeContentForComparison($newContent);
 			
 			if ($normalizedOriginal === $normalizedNew) {
-				$this->addLog($session, 'info', "No changes needed for {$filePath} - content is identical", [
-					'file_path' => $filePath,
-				]);
 				return ['success' => true, 'error' => null, 'no_change' => true];
 			}
 
 			// Final validation before applying
 			$validationResult = $this->validateCode($filePath, $originalContent, $newContent);
 			if (!$validationResult['valid']) {
-				$errorDetails = implode('; ', array_slice($validationResult['errors'], 0, 3));
-				if (count($validationResult['errors']) > 3) {
-					$errorDetails .= ' (and ' . (count($validationResult['errors']) - 3) . ' more)';
-				}
-				$errorMsg = "Final validation failed ({$validationResult['stage']}): {$errorDetails}";
-				$this->addLog($session, 'error', "Final validation failed for {$filePath}: {$errorMsg}", [
-					'errors' => $validationResult['errors'],
-					'stage' => $validationResult['stage'],
-				]);
+				$errorDetails = implode('; ', array_slice($validationResult['errors'], 0, 2));
 				return [
 					'success' => false, 
-					'error' => $errorMsg,
+					'error' => "Validation failed ({$validationResult['stage']}): {$errorDetails}",
 					'failure_stage' => 'final_validation',
-					'validation_stage' => $validationResult['stage'] ?? 'unknown',
 				];
 			}
 
@@ -617,17 +531,9 @@ class AgentService
 				// Auto-apply mode - apply immediately
 				$writeResult = $this->fileEditService->writeFile($filePath, $newContent, true);
 				if (!$writeResult['success']) {
-					$errorMsg = 'File write failed: ' . $writeResult['error'];
-					if (isset($writeResult['line']) && $writeResult['line'] !== null) {
-						$errorMsg .= ' (line ' . $writeResult['line'] . ')';
-					}
-					if (isset($writeResult['context']) && $writeResult['context']) {
-						$errorMsg .= ' | Context: ' . substr($writeResult['context'], 0, 200);
-					}
-					$this->addLog($session, 'error', "Failed to apply fix to {$filePath}: {$errorMsg}");
 					return [
 						'success' => false, 
-						'error' => $errorMsg,
+						'error' => 'File write failed: ' . ($writeResult['error'] ?? 'Unknown'),
 						'failure_stage' => 'file_write',
 					];
 				}
@@ -635,11 +541,7 @@ class AgentService
 				// Calculate diff stats for logging
 				$diffStats = $this->calculateDiffStats($originalContent, $newContent);
 
-				$this->addLog($session, 'fix_applied', "✓ Applied fix to {$filePath} ({$diffStats['additions']} additions, {$diffStats['deletions']} deletions)", [
-					'file_path' => $filePath,
-					'backup_path' => $writeResult['backup_path'],
-					'diff_stats' => $diffStats,
-				]);
+				// Don't add separate log here - the 'fixed' log already shows this
 
 				// Create file change record
 				AgentFileChange::create([
@@ -670,10 +572,7 @@ class AgentService
 					],
 				]);
 
-				$this->addLog($session, 'fix_generated', "Generated fix for {$filePath} (pending approval)", [
-					'file_path' => $filePath,
-					'change_id' => $fileChange->id,
-				]);
+				$this->addLog($session, 'pending', "⏳ Generated fix for " . basename($filePath) . " (pending approval)");
 
 				return ['success' => true, 'error' => null];
 			}
@@ -1008,6 +907,26 @@ class AgentService
 		}
 		
 		return trim($code);
+	}
+
+	/**
+	 * Strip thinking/reasoning blocks from AI responses
+	 * 
+	 * Some AI models (like Qwen) output <think>...</think> blocks containing
+	 * chain-of-thought reasoning before the actual code response.
+	 *
+	 * @param string $response
+	 * @return string
+	 */
+	protected function stripThinkingBlocks(string $response): string
+	{
+		// Remove <think>...</think> blocks (used by some models like Qwen)
+		$response = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $response);
+		
+		// Also handle variations: <thinking>, [think], etc.
+		$response = preg_replace('/<thinking>[\s\S]*?<\/thinking>/i', '', $response);
+		
+		return trim($response);
 	}
 
 	/**
